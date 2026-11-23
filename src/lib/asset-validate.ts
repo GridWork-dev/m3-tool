@@ -209,8 +209,8 @@ function owningMaterials(texture: Texture): Material[] {
 
 function checkTextures(contract: AssetContract, doc: Document): ContractIssue[] {
   const issues: ContractIssue[] = []
-  for (const texture of doc.getRoot().listTextures()) {
-    const label = texture.getName() || texture.getURI() || 'a texture'
+  for (const [index, texture] of doc.getRoot().listTextures().entries()) {
+    const label = texture.getName() || texture.getURI() || `#${index}`
     const image = texture.getImage()
     let size: number[] | null = null
     try {
