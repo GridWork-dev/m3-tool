@@ -42,6 +42,8 @@ def validate(asset: AssetSpec, settings: Settings) -> StageResult:
         return StageResult(False, [message], [])
     messages, ok = issues
     if proc.returncode != 0:
+        if ok:
+            messages.append(f"validate-asset exited {proc.returncode} although its report says ok")
         ok = False
     if ok:
         messages.append(f"{glb.name} meets the {asset.kind} contract")
