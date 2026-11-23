@@ -32,6 +32,7 @@ export type IssueCode =
   | 'orientation'
   | 'origin'
   | 'root-count'
+  | 'unsupported-extension'
 
 export interface ContractIssue {
   code: IssueCode
@@ -65,6 +66,22 @@ const io = new NodeIO().registerExtensions(ALL_EXTENSIONS)
 io.registerDependencies({ 'meshopt.decoder': MeshoptDecoder })
 io.setLogger(new Logger(Logger.Verbosity.SILENT))
 
+// Extensions the contract rejects, each with what to do instead. Instancing is rejected because
+// the checks count and measure each node's mesh once, so 26 instances of a 1,200-triangle mesh
+// would pass a 30,000-triangle budget while drawing 31,200. Draco is rejected because the
+// validator and the site read meshopt.
+const UNSUPPORTED_EXTENSIONS: Record<string, string> = {
+  EXT_mesh_gpu_instancing:
+    "the file uses EXT_mesh_gpu_instancing, which the contract doesn't support yet, because instances are not counted or measured; re-export without instancing (gltf-transform optimize --instance false)",
+  KHR_draco_mesh_compression:
+    "the file uses KHR_draco_mesh_compression. Draco compression isn't supported; re-export with meshopt",
+}
+
+const unsupportedExtension = (name: string): ContractIssue[] => {
+  const message = UNSUPPORTED_EXTENSIONS[name]
+  return message === undefined ? [] : [error('unsupported-extension', message)]
+}
+
 // ---------------------------------------------------------------------------------------------
 // Document checks
 // ---------------------------------------------------------------------------------------------
@@ -90,6 +107,10 @@ export function validateDocument(
 
   return [
     ...checkBytes(contract, opts.bytes),
+    ...doc
+      .getRoot()
+      .listExtensionsUsed()
+      .flatMap((extension) => unsupportedExtension(extension.extensionName)),
     ...checkNames(contract, nodes),
     ...checkMaterials(contract, nodes),
     ...checkTriangles(contract, nodes),
@@ -365,38 +386,59 @@ const KHRONOS_QUOTED = 5
 const KHRONOS_ERROR = 0
 
 // One `khronos` error that quotes the first five messages, or nothing when the file is valid.
-async function khronosIssues(bytes: Uint8Array): Promise<ContractIssue[]> {
+// Also returns the extensions the file declares, so a caller can see them before reading it.
+async function runKhronos(
+  bytes: Uint8Array,
+): Promise<{ issues: ContractIssue[]; extensionsUsed: string[] }> {
   let report: Awaited<ReturnType<typeof validateBytes>>
   try {
     report = await validateBytes(bytes, { maxIssues: 0, writeTimestamp: false })
   } catch (cause) {
     // The validator rejects bytes it cannot tell apart from a glTF or GLB.
-    return [error('khronos', `the Khronos validator could not read the file: ${String(cause)}`)]
+    return {
+      issues: [error('khronos', `the Khronos validator could not read the file: ${String(cause)}`)],
+      extensionsUsed: [],
+    }
   }
-  const errors = report.issues.messages.filter((m) => m.severity === KHRONOS_ERROR)
-  if (report.issues.numErrors === 0) return []
-  const quoted = errors
+  const extensionsUsed = report.info?.extensionsUsed ?? []
+  if (report.issues.numErrors === 0) return { issues: [], extensionsUsed }
+  const quoted = report.issues.messages
+    .filter((m) => m.severity === KHRONOS_ERROR)
     .slice(0, KHRONOS_QUOTED)
     .map((m) => `${m.pointer ? `${m.pointer}: ` : ''}${m.message} (${m.code})`)
   const rest = report.issues.numErrors - quoted.length
   const noun = report.issues.numErrors === 1 ? 'error' : 'errors'
-  return [
-    error(
-      'khronos',
-      `the Khronos validator reported ${report.issues.numErrors} ${noun}: ${quoted.join('; ')}${rest > 0 ? `; and ${rest} more` : ''}`,
-    ),
-  ]
+  return {
+    issues: [
+      error(
+        'khronos',
+        `the Khronos validator reported ${report.issues.numErrors} ${noun}: ${quoted.join('; ')}${rest > 0 ? `; and ${rest} more` : ''}`,
+      ),
+    ],
+    extensionsUsed,
+  }
 }
 
 export async function validateGlb(
   bytes: Uint8Array,
   kind: AssetKind,
 ): Promise<{ ok: boolean; issues: ContractIssue[] }> {
-  const issues = await khronosIssues(bytes)
+  const { issues, extensionsUsed } = await runKhronos(bytes)
+  const failed = (): { ok: false; issues: ContractIssue[] } => ({ ok: false, issues })
+
+  // Draco geometry can't be decoded here, and reading it fails with an error about a missing
+  // decoder. Say what to do instead, before that error gets a chance to send anyone to install one.
+  if (extensionsUsed.includes('KHR_draco_mesh_compression')) {
+    issues.push(...unsupportedExtension('KHR_draco_mesh_compression'))
+    issues.push(...checkBytes(CONTRACTS[kind], bytes.byteLength))
+    return failed()
+  }
+
+  // Only the read is guarded. A throw from a check is a bug, and must not pass for a bad file.
+  let doc: Document
   try {
     await MeshoptDecoder.ready
-    const doc = await io.readBinary(bytes)
-    issues.push(...validateDocument(doc, { kind, bytes: bytes.byteLength }))
+    doc = await io.readBinary(bytes)
   } catch (cause) {
     // The Khronos validator has usually said why already, so only add this when it has not.
     if (issues.length === 0) {
@@ -404,6 +446,8 @@ export async function validateGlb(
       issues.push(error('khronos', `the file could not be read as a GLB: ${reason}`))
     }
     issues.push(...checkBytes(CONTRACTS[kind], bytes.byteLength))
+    return failed()
   }
+  issues.push(...validateDocument(doc, { kind, bytes: bytes.byteLength }))
   return { ok: !issues.some((issue) => issue.severity === 'error'), issues }
 }

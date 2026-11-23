@@ -13,7 +13,12 @@ import {
   NodeIO,
   type Scene,
 } from '@gltf-transform/core'
-import { ALL_EXTENSIONS, EXTMeshoptCompression, KHRTextureBasisu } from '@gltf-transform/extensions'
+import {
+  ALL_EXTENSIONS,
+  EXTMeshGPUInstancing,
+  EXTMeshoptCompression,
+  KHRTextureBasisu,
+} from '@gltf-transform/extensions'
 import { quantize, reorder } from '@gltf-transform/functions'
 import { createDefaultContainer, write as writeKtx2 } from 'ktx-parse'
 import { MeshoptEncoder } from 'meshoptimizer'
@@ -96,25 +101,26 @@ function newDocument(): Document {
   return doc
 }
 
+type AccessorArray = Float32Array<ArrayBuffer> | Uint32Array<ArrayBuffer>
+
+function accessorOf(doc: Document, type: 'VEC2' | 'VEC3' | 'SCALAR', array: AccessorArray) {
+  return doc
+    .createAccessor()
+    .setType(type)
+    .setArray(array)
+    .setBuffer(doc.getRoot().listBuffers()[0] ?? null)
+}
+
 function meshOf(doc: Document, name: string, parts: [Material, Geometry][]): Mesh {
   const mesh = doc.createMesh(name)
   for (const [material, geometry] of parts) {
-    const accessor = (
-      type: 'VEC2' | 'VEC3' | 'SCALAR',
-      array: Float32Array<ArrayBuffer> | Uint32Array<ArrayBuffer>,
-    ) =>
-      doc
-        .createAccessor()
-        .setType(type)
-        .setArray(array)
-        .setBuffer(doc.getRoot().listBuffers()[0] ?? null)
     mesh.addPrimitive(
       doc
         .createPrimitive()
-        .setAttribute('POSITION', accessor('VEC3', geometry.positions))
-        .setAttribute('NORMAL', accessor('VEC3', geometry.normals))
-        .setAttribute('TEXCOORD_0', accessor('VEC2', geometry.uvs))
-        .setIndices(accessor('SCALAR', geometry.indices))
+        .setAttribute('POSITION', accessorOf(doc, 'VEC3', geometry.positions))
+        .setAttribute('NORMAL', accessorOf(doc, 'VEC3', geometry.normals))
+        .setAttribute('TEXCOORD_0', accessorOf(doc, 'VEC2', geometry.uvs))
+        .setIndices(accessorOf(doc, 'SCALAR', geometry.indices))
         .setMaterial(material),
     )
   }
@@ -285,6 +291,9 @@ export interface ProductOptions {
   roots?: number
   // Total triangles. Default 1_200.
   triangles?: number
+  // Draws the first root this many times with EXT_mesh_gpu_instancing, so the file stores
+  // `triangles` but renders `triangles * instances`.
+  instances?: number
 }
 
 export function makeProduct(o: ProductOptions = {}): Document {
@@ -297,11 +306,37 @@ export function makeProduct(o: ProductOptions = {}): Document {
     // The first root holds the budget, and any other root is a small box.
     const triangles = i === 0 ? total - (roots - 1) * TINY_BOX_TRIANGLES : TINY_BOX_TRIANGLES
     const geometry = box([0.3, 0.3, 0.3], [i * 0.4, 0.15, 0], triangles)
-    scene.addChild(
-      doc.createNode(`product-${i}`).setMesh(meshOf(doc, `product-${i}`, [[material, geometry]])),
-    )
+    const node = doc
+      .createNode(`product-${i}`)
+      .setMesh(meshOf(doc, `product-${i}`, [[material, geometry]]))
+    if (i === 0 && o.instances !== undefined) {
+      const translations = new Float32Array(o.instances * 3)
+      for (let n = 0; n < o.instances; n++) translations[n * 3] = n * 0.4
+      node.setExtension(
+        'EXT_mesh_gpu_instancing',
+        doc
+          .createExtension(EXTMeshGPUInstancing)
+          .createInstancedMesh()
+          .setAttribute('TRANSLATION', accessorOf(doc, 'VEC3', translations)),
+      )
+    }
+    scene.addChild(node)
   }
   return doc
+}
+
+// A GLB that holds only a JSON chunk, so a test can declare whatever the glTF should say.
+export function jsonOnlyGlb(json: object): Uint8Array {
+  const text = JSON.stringify(json)
+  const body = Buffer.from(text + ' '.repeat((4 - (text.length % 4)) % 4), 'utf8')
+  const header = Buffer.alloc(12)
+  header.writeUInt32LE(0x46546c67, 0) // 'glTF'
+  header.writeUInt32LE(2, 4)
+  header.writeUInt32LE(12 + 8 + body.length, 8)
+  const chunk = Buffer.alloc(8)
+  chunk.writeUInt32LE(body.length, 0)
+  chunk.writeUInt32LE(0x4e4f534a, 4) // 'JSON'
+  return new Uint8Array(Buffer.concat([header, chunk, body]))
 }
 
 // ---------------------------------------------------------------------------------------------

@@ -6,7 +6,7 @@ import {
   validateDocument,
   validateGlb,
 } from '../../../src/lib/asset-validate.ts'
-import { makeBaseCar, makeInterior, makePng, makeProduct, toGlb } from './fixtures.ts'
+import { jsonOnlyGlb, makeBaseCar, makeInterior, makePng, makeProduct, toGlb } from './fixtures.ts'
 
 const errs = (i: ContractIssue[]) => i.filter((x) => x.severity === 'error').map((x) => x.code)
 const check = (doc: Document, kind: 'base-car' | 'interior' | 'product', bytes = 1e6) =>
@@ -339,6 +339,55 @@ describe('interior and product', () => {
   })
 })
 
+describe('unsupported extensions', () => {
+  const instancing = expect.objectContaining({
+    code: 'unsupported-extension',
+    severity: 'error',
+    message: expect.stringContaining('EXT_mesh_gpu_instancing'),
+  })
+
+  test('rejects a product that draws its mesh with GPU instancing', () => {
+    // 26 instances of 1,200 triangles render 31,200 triangles, over the 30,000 budget, while the
+    // file stores one mesh. Instancing would hide that from the triangle count.
+    const i = check(makeProduct({ instances: 26 }), 'product')
+    expect(i).toContainEqual(instancing)
+    expect(i.find((x) => x.code === 'unsupported-extension')?.message).toContain(
+      'gltf-transform optimize --instance false',
+    )
+  })
+
+  test('rejects instancing however few instances there are', () => {
+    expect(errs(check(makeProduct({ instances: 2 }), 'product'))).toContain('unsupported-extension')
+  })
+
+  test('a product without instancing has no such error', () => {
+    expect(errs(check(makeProduct(), 'product'))).not.toContain('unsupported-extension')
+  })
+
+  test('rejects an instanced GLB read back from bytes', async () => {
+    const result = await validateGlb(await toGlb(makeProduct({ instances: 26 })), 'product')
+    expect(result.ok).toBe(false)
+    expect(result.issues).toContainEqual(instancing)
+  })
+
+  test('a GLB that needs Draco says to re-export with meshopt, not to install a decoder', async () => {
+    const glb = jsonOnlyGlb({
+      asset: { version: '2.0' },
+      extensionsUsed: ['KHR_draco_mesh_compression'],
+      extensionsRequired: ['KHR_draco_mesh_compression'],
+      scene: 0,
+      scenes: [{ nodes: [0] }],
+      nodes: [{ name: 'product' }],
+    })
+    const result = await validateGlb(glb, 'product')
+    expect(result.ok).toBe(false)
+    const issue = result.issues.find((i) => i.code === 'unsupported-extension')
+    expect(issue?.message).toContain("Draco compression isn't supported; re-export with meshopt")
+    expect(issue?.message).toContain('KHR_draco_mesh_compression')
+    expect(result.issues.map((i) => i.message).join('\n')).not.toMatch(/draco3d|DT_FLOAT32/)
+  })
+})
+
 describe('file size', () => {
   test('file size over budget', () => {
     const i = validateDocument(makeBaseCar(), { kind: 'base-car', bytes: 8_000_001 })
@@ -477,23 +526,12 @@ describe('validateGlb', () => {
   })
 })
 
-// A GLB with only a JSON chunk, whose nodes point at meshes that do not exist.
+// A GLB whose nodes point at meshes that do not exist.
 function glbWithBadNodes(count: number): Uint8Array {
-  const json = {
+  return jsonOnlyGlb({
     asset: { version: '2.0' },
     scene: 0,
     scenes: [{ nodes: Array.from({ length: count }, (_, i) => i) }],
     nodes: Array.from({ length: count }, (_, i) => ({ name: `n${i}`, mesh: 99 })),
-  }
-  const text = JSON.stringify(json)
-  const padded = text + ' '.repeat((4 - (text.length % 4)) % 4)
-  const body = Buffer.from(padded, 'utf8')
-  const header = Buffer.alloc(12)
-  header.writeUInt32LE(0x46546c67, 0) // 'glTF'
-  header.writeUInt32LE(2, 4)
-  header.writeUInt32LE(12 + 8 + body.length, 8)
-  const chunk = Buffer.alloc(8)
-  chunk.writeUInt32LE(body.length, 0)
-  chunk.writeUInt32LE(0x4e4f534a, 4) // 'JSON'
-  return new Uint8Array(Buffer.concat([header, chunk, body]))
+  })
 }

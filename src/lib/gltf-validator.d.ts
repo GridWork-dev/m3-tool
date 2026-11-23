@@ -16,6 +16,10 @@ declare module 'gltf-validator' {
       numHints: number
       messages: ValidationMessage[]
     }
+    info?: {
+      extensionsUsed?: string[]
+      extensionsRequired?: string[]
+    }
   }
 
   export interface ValidationOptions {
