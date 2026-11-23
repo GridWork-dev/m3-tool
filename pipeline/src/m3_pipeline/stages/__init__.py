@@ -23,7 +23,11 @@ class UnknownStageError(KeyError):
 
 
 def register(name: str) -> Callable[[Stage], Stage]:
+    """Register `stage` under `name`. A second stage with the same name is an error."""
+
     def decorator(stage: Stage) -> Stage:
+        if name in REGISTRY:
+            raise ValueError(f"stage {name!r} is already registered")
         REGISTRY[name] = stage
         return stage
 
@@ -36,3 +40,9 @@ def run_stage(name: str, asset: AssetSpec, settings: Settings) -> StageResult:
     except KeyError:
         raise UnknownStageError(name) from None
     return stage(asset, settings)
+
+
+# A stage registers itself when its module is imported, so every stage module is imported here.
+# These imports stay at the bottom: the modules import StageResult and register from this package,
+# which must be fully defined by then.
+from m3_pipeline.stages import validate as validate  # noqa: E402

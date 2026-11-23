@@ -19,3 +19,8 @@ def test_cli_runs_registered_stage(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setitem(REGISTRY, "fake", lambda a, s: StageResult(False, ["boom"], []))
     r = CliRunner().invoke(app, ["run", "e46-coupe-body", "--stage", "fake"])
     assert r.exit_code == 1 and "boom" in r.output
+
+
+def test_cli_stages_lists_validate() -> None:
+    r = CliRunner().invoke(app, ["stages"])
+    assert r.exit_code == 0 and "validate" in r.output.split()

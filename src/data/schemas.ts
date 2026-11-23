@@ -8,10 +8,10 @@ import { z } from 'astro/zod'
 
 export const ID_PATTERN = /^[a-z0-9]+(-[a-z0-9]+)*$/
 
-const Id = z
+export const Id = z
   .string()
   .regex(ID_PATTERN, 'must be kebab-case: lowercase letters and digits joined by single hyphens')
-const Text = z.string().min(1, 'must not be empty')
+export const Text = z.string().min(1, 'must not be empty')
 const Year = z.int().min(1985).max(2035)
 const YearRange = z
   .tuple([Year, Year])
@@ -19,7 +19,7 @@ const YearRange = z
 const Range = z
   .tuple([z.number().min(0), z.number().min(0)])
   .refine(([min, max]) => min <= max, 'min must not exceed max')
-const HttpsUrl = z.url({ protocol: /^https$/ })
+export const HttpsUrl = z.url({ protocol: /^https$/ })
 
 // A date is a calendar date, with no time of day: `YYYY-MM-DD`, or a Date at exactly UTC midnight.
 // YAML dates reach us two ways. `yaml` (YAML 1.2) keeps `2026-11-23` a string, while Astro's loader
