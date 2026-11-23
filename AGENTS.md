@@ -17,7 +17,7 @@ Set up once per machine: `mise install`. Set up in every worktree, each new one 
 | `pnpm e2e` | Does the built site work in a browser? Run `pnpm build` first: it serves `dist/`. |
 | `pnpm build` | Does the site build? (`astro build`, then Pagefind) |
 | `pnpm typecheck` | Do the types hold? Always use this, never a bare `tsc`. |
-| `pnpm validate-asset <file.glb> --kind <base-car\|interior\|product> [--json]` | Does a GLB meet the 3D contract? |
+| `pnpm validate-asset <file.glb> --kind <base-car\|interior\|product\|body-module> [--json]` | Does a GLB meet the 3D contract? |
 | `node tools/check-data.ts data` | Is the data valid? Same as `pnpm check:data`. |
 | `pipeline run <asset> --stage <name>` | Run one pipeline stage for one asset. |
 | `pipeline stages` | Which stages exist? |

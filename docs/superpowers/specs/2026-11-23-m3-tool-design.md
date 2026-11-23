@@ -23,6 +23,7 @@ The tool doesn't sell anything and doesn't link to stores. Its value is pulling 
   - A driver's-seat camera.
   - Selectable render quality and a photo mode.
 - Real named aftermarket products. Each visible product looks like itself in 3D.
+- Factory body variants (CSL roof, trunk lid and bumper; sunroof; US/Euro details) render through swappable body modules, the same mechanism aftermarket body parts use. (amended 2026-11-23)
 - Prices with a source and a checked date, refreshed weekly in a later phase.
 - A build sheet that totals parts, labor (at your rate, or $0 for DIY) and tax. Shareable by link.
 - Per generation: a maintenance schedule, known issues and a used-buyer checklist.
@@ -33,7 +34,7 @@ The tool doesn't sell anything and doesn't link to stores. Its value is pulling 
 - Performance estimates such as horsepower or lap times. Manufacturer claims are shown, labeled as claims.
 - M4 coupes (F82/G82). They're a cheap add later.
 - Right-hand-drive interiors.
-- Rendering differences between variants (Euro, CSL, CS) in 3D. Those variants exist in the data. In v1 they render with the US coupe body, and the UI says so.
+- The convertible body in 3D (Phase 4). (amended 2026-11-23)
 
 **Anti-goals: failures even if the tool works**
 - Affiliate links, ads, sponsored placements or store links of any kind.
@@ -93,7 +94,7 @@ The tool doesn't sell anything and doesn't link to stores. Its value is pulling 
 - Repo public from day one, under GridWork-dev.
 
 **My calls in this doc (open to correction):**
-- MVP is the US-spec, left-hand-drive E46 coupe. Other variants are data only in v1.
+- MVP is the US-spec, left-hand-drive E46 coupe. The other factory variants render by swapping body modules on its base car. (amended 2026-11-23)
 - The stack and versions (section 6), and hosting on Cloudflare.
 - Data model, data quality rules and fitment rules (sections 7.3–7.6).
 - The used-buyer checklist, built from flagged issues and maintenance items.
@@ -179,7 +180,7 @@ The only dynamic route planned is a Worker for share-preview images, in Phase 2.
 
 ### 7.3 Data model
 
-YAML under `data/`, one entry per file, validated by Zod schemas in `src/content.config.ts`. IDs are stable kebab-case and never reused.
+YAML under `data/`, one entry per file, validated by the Zod schemas in `src/data/schemas.ts`, which `src/content.config.ts` wires into Astro collections (amended 2026-11-23). IDs are stable kebab-case and never reused.
 
 **`generation`**
 - `id` (`e46`), name, years, engine codes, body styles.
@@ -190,7 +191,8 @@ YAML under `data/`, one entry per file, validated by Zod schemas in `src/content
 - Generation, market (US or Euro), body, transmission, model years.
 - Factory packages (ZCP, CSL, CS…) and factory paint codes.
 - Factory wheel options (each with the ID of its 3D asset) and interior colors and trims.
-- `render`: which base car asset to use. In v1, every E46 variant uses the US coupe asset.
+- `render`: which base car asset to use, and which interior asset. (amended 2026-11-23)
+- `render.modules`: optional. For each body module the variant swaps (`bumper_front`, `bumper_rear`, `trunk_lid`, `roof`), the id of the factory module asset it uses. A CSL names its own trunk lid and roof. The US coupe leaves the defaults. (amended 2026-11-23)
 
 **`part`**
 - `id`, `name`, `brand` (none for the generic tier), `category`, `visible` (whether it shows in 3D).
@@ -202,6 +204,7 @@ YAML under `data/`, one entry per file, validated by Zod schemas in `src/content
   - `{ asset: <asset id>, params }` once the product's own model exists.
   - Otherwise `{ standIn: <style id>, params }`, which the UI labels "3D look approximate".
   - Wheels: one asset per design, with size parameters (diameter, width, offset) per product size.
+  - `replaces`: optional, on either form. The body modules the part takes the place of, as a non-empty list with no repeats. Aftermarket bumpers and trunk lids use it. (amended 2026-11-23)
 - `claims`: manufacturer claims, labeled as claims.
 - `sources[]` with tiers (section 7.6), and `verified`.
 
@@ -254,6 +257,7 @@ YAML under `data/`, one entry per file, validated by Zod schemas in `src/content
 
 **3D behavior**
 - Wheel positions come from the wheelbase and track in the data, not from the mesh. Ride height moves the body relative to the wheel anchors.
+- Body-module swaps: a variant's `render.modules` and a part's `model.replaces` name body modules. The configurator hides the base car's node for each one and shows the replacement `body-module` asset at the car origin. Factory variants and aftermarket bumpers and trunk lids use the same swap. (amended 2026-11-23)
 - Paint is a parameter on the `paint` material.
 - Window tint is a parameter on `glass`, and also a part (tint film).
 - The interior is its own GLB. It loads after the body, on Medium and above, or right away when you open the driver's-seat view.
@@ -325,6 +329,20 @@ Every change to a model is code in `pipeline/`. No hand edits in Blender that ar
 
 **Description.** One per body style and per product, built from the data files (dimensions, body lines, trim details, product specs). It's used as the generator prompt and as the critic's checklist.
 
+### 9.1a Reference view synthesis (amended 2026-11-23)
+
+Real photos rarely give one matched view set of one car. This step makes one.
+
+- **Input:** the best real view set from section 9.1.
+- **Method:** an image model renders clean, matching views of one car (front, side, rear, front three-quarter and rear three-quarter) on a neutral background. OpenAI `gpt-image-2.6-sunburst` is the first choice. It's A/B-tested against Google `gemini-nano-banana-2.1` through OpenRouter.
+- **Guards:** a synthesized set is used only when all three pass.
+  1. An automatic proportion check: the length, wheelbase and height ratios measured from the side-view silhouette are within 2% of the data dimensions.
+  2. A vision critic compares the result against the real photos.
+  3. The user approves it.
+- **Synthesized views are generator inputs only.** Section 9.7 scoring uses real photos only.
+- **Provenance:** which real photos fed which synthesized view is recorded.
+- **Cost:** it comes out of the spike cap.
+
 ### 9.2 Generation (`generate`)
 
 - **Main generator:** Rodin Gen-2.5 through an API (Hyper3D directly, or fal).
@@ -335,6 +353,11 @@ Every change to a model is code in `pipeline/`. No hand edits in Blender that ar
   - CubePart, Roblox's open generator that builds the mesh from a list of named parts.
   - Hunyuan3D (license limits; see section 3).
   - Models based on TRELLIS.
+- **Reaching the generators** (amended 2026-11-23):
+  - Through fal, with one key (`M3_FAL_KEY`): Rodin 2.5, Hunyuan 3.1 Pro, Tripo H3.1 multiview and Meshy 7.1.
+  - Tripo and Meshy can also be called with their direct keys.
+  - Hunyuan stays experiment-only because of its license (section 3), and never runs on EU-hosted machines.
+  - Inputs are the real views, plus the synthesized views from section 9.1a.
 - Several candidates are generated per asset, and the best is kept by score (section 9.7).
 - **Interior:** generated component by component (seats, dash with gauge cluster, steering wheel, door cards, center console), not as one enclosed scene. Today's generators build objects, not enclosed spaces.
 
@@ -343,8 +366,9 @@ Every change to a model is code in `pipeline/`. No hand edits in Blender that ar
 **Exterior**
 1. Scale and align to the data's dimensions: meters, standard axes.
 2. Remesh or retopologize to the triangle budget.
-3. Split into `body`, `glass`, `lights_front`, `lights_rear`, `trim`, `grille`, `undercarriage`. Candidate methods, compared in the spike:
+3. Split into `body`, `glass`, `lights_front`, `lights_rear`, `trim`, `grille`, `undercarriage` and the body modules `bumper_front`, `bumper_rear`, `trunk_lid` and `roof` (amended 2026-11-23). Candidate methods, compared in the spike:
    - Output that comes already split, from a part-aware generator.
+   - fal's part-splitting tools (Hunyuan-part, Tripo segment, Hi3D split). (amended 2026-11-23)
    - 2D segmentation masks from several rendered views, projected back onto the mesh.
    - Clustering by texture and normals.
 4. Remove the generated wheels, cap the wheel wells, and remove badges (meshes, and inpaint the texture).
@@ -379,7 +403,7 @@ Each visible product gets its own asset, built from its product photos and spec.
 **Units and axes:** meters, Y up, nose toward −Z, origin on the ground under the middle of the wheelbase.
 
 **Base car**
-- Nodes: `body`.
+- Nodes: `body`, and one mesh node for each body module: `bumper_front`, `bumper_rear`, `trunk_lid`, `roof` (amended 2026-11-23). A module node isn't an anchor, and a module node without a mesh is an error.
 - Anchors:
   - Wheels: `wheel_FL`, `wheel_FR`, `wheel_RL`, `wheel_RR`.
   - Aero and exhaust: `mount_front_lip`, `mount_trunk`, `mount_wing`, `mount_exhaust_L`, `mount_exhaust_R`.
@@ -392,6 +416,8 @@ Each visible product gets its own asset, built from its product photos and spec.
 
 **Products:** one root node, with a pivot that matches the anchor they attach to.
 
+**Body modules** (the `body-module` kind) (amended 2026-11-23): one root node, authored in the base car's frame, so its origin is the car origin and not an anchor pivot. The configurator swaps a module by hiding the base car's node of that name and showing this asset at the car origin. Factory variants (a CSL's roof and trunk lid) and aftermarket bumpers and trunk lids are modules of the same kind.
+
 **Budgets (proposed)**
 
 | Asset | Triangles | File size | Textures |
@@ -399,6 +425,7 @@ Each visible product gets its own asset, built from its product photos and spec.
 | Base car | 100k–200k | ≤ 8 MB | ≤ 2K, 4K for body detail maps |
 | Interior | ≤ 150k | ≤ 6 MB | 4K for dash and gauges, so the driver's-seat view stays sharp |
 | One product | ≤ 30k | ≤ 1 MB | ≤ 2K |
+| One body module (amended 2026-11-23) | ≤ 30k | ≤ 1 MB | ≤ 2K |
 
 ### 9.7 Scoring and the critic loop (`score`)
 
@@ -444,10 +471,16 @@ The spike runs on collected online photos; the user has no real car to photograp
 - **Partial pass:** change methods within the spike's spend cap and run again. Options: more views, a different generator, a different way of splitting the mesh.
 - **Fail:** bring the user the options, part by part. For example: buy licensed bodies or interiors for some or all generations, or lower the target for that part. Don't switch on my own.
 
-The spike also runs the **model bake-off**:
-- Claude (Sonnet) and Codex (gpt-6.1-sol) get the same tasks: a parametric wheel script fitted to product photos, and one splitting step.
-- The screenshots are compared, and the winner takes that kind of task.
-- The result is recorded in an ADR.
+The spike also runs the **model bake-off** (amended 2026-11-23):
+- **Contestants:** Fable 5.2 and Opus 5.5 in Claude Code, against Astra 6.2 and Sol in Codex.
+- **Tasks (three):**
+  - A parametric wheel plus rotor, fitted to product photos.
+  - Splitting and cleaning a generated M3 mesh.
+  - A critic-only defect hunt.
+- **Seeds:** at least 3 per cell, where a cell is one contestant on one task.
+- **Scoring:** automatic metrics (dimensions, manifold, part count, triangle budget, view similarity) plus blind votes on the screenshots. Tokens, dollars and minutes are logged for every run.
+- **Out of scope:** hand-modeling the body with an LLM. The research showed it isn't viable, so it isn't a task.
+- The winner takes that kind of task, and the result is recorded in an ADR.
 
 ## 10. Testing and previews
 
@@ -518,7 +551,7 @@ After Phase 0, two lanes run in parallel, each in its own git worktree and branc
 - **App + data:** `src/`, `data/`.
 - **3D:** `pipeline/`, `src/configurator/scene/`, the asset manifest.
 
-The shared contracts (`src/content.config.ts`, `docs/standards/3d-assets.md`) change only through a dedicated PR that both lanes rebase onto.
+The shared contracts (`src/data/schemas.ts`, `src/lib/asset-contract.ts`, `docs/standards/3d-assets.md`) change only through a dedicated PR that both lanes rebase onto. The Zod schemas live in `src/data/schemas.ts`, and `src/content.config.ts` wires them into Astro collections. (amended 2026-11-23)
 
 ### 12.3 Task lifecycle
 
@@ -567,7 +600,8 @@ The roadmap and tasks live in GitHub Issues and milestones, so they're public. D
 <name>/
   AGENTS.md  CLAUDE.md -> AGENTS.md  CONTRIBUTING.md  LICENSE (MIT)  DATA_LICENSE (CC BY-SA 4.0)
   data/{generations,variants,parts,maintenance,issues}/<gen>/*.yaml
-  src/content.config.ts        Zod schemas
+  src/content.config.ts        Astro collections, built from the schemas (amended 2026-11-23)
+  src/data/schemas.ts          Zod schemas, the data contract (amended 2026-11-23)
   src/pages/                   routes from section 7.2
   src/components/              Astro + React UI
   src/configurator/            island: store, build sheet, cameras, scene/
@@ -630,6 +664,7 @@ Each phase ends with a release or demo the user signs off on.
 ### Phase 2: join
 
 - The 3D configurator connected to the build sheet: wheels, ride height, aero, exhaust, interior parts, paint codes, tint.
+- Factory body variants (CSL, sunroof, US/Euro) through module swaps. (amended 2026-11-23)
 - Product models, most popular first. Products without their own model keep the labeled stand-in.
 - Photo mode and share-preview images.
 
@@ -650,6 +685,10 @@ Each phase ends with a release or demo the user signs off on.
 Settled 2026-11-23:
 
 - Repo name `m3-tool` as a placeholder. Hosting on the GridWork Cloudflare account. Deploys and previews from GitHub Actions, with Cloudflare tokens minted through the API. Phase 0 spike cap: $50 of paid 3D generation (Rodin plus 1-2 other generators for comparison), logged in `docs/spend-ledger.md`.
+- Factory body variants (CSL roof, trunk lid and bumper; sunroof; US/Euro details) render in v1 through swappable body modules. Aftermarket bumpers and trunk lids use the same swap (sections 7.3, 7.5 and 9.6). (amended 2026-11-23)
+- A reference view-synthesis step joins the pipeline: an image model makes matched views from the best real ones, guarded by a proportion check, a vision critic and the user's approval. Its views feed generators only, never scoring (section 9.1a). (amended 2026-11-23)
+- Generators are reached through fal (`M3_FAL_KEY`), plus the direct Tripo and Meshy keys. Hunyuan stays experiment-only (section 9.2). (amended 2026-11-23)
+- The model bake-off is widened to Fable 5.2 and Opus 5.5 against Astra 6.2 and Sol, on three tasks with at least 3 seeds per cell (section 9.9). (amended 2026-11-23)
 
 Still open:
 
