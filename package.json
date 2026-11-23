@@ -16,7 +16,8 @@
     "check:site": "pnpm lint && pnpm typecheck && pnpm test && pnpm build && pnpm check:links",
     "check:pipeline": "cd pipeline && uv run ruff check && uv run ruff format --check && uv run pyright && uv run pytest",
     "check": "pnpm check:site && pnpm check:pipeline",
-    "e2e": "playwright test"
+    "e2e": "playwright test",
+    "prepare": "git config core.hooksPath .githooks"
   },
   "dependencies": {
     "@astrojs/react": "7.1.9",
