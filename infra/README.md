@@ -61,6 +61,6 @@ GitHub Actions secrets:
 
 ## Notes
 
-- **Bootstrap token expiry.** `m3-tool-bootstrap` expires on 2026-12-07. Nothing in CI depends on it. After that date, mint a new one through the API for any laptop-side wrangler work, or use `m3-tool-deploy` for deploys.
+- **Bootstrap token expiry.** `m3-tool-bootstrap` expires on 2026-12-07. Nothing in CI depends on it. After that date, `main` deploys keep running from GitHub Actions, because `m3-tool-deploy` exists only there and the laptop has no copy. If the laptop ever needs to deploy again, mint a new short-lived token through the API.
 - **Analytics.** Cloudflare Web Analytics waits for the beta domain (Phase 1). The workers.dev URL isn't a good fit, and the site is `noindex` until then.
 - **workers.dev subdomain.** `broken-wood-97a9` belongs to the whole account, so other Workers share it. Don't change it from this repo.
