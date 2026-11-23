@@ -1,0 +1,34 @@
+---
+import SiteFooter from '../components/SiteFooter.astro'
+import '../styles/global.css'
+
+interface Props {
+  title: string
+  description?: string
+}
+
+const { title, description } = Astro.props
+// The site stays out of search results until the public beta sets PUBLIC_INDEXABLE=true.
+const indexable = import.meta.env.PUBLIC_INDEXABLE === 'true'
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{title}</title>
+    {description && <meta name="description" content={description} />}
+    {!indexable && <meta name="robots" content="noindex" />}
+  </head>
+  <body class="flex min-h-screen flex-col bg-white text-neutral-900 dark:bg-neutral-950 dark:text-neutral-100">
+    <main class="mx-auto w-full max-w-3xl flex-1 px-4 py-8">
+      <slot />
+    </main>
+    <footer class="border-t border-neutral-300 px-4 py-6 text-sm text-neutral-600 dark:border-neutral-700 dark:text-neutral-400">
+      <div class="mx-auto max-w-3xl">
+        <SiteFooter />
+      </div>
+    </footer>
+  </body>
+</html>
