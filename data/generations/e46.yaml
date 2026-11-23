@@ -37,7 +37,7 @@ dimensions:
         url: https://archive.org/download/manualsonline-id-d3b68d3e-dade-4bda-875b-3716cdeabf3f/d3b68d3e-dade-4bda-875b-3716cdeabf3f.pdf
         tier: 1
         accessed: 2026-11-23
-        note: "Archive.org copy of the US-market 2003 M3 manual. The drawing on p. 151 gives length 4,492, width 1,780, height 1,372, wheelbase 2,731, front track 1,508 and rear track 1,525 mm. It also shows a 1,924 mm width on the rear view, which is not used here."
+        note: "Archive.org copy of the US-market M3 manual (power in hp, sizes in inches). The drawing on p. 151 gives length 4,492, width 1,780, height 1,372, wheelbase 2,731, front track 1,508 and rear track 1,525 mm. It also shows a 1,924 mm width on the rear view, which is not used here."
       - title: "ST041 M3 Complete Vehicle: E46 M3 Technical Data"
         publisher: BMW Technical Training
         url: https://archive.org/download/BMWTechnicalTrainingDocuments/ST041%20M3%20Complete%20Vehicle/1%20M3%20Complete%20Vehicle.pdf
@@ -85,18 +85,18 @@ fitment:
       tier: 2
       accessed: 2026-11-23
       note: "Tire retailer's fitment data. Lists the OEM front as 225/45R18 on 8Jx18 ET47 and the OEM rear as 255/40R18 on 9Jx18 ET26, bolt pattern 5x120 and center bore 72.6 mm."
-    - title: ALY59367 BMW M3 Wheel/Rim, Style 67, OE part number 36112229950 (front)
+    - title: ALY59367 BMW M3 Wheel/Rim Hyper Silver #36112229950
       publisher: Hubcap Haven
       url: https://www.hubcaphaven.com/p/3015/aly59367-bmw-m3-wheel-hyper-silver-36112229950.html
       tier: 2
       accessed: 2026-11-23
-      note: "Retailer listing for the Style 67 front wheel: 18x8, 5 lugs, 120 mm bolt pattern, 47 mm offset."
-    - title: ALY59368/59607 BMW M3 Wheel/Rim, Style 67, OE part number 36112229960 (rear)
+      note: "Retailer listing for a replacement wheel under OE part number 36112229950 (option code Style 67, fitment front): 18x8, 5 lugs, 120 mm bolt pattern, 47 mm offset."
+    - title: ALY59368/59607 BMW M3 Wheel/Rim Hyper Silver #36112229960
       publisher: Hubcap Haven
       url: https://www.hubcaphaven.com/p/1705/aly59368-59607-bmw-m3-wheel-hyper-silver-36112229960.html
       tier: 2
       accessed: 2026-11-23
-      note: "Retailer listing for the Style 67 rear wheel: 18x9, 5 lugs, 120 mm bolt pattern, 26 mm offset."
+      note: "Retailer listing for a replacement wheel under OE part number 36112229960 (option code Style 67, fitment rear): 18x9, 5 lugs, 120 mm bolt pattern, 26 mm offset."
     - title: BMW Wheel Info and Tech Tips
       publisher: BimmerWorld
       url: https://www.bimmerworld.com/About-Us/Wheel-Info-Tech/
