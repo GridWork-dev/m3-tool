@@ -14,7 +14,8 @@
     "preview": "astro preview",
     "check:links": "node tools/check-links.ts dist",
     "check:site": "pnpm lint && pnpm typecheck && pnpm test && pnpm build && pnpm check:links",
-    "check": "pnpm check:site",
+    "check:pipeline": "cd pipeline && uv run ruff check && uv run ruff format --check && uv run pyright && uv run pytest",
+    "check": "pnpm check:site && pnpm check:pipeline",
     "e2e": "playwright test"
   },
   "dependencies": {

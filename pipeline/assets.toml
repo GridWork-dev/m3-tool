@@ -1,0 +1,9 @@
+[e46-coupe-body]
+kind = "base-car"
+generation = "e46"
+subject = "e46-coupe"
+
+[e46-coupe-interior]
+kind = "interior"
+generation = "e46"
+subject = "e46-coupe-interior"

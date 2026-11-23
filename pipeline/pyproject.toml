@@ -1,0 +1,35 @@
+[project]
+name = "m3-pipeline"
+version = "0.1.0"
+description = "Asset pipeline for the M3 reference site"
+requires-python = ">=3.14,<3.15"
+dependencies = [
+    "typer==0.29.2",
+    "pyyaml==6.0.4",
+]
+
+[project.scripts]
+pipeline = "m3_pipeline.cli:app"
+
+[dependency-groups]
+dev = [
+    "ruff==0.17.6",
+    "pyright==1.1.414",
+    "pytest==9.2.0",
+]
+
+[build-system]
+requires = ["uv_build>=0.13.9,<0.14.0"]
+build-backend = "uv_build"
+
+[tool.ruff]
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM"]
+
+[tool.pyright]
+typeCheckingMode = "strict"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
