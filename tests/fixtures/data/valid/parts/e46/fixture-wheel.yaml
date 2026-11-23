@@ -1,0 +1,55 @@
+# FIXTURE DATA. Invented values for tests; not a real product.
+id: fixture-wheel
+name: Fixture Wheel
+brand: Fixture Co
+category: wheels
+visible: true
+fits:
+  generation: e46
+  years: [2000, 2006]
+  bodies: [coupe]
+options:
+  - id: fixture-wheel-17x8
+    label: 17x8 ET35
+    attributes:
+      kind: wheel
+      diameterIn: 17
+      widthIn: 8
+      offsetMm: 35
+      boltPattern: 5x120
+      centerBoreMm: 72.6
+      axle: both
+    prices:
+      - amount: 100
+        currency: USD
+        seller: Fixture Seller
+        checked: 2026-11-23
+        url: https://example.com/fixture-wheel-17x8
+  - id: fixture-wheel-18x9
+    label: 18x9 ET30
+    attributes:
+      kind: wheel
+      diameterIn: 18
+      widthIn: 9
+      offsetMm: 30
+      boltPattern: 5x120
+      centerBoreMm: 72.6
+      axle: both
+    prices:
+      - amount: 120
+        currency: USD
+        seller: Fixture Seller
+        checked: 2026-11-23
+labor:
+  hours: [0.5, 1]
+  diy: easy
+model:
+  standIn: fixture-style
+  params:
+    finish: gloss
+sources:
+  - title: Fixture product page
+    publisher: Fixture Co
+    tier: 1
+    accessed: 2026-11-23
+verified: false

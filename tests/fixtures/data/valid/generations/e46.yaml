@@ -1,0 +1,59 @@
+# FIXTURE DATA. Invented values for tests; none of this describes a real car.
+id: e46
+name: Fixture Generation
+chassis: FIXTURE
+years: [2000, 2006]
+engines:
+  - code: FIXTURE-ENGINE
+    displacementCc: 3000
+    cylinders: 6
+bodies: [coupe, convertible]
+dimensions:
+  coupe:
+    lengthMm: 4000
+    widthMm: 1700
+    heightMm: 1300
+    wheelbaseMm: 2600
+    trackFrontMm: 1500
+    trackRearMm: 1500
+    sources:
+      - title: Fixture technical data
+        publisher: Fixture Co
+        url: https://example.com/fixture-technical-data
+        tier: 1
+        accessed: 2026-11-23
+driverEyePoint:
+  xMm: -300
+  yMm: 1000
+  zMm: 0
+  basis: estimated
+  note: Fixture estimate.
+  sources: []
+fitment:
+  front:
+    boltPattern: 5x120
+    centerBoreMm: 70
+    stock:
+      diameterIn: 17
+      widthIn: 7.5
+      offsetMm: 40
+      tire: 225/45ZR17
+    envelopes:
+      - rideDropMm: 0
+        maxInnerMm: 100
+        maxOuterMm: 100
+        maxOuterWithFenderWorkMm: 110
+  rear:
+    boltPattern: 5x120
+    centerBoreMm: 70
+    stock:
+      diameterIn: 17
+      widthIn: 8.5
+      offsetMm: 30
+      tire: 255/40ZR17
+    envelopes: []
+  sources:
+    - title: Fixture fitment table
+      publisher: Fixture Co
+      tier: 2
+      accessed: 2026-11-23
