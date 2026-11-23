@@ -180,6 +180,43 @@ describe('verification', () => {
     expect(codes(issue)).toEqual(['verified-without-tier'])
   })
 
+  test('a verified part follows the same rule', () => {
+    const weak = fresh()
+    find(weak.parts, 'fixture-wheel').data.verified = true
+    find(weak.parts, 'fixture-wheel').data.sources = [source(3, 'Forum')]
+    const issues = checkDataSet(weak)
+    expect(issues.map((issue) => issue.code)).toEqual(['verified-without-tier'])
+    expect(issues[0]?.file).toBe('parts/e46/fixture-wheel.yaml')
+
+    // The generic fixture has no sources at all.
+    const none = fresh()
+    find(none.parts, 'fixture-generic-wheels').data.verified = true
+    expect(codes(none)).toEqual(['verified-without-tier'])
+
+    const samePublisher = fresh()
+    find(samePublisher.parts, 'fixture-wheel').data.verified = true
+    find(samePublisher.parts, 'fixture-wheel').data.sources = [
+      source(2, 'Shop A'),
+      source(2, ' shop a'),
+    ]
+    expect(codes(samePublisher)).toEqual(['verified-without-tier'])
+  })
+
+  test('a verified part passes with one tier-1 source or two independent tier-2 sources', () => {
+    const set = fresh()
+    const wheel = find(set.parts, 'fixture-wheel').data
+    wheel.verified = true // the fixture's own source is Tier 1 (a manufacturer product page)
+    expect(codes(set)).toEqual([])
+    wheel.sources = [source(2, 'Shop A'), source(2, 'Mag B')]
+    expect(codes(set)).toEqual([])
+  })
+
+  test('an unverified part is not held to the rule', () => {
+    const set = fresh()
+    find(set.parts, 'fixture-wheel').data.sources = [source(3, 'Forum')]
+    expect(codes(set)).toEqual([])
+  })
+
   test('two tier-2 sources from the same publisher do not verify, whatever the case or spacing', () => {
     const set = fresh()
     find(set.maintenance, 'fixture-oil-service').data.sources = [

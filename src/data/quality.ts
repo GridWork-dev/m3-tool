@@ -1,6 +1,6 @@
 // Cross-file checks over a loaded DataSet. Per-file rules live in the Zod schemas (schemas.ts);
 // these are the rules that need to see more than one file at once.
-import type { Generation, KnownIssue, MaintenanceItem, Part, Variant } from './schemas.ts'
+import type { Generation, KnownIssue, MaintenanceItem, Part, Source, Variant } from './schemas.ts'
 import { meetsVerificationRule } from './sources.ts'
 
 export type QualityCode =
@@ -145,17 +145,23 @@ export function checkDataSet(set: DataSet): QualityIssue[] {
     }
   }
 
-  // Verified means one Tier 1 source or two independent Tier 2 sources (spec section 7.6).
-  const verifiable: [string, string, boolean, MaintenanceItem['sources']][] = [
-    ...set.maintenance.map(
-      ({ file, data }): [string, string, boolean, MaintenanceItem['sources']] => [
-        file,
-        data.id,
-        data.verified,
-        data.sources,
-      ],
-    ),
-    ...set.issues.map(({ file, data }): [string, string, boolean, MaintenanceItem['sources']] => [
+  // Verified means one Tier 1 source or two independent Tier 2 sources (spec section 7.6), and it
+  // means that on every collection that has a `verified` flag: parts as much as maintenance items
+  // and issues. A manufacturer product page is Tier 1.
+  const verifiable: [string, string, boolean, readonly Source[]][] = [
+    ...set.parts.map(({ file, data }): [string, string, boolean, readonly Source[]] => [
+      file,
+      data.id,
+      data.verified,
+      data.sources,
+    ]),
+    ...set.maintenance.map(({ file, data }): [string, string, boolean, readonly Source[]] => [
+      file,
+      data.id,
+      data.verified,
+      data.sources,
+    ]),
+    ...set.issues.map(({ file, data }): [string, string, boolean, readonly Source[]] => [
       file,
       data.id,
       data.verified,
