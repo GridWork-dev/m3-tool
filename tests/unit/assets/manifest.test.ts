@@ -64,6 +64,17 @@ describe('the rest of the shape', () => {
     expect(AssetManifest.safeParse(value).success).toBe(false)
   })
 
+  test.each(['base-car', 'interior', 'product', 'body-module'])('accepts kind %s', (kind) => {
+    expect(AssetManifest.safeParse(manifest({ a: entry({ kind }) })).success).toBe(true)
+  })
+
+  test('a body-module entry keeps its kind', () => {
+    const parsed = AssetManifest.parse(
+      manifest({ 'e46-csl-trunk-lid': entry({ kind: 'body-module', triangles: 8_000 }) }),
+    )
+    expect(parsed.assets['e46-csl-trunk-lid']?.kind).toBe('body-module')
+  })
+
   test('accepts zero triangles and no sources', () => {
     const parsed = AssetManifest.safeParse(
       manifest({ a: entry({ kind: 'product', triangles: 0, sources: [] }) }),

@@ -5,7 +5,7 @@ import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { afterAll, beforeAll, describe, expect, test } from 'vitest'
 import { runValidateAsset } from '../../../tools/validate-asset.ts'
-import { makeProduct, toGlb } from './fixtures.ts'
+import { makeBodyModule, makeProduct, toGlb } from './fixtures.ts'
 
 const ROOT = fileURLToPath(new URL('../../..', import.meta.url))
 let dir: string
@@ -29,6 +29,24 @@ describe('runValidateAsset', () => {
     const json = await runValidateAsset([good, '--kind', 'product', '--json'])
     expect(json.exitCode).toBe(0)
     expect(JSON.parse(json.stdout.join('\n'))).toEqual({ ok: true, issues: [] })
+  })
+
+  test('accepts --kind body-module', async () => {
+    const file = join(dir, 'module.glb')
+    await writeFile(file, await toGlb(makeBodyModule()))
+    const result = await runValidateAsset([file, '--kind', 'body-module'])
+    expect(result.exitCode).toBe(0)
+    expect(result.stdout).toEqual(['ok'])
+    const twoRoots = join(dir, 'module-two-roots.glb')
+    await writeFile(twoRoots, await toGlb(makeBodyModule({ roots: 2 })))
+    const failed = await runValidateAsset([twoRoots, '--kind', 'body-module'])
+    expect(failed.exitCode).toBe(1)
+    expect(failed.stdout).toEqual([expect.stringMatching(/^ERROR root-count: /)])
+  })
+
+  test('the usage line lists body-module', async () => {
+    const result = await runValidateAsset([])
+    expect(result.stderr.join('\n')).toContain('body-module')
   })
 
   test('exits 1 for any error, and prints one line per issue', async () => {

@@ -1,6 +1,7 @@
 // The data contract: one Zod schema per collection, plus the shared pieces they are built from.
 // Cross-file rules (duplicate ids, references between parts, ...) live in quality.ts.
 import { z } from 'astro/zod'
+import { BODY_MODULES } from '../lib/asset-contract.ts'
 
 // ---------------------------------------------------------------------------------------------
 // Building blocks
@@ -69,6 +70,11 @@ const TIRE_PATTERN = /^\d{3}\/\d{2}Z?R\d{2}$/
 const Tire = z.string().regex(TIRE_PATTERN, 'must look like 225/45ZR18 or 225/45R18')
 const BoltPattern = z.string().regex(/^\d+x\d+(\.\d+)?$/, 'must look like 5x120')
 const Axle = z.enum(['front', 'rear', 'both'])
+
+// A swappable part of the base car (see BODY_MODULES in asset-contract.ts).
+const BodyModule = z.enum(BODY_MODULES, {
+  error: (issue) => `"${String(issue.input)}" is not a body module; use ${BODY_MODULES.join(', ')}`,
+})
 
 // ---------------------------------------------------------------------------------------------
 // Sources and prices
@@ -238,7 +244,14 @@ export const Variant = z.strictObject({
       material: z.enum(['leather', 'cloth', 'alcantara', 'mixed']),
     }),
   ),
-  render: z.strictObject({ baseAsset: Id, interiorAsset: Id, note: Text.optional() }),
+  render: z.strictObject({
+    baseAsset: Id,
+    interiorAsset: Id,
+    // The factory module assets this variant uses in place of the base car's own, such as a CSL's
+    // trunk lid and roof. A module left out keeps the base car's. Keys are body modules only.
+    modules: z.partialRecord(BodyModule, Id).optional(),
+    note: Text.optional(),
+  }),
   sources: z.array(Source).min(1),
 })
 export type Variant = z.infer<typeof Variant>
@@ -309,6 +322,17 @@ const CATEGORY_FOR_KIND = {
 
 const ModelParams = z.record(z.string(), z.union([z.number(), z.string(), z.boolean()]))
 
+// The base car modules a part's model takes the place of. Naming one hides that module on the car
+// and shows the part's own model there, so an aftermarket bumper or trunk lid swaps in the same
+// way a factory variant's does (Variant.render.modules).
+const Replaces = z
+  .array(BodyModule)
+  .min(1, 'must name at least one body module, or be left out')
+  .refine(
+    (modules) => new Set(modules).size === modules.length,
+    'names a body module more than once',
+  )
+
 export const Part = z
   .strictObject({
     id: Id,
@@ -342,10 +366,27 @@ export const Part = z
     model: z
       .union(
         [
-          z.strictObject({ asset: Id, params: ModelParams.optional() }),
-          z.strictObject({ standIn: Id, params: ModelParams.optional() }),
+          z.strictObject({
+            asset: Id,
+            params: ModelParams.optional(),
+            replaces: Replaces.optional(),
+          }),
+          z.strictObject({
+            standIn: Id,
+            params: ModelParams.optional(),
+            replaces: Replaces.optional(),
+          }),
         ],
-        { error: 'a model is { asset: <id> } or { standIn: <id> }, optionally with params' },
+        {
+          // Both shapes fail on a bad `replaces`, which would hide it behind the generic message,
+          // so say what is wrong with it.
+          error: (issue) => {
+            if (issue.code !== 'invalid_union') return undefined
+            const found = issue.errors.flat().find((inner) => inner.path[0] === 'replaces')
+            if (found) return `${found.path.join('.')}: ${found.message}`
+            return 'a model is { asset: <id> } or { standIn: <id> }, optionally with params and replaces'
+          },
+        },
       )
       .optional(),
     claims: z.array(Text).optional(),

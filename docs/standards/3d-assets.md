@@ -7,7 +7,7 @@ Every 3D model the site uses is a GLB that passes this contract. The contract va
 **Units and axes:** meters, Y up, nose toward −Z, origin on the ground under the middle of the wheelbase.
 
 **Base car**
-- Nodes: `body`.
+- Nodes: `body`, plus one mesh node for each body module: `bumper_front`, `bumper_rear`, `trunk_lid`, `roof` (see "Body modules" below).
 - Anchors:
   - Wheels: `wheel_FL`, `wheel_FR`, `wheel_RL`, `wheel_RR`.
   - Aero and exhaust: `mount_front_lip`, `mount_trunk`, `mount_wing`, `mount_exhaust_L`, `mount_exhaust_R`.
@@ -20,6 +20,8 @@ Every 3D model the site uses is a GLB that passes this contract. The contract va
 
 **Products:** one root node, with a pivot that matches the anchor they attach to.
 
+**Body modules:** one root node, authored in the base car's frame (see "Body modules" below).
+
 **Budgets (proposed)**
 
 | Asset | Triangles | File size | Textures |
@@ -27,8 +29,27 @@ Every 3D model the site uses is a GLB that passes this contract. The contract va
 | Base car | 100k–200k | ≤ 8 MB | ≤ 2K, 4K for body detail maps |
 | Interior | ≤ 150k | ≤ 6 MB | 4K for dash and gauges, so the driver's-seat view stays sharp |
 | One product | ≤ 30k | ≤ 1 MB | ≤ 2K |
+| One body module | ≤ 30k | ≤ 1 MB | ≤ 2K |
 
-"MB" means 1,000,000 bytes. The kinds are `base-car`, `interior` and `product`.
+"MB" means 1,000,000 bytes. The kinds are `base-car`, `interior`, `product` and `body-module`. A body module has a product's budgets. The base car's own module meshes count toward the base car's triangles and file size.
+
+## Body modules
+
+A body module is a part of the base car that another model can replace: `bumper_front`, `bumper_rear`, `trunk_lid` and `roof`. The names are exact, and the list lives in `BODY_MODULES` in [`src/lib/asset-contract.ts`](../../src/lib/asset-contract.ts).
+
+Two things use the same swap:
+- **Factory variants.** A CSL's carbon roof, ducktail trunk lid and single-intake bumper, a sunroof, and the US and Euro body details. A variant names its module assets in `render.modules`.
+- **Aftermarket body parts.** A bumper or trunk lid that replaces the stock one. The part names the modules it takes over in `model.replaces`.
+
+Both fields are in [the data standard](data.md#body-module-swaps).
+
+**The base car carries every module.** Each module is a node of the base car named exactly like the module, and each node carries a mesh. The validator reports a missing node, or a node with no mesh, as `missing-node`. A module node isn't an anchor: anchors are empty nodes, and a module node is the opposite.
+
+**The `body-module` kind is a replacement.** It's a GLB with one root node, in the base car's frame: its origin is the car origin, so the module sits where it belongs when it's placed at 0, 0, 0. That differs from a product, whose pivot matches an anchor. The root node's name isn't checked. The validator checks the budgets, the units (0.05–4.0 m on the largest dimension) and the one root. It can't check that the module sits in its slot, so the vision critic and the review in `/lab` look at that.
+
+**How a swap works.** The configurator hides the base car's module node and shows the replacement asset at the car origin. The base module isn't drawn while the swap is active, so the car never shows two roofs. Removing the swap shows the base module again.
+
+**How the base car gets its modules.** The cleanup stage splits the module nodes out of the generated mesh (spec section 9.3), along with `body`, `glass`, the lights, `trim`, `grille` and `undercarriage`.
 
 ## How each check is measured
 
@@ -37,7 +58,7 @@ Every 3D model the site uses is a GLB that passes this contract. The contract va
 | Code | What it checks |
 |---|---|
 | `khronos` | The Khronos glTF validator reports no errors. One issue quotes the first 5 messages and counts the rest. A file that can't be read at all is reported under this code too. |
-| `missing-node` | Every required node exists. |
+| `missing-node` | Every required node exists. A base car's module nodes (`bumper_front`, `bumper_rear`, `trunk_lid`, `roof`) must also carry a mesh. |
 | `missing-anchor` | Every required anchor exists, and has no mesh. |
 | `missing-material` | Every required material is used by a mesh in the scene. |
 | `triangles` | The triangle count is inside the range for the kind. |
@@ -46,7 +67,7 @@ Every 3D model the site uses is a GLB that passes this contract. The contract va
 | `units` | The asset is the size of its real-world object, in meters. |
 | `orientation` | The wheel anchors sit where Y up and a −Z nose put them. |
 | `origin` | The origin is under the middle of the wheelbase, on the ground. |
-| `root-count` | A product has exactly one root node. |
+| `root-count` | A product or a body module has exactly one root node. |
 | `unsupported-extension` | The file doesn't use `EXT_mesh_gpu_instancing` or `KHR_draco_mesh_compression`. |
 
 The details:
@@ -57,7 +78,7 @@ The details:
 - **Texture size** is read from the image data: PNG, JPEG, WebP and KTX2. A base car's texture may be 4096 only when `paint` is the one material using it. A texture that any other material shares is held to 2048. An unreadable texture is an error, because its size can't be checked.
 - **Units:**
   - A base car's world bounding box is 3.0–6.0 m along Z and 0.9–2.0 m along Y.
-  - An interior's or a product's largest dimension is 0.05–4.0 m.
+  - An interior's, a product's or a body module's largest dimension is 0.05–4.0 m.
   - A model exported in centimeters (449 m long) or millimeters fails here.
 - **Orientation** (base car): in world space, all of these hold.
   - `wheel_FL`: x < 0, z < 0.
@@ -108,7 +129,7 @@ The details:
 | Field | Meaning |
 |---|---|
 | key | The asset id. Kebab-case, stable, never reused. It matches the id in `pipeline/assets.toml` and the ids the data files reference. |
-| `kind` | `base-car`, `interior` or `product`. |
+| `kind` | `base-car`, `interior`, `product` or `body-module`. |
 | `url` | An `https` URL of the content-hashed GLB in the public bucket, so a URL never changes what it serves. |
 | `sha256` | The SHA-256 of the GLB, as 64 lowercase hex characters. |
 | `bytes` | The GLB's size in bytes. Greater than 0. |
@@ -122,7 +143,7 @@ The schema rejects keys it doesn't list. Record the license before you publish, 
 ## Running the checks
 
 ```sh
-pnpm validate-asset <file.glb> --kind <base-car|interior|product> [--json]
+pnpm validate-asset <file.glb> --kind <base-car|interior|product|body-module> [--json]
 pipeline run <asset> --stage validate        # run from pipeline/, with uv run
 ```
 

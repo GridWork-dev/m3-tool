@@ -14,9 +14,11 @@ import { edit, issueMessages, issuePaths, readFixture, VALID_FIXTURES } from './
 
 const generation = () => readFixture('generations/e46.yaml')
 const variant = () => readFixture('variants/e46/e46-us-coupe.yaml')
+const cslVariant = () => readFixture('variants/e46/fixture-csl-coupe.yaml')
 const wheel = () => readFixture('parts/e46/fixture-wheel.yaml')
 const generic = () => readFixture('parts/e46/fixture-generic-wheels.yaml')
 const coilovers = () => readFixture('parts/e46/fixture-coilovers.yaml')
+const trunkLid = () => readFixture('parts/e46/fixture-trunk-lid.yaml')
 const maintenance = () => readFixture('maintenance/e46/fixture-oil-service.yaml')
 const issue = () => readFixture('issues/e46/fixture-rod-bearings.yaml')
 
@@ -29,9 +31,11 @@ describe('valid fixtures', () => {
   test.each([
     ['generation', Generation, generation],
     ['variant', Variant, variant],
+    ['variant that swaps body modules', Variant, cslVariant],
     ['branded part with options', Part, wheel],
     ['generic part', Part, generic],
     ['branded part with attributes', Part, coilovers],
+    ['part that replaces a body module', Part, trunkLid],
     ['maintenance item', MaintenanceItem, maintenance],
     ['known issue', KnownIssue, issue],
   ])('%s parses', (_name, schema, read) => {
@@ -335,6 +339,92 @@ describe('part', () => {
   })
 })
 
+describe('part body module swaps', () => {
+  const model = (m: Record<string, unknown>) => edit(wheel(), 'model', m)
+
+  test('a stand-in model may replace body modules', () => {
+    const parsed = Part.safeParse(model({ standIn: 's-1', replaces: ['trunk_lid'] }))
+    expect(parsed.success).toBe(true)
+    expect(Part.parse(trunkLid()).model).toEqual({
+      standIn: 'fixture-style',
+      replaces: ['trunk_lid'],
+    })
+  })
+
+  test('an asset model may replace body modules, with params', () => {
+    const parsed = Part.safeParse(
+      model({
+        asset: 'a-1',
+        params: { finish: 'matte' },
+        replaces: ['bumper_front', 'bumper_rear'],
+      }),
+    )
+    expect(parsed.success).toBe(true)
+    expect(parsed.data?.model).toEqual({
+      asset: 'a-1',
+      params: { finish: 'matte' },
+      replaces: ['bumper_front', 'bumper_rear'],
+    })
+  })
+
+  test('every module name is accepted', () => {
+    for (const name of ['bumper_front', 'bumper_rear', 'trunk_lid', 'roof']) {
+      expect(Part.safeParse(model({ standIn: 's-1', replaces: [name] })).success).toBe(true)
+    }
+  })
+
+  test('replaces is optional', () => {
+    expect(Part.safeParse(model({ standIn: 's-1' })).success).toBe(true)
+  })
+
+  test.each([
+    ['an empty list', [], /at least one/],
+    ['a repeated module', ['trunk_lid', 'trunk_lid'], /more than once|repeat/],
+    ['a repeat after another module', ['roof', 'trunk_lid', 'roof'], /more than once|repeat/],
+    ['a module that does not exist', ['hood'], /hood.*bumper_front, bumper_rear, trunk_lid, roof/],
+    ['a name with the wrong case', ['Trunk_Lid'], /Trunk_Lid/],
+    ['a good module beside a bad one', ['trunk_lid', 'hood'], /hood/],
+    ['a string instead of a list', 'trunk_lid', /replaces/],
+    ['a list of numbers', [1], /replaces/],
+  ])('rejects replaces with %s, on either kind of model', (_label, replaces, reason) => {
+    for (const base of [{ standIn: 's-1' }, { asset: 'a-1' }]) {
+      const result = Part.safeParse(model({ ...base, replaces }))
+      expect(result.success).toBe(false)
+      // The failure names `replaces`: in the path, or in the message that sits at `model`.
+      const where = issuePaths(result).join(' ')
+      const said = issueMessages(result).join(' ')
+      expect(where.includes('replaces') || said.includes('replaces')).toBe(true)
+      expect(said).toMatch(reason)
+    }
+  })
+
+  test('the error for an unknown module still names the model shape when replaces is fine', () => {
+    const result = Part.safeParse(model({ replaces: ['trunk_lid'] }))
+    expect(result.success).toBe(false)
+    expect(issuePaths(result)).toContain('model')
+    expect(issueMessages(result).join(' ')).toContain('a model is')
+  })
+
+  test('replaces does not unlock other keys on the model', () => {
+    const result = Part.safeParse(model({ standIn: 's-1', replaces: ['roof'], swaps: ['roof'] }))
+    expect(result.success).toBe(false)
+  })
+
+  test('a model still names exactly one of asset or standIn, with replaces present', () => {
+    expect(
+      Part.safeParse(model({ asset: 'a-1', standIn: 's-1', replaces: ['roof'] })).success,
+    ).toBe(false)
+  })
+
+  test('a part that is not visible has no model, so it replaces nothing', () => {
+    const hidden = edit(edit(generic(), 'model', undefined), 'visible', false)
+    expect(Part.safeParse(hidden).success).toBe(true)
+    expect(
+      Part.safeParse(edit(hidden, 'model', { standIn: 's-1', replaces: ['roof'] })).success,
+    ).toBe(false)
+  })
+})
+
 describe('maintenance item and known issue', () => {
   test('rejects inspectWhenBuying without howToCheck', () => {
     const noCheck = edit(maintenance(), 'inspectWhenBuying', true)
@@ -481,5 +571,68 @@ describe('variant', () => {
     expect(Variant.safeParse(edit(variant(), 'transmissions', ['cvt'])).success).toBe(false)
     expect(Variant.safeParse(edit(variant(), 'sources', [])).success).toBe(false)
     expect(Variant.safeParse(edit(variant(), 'render.baseAsset', 'Base_Asset')).success).toBe(false)
+  })
+})
+
+describe('variant render modules', () => {
+  const modules = (value: unknown) => edit(variant(), 'render.modules', value)
+
+  test('a CSL names its own trunk lid and roof', () => {
+    const parsed = Variant.safeParse(
+      modules({ trunk_lid: 'e46-csl-trunk-lid', roof: 'e46-csl-roof' }),
+    )
+    expect(parsed.success).toBe(true)
+    expect(parsed.data?.render.modules).toEqual({
+      trunk_lid: 'e46-csl-trunk-lid',
+      roof: 'e46-csl-roof',
+    })
+    expect(Variant.parse(cslVariant()).render.modules).toEqual({
+      trunk_lid: 'fixture-csl-trunk-lid',
+      roof: 'fixture-csl-roof',
+    })
+  })
+
+  test('a variant that leaves the defaults has no modules', () => {
+    expect(Variant.parse(variant()).render.modules).toBeUndefined()
+  })
+
+  test('each of the four modules is a valid key', () => {
+    const all = {
+      bumper_front: 'a-1',
+      bumper_rear: 'a-2',
+      trunk_lid: 'a-3',
+      roof: 'a-4',
+    }
+    expect(Variant.safeParse(modules(all)).success).toBe(true)
+  })
+
+  test('rejects a key that is not a body module, and names it', () => {
+    const result = Variant.safeParse(modules({ hood: 'x' }))
+    expect(result.success).toBe(false)
+    expect(issuePaths(result)).toContain('render.modules')
+    expect(issueMessages(result).join(' ')).toContain('hood')
+  })
+
+  test('rejects an unknown key beside valid ones', () => {
+    const result = Variant.safeParse(modules({ roof: 'e46-csl-roof', Roof: 'x' }))
+    expect(result.success).toBe(false)
+  })
+
+  test('rejects a value that is not a kebab-case id', () => {
+    for (const value of ['Trunk_Lid', '', 'a--b', 7, null]) {
+      const result = Variant.safeParse(modules({ trunk_lid: value }))
+      expect(result.success).toBe(false)
+      expect(issuePaths(result)).toContain('render.modules.trunk_lid')
+    }
+  })
+
+  test('rejects modules that are not an object', () => {
+    for (const value of [['roof'], 'roof', 7, null]) {
+      expect(Variant.safeParse(modules(value)).success).toBe(false)
+    }
+  })
+
+  test('render stays strict', () => {
+    expect(Variant.safeParse(edit(variant(), 'render.module', { roof: 'x' })).success).toBe(false)
   })
 })

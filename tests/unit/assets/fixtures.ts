@@ -2,7 +2,9 @@
 //
 // The base car is a subdivided box of 4.49 x 1.37 x 1.78 m (an E46 coupe's length, height and
 // width), Y up, nose toward -Z, sitting on the ground at the middle of the wheelbase. The box is
-// subdivided so no triangle is degenerate, which the Khronos validator flags.
+// subdivided so no triangle is degenerate, which the Khronos validator flags. Four small boxes
+// inside it stand in for the body modules (bumpers, trunk lid and roof), so the car's bounding box
+// stays the box's.
 import { crc32, deflateSync } from 'node:zlib'
 import {
   Document,
@@ -188,6 +190,8 @@ export interface BaseCarOptions {
   // Moves the origin from the middle of the wheelbase to the front axle.
   originAtFrontAxle?: boolean
   omitAnchor?: string
+  // Leaves out one body module node, such as `trunk_lid`. Any other name throws.
+  omitNode?: string
   omitMaterial?: string
   // Total triangles. Default 120_000.
   triangles?: number
@@ -209,7 +213,19 @@ const CAR_ANCHORS: [string, Vec3][] = [
   ['mount_interior', [0, 0.8, 0]],
 ]
 
+// The body modules, with the size and center of the small box that stands in for each. They sit
+// inside the car's 4.49 x 1.37 x 1.78 m box, so they don't change its bounds.
+const MODULE_NODES: [string, Vec3, Vec3][] = [
+  ['bumper_front', [1.6, 0.4, 0.2], [0, 0.4, -2.1]],
+  ['bumper_rear', [1.6, 0.4, 0.2], [0, 0.4, 2.1]],
+  ['trunk_lid', [1.2, 0.05, 0.8], [0, 1.0, 1.6]],
+  ['roof', [1.2, 0.05, 1.2], [0, 1.3, 0.1]],
+]
+
 export function makeBaseCar(o: BaseCarOptions = {}): Document {
+  if (o.omitNode !== undefined && !MODULE_NODES.some(([name]) => name === o.omitNode)) {
+    throw new Error(`omitNode takes a body module name, not ${o.omitNode}`)
+  }
   const doc = newDocument()
   const total = o.triangles ?? 120_000
   const materials = new Map<string, Material>()
@@ -219,8 +235,10 @@ export function makeBaseCar(o: BaseCarOptions = {}): Document {
   // Every material but paint gets a tiny piece inside the car. Paint takes the rest of the budget.
   const small = CAR_MATERIALS.filter((name) => name !== 'paint' && materials.has(name))
   const main = materials.get('paint') ?? doc.createMaterial('other')
+  const modules = MODULE_NODES.filter(([name]) => name !== o.omitNode)
+  const tiny = small.length + modules.length
   const parts: [Material, Geometry][] = [
-    [main, box([1.78, 1.37, 4.49], [0, 0.685, 0], total - small.length * TINY_BOX_TRIANGLES)],
+    [main, box([1.78, 1.37, 4.49], [0, 0.685, 0], total - tiny * TINY_BOX_TRIANGLES)],
   ]
   small.forEach((name, i) => {
     const material = materials.get(name)
@@ -237,6 +255,13 @@ export function makeBaseCar(o: BaseCarOptions = {}): Document {
 
   const root = doc.createNode('car')
   root.addChild(doc.createNode('body').setMesh(meshOf(doc, 'body', parts)))
+  for (const [name, size, center] of modules) {
+    root.addChild(
+      doc
+        .createNode(name)
+        .setMesh(meshOf(doc, name, [[main, box(size, center, TINY_BOX_TRIANGLES)]])),
+    )
+  }
   for (const [name, at] of CAR_ANCHORS) {
     if (name !== o.omitAnchor) root.addChild(anchor(doc, name, at))
   }
@@ -321,6 +346,32 @@ export function makeProduct(o: ProductOptions = {}): Document {
       )
     }
     scene.addChild(node)
+  }
+  return doc
+}
+
+export interface BodyModuleOptions {
+  // Number of root nodes in the scene. Default 1.
+  roots?: number
+  // Total triangles. Default 1_200.
+  triangles?: number
+}
+
+// A body module is authored in the base car's frame, so this one is a front bumper sized and
+// placed where a real one sits, with the car's origin as its own.
+export function makeBodyModule(o: BodyModuleOptions = {}): Document {
+  const doc = newDocument()
+  const material = doc.createMaterial('paint')
+  const roots = o.roots ?? 1
+  const total = o.triangles ?? 1_200
+  const scene = sceneOf(doc)
+  for (let i = 0; i < roots; i++) {
+    // The first root holds the budget, and any other root is a small box.
+    const triangles = i === 0 ? total - (roots - 1) * TINY_BOX_TRIANGLES : TINY_BOX_TRIANGLES
+    const geometry = box([1.7, 0.4, 0.3], [i * 0.4, 0.4, -2.1], triangles)
+    scene.addChild(
+      doc.createNode(`module-${i}`).setMesh(meshOf(doc, `module-${i}`, [[material, geometry]])),
+    )
   }
   return doc
 }

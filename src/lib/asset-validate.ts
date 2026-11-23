@@ -18,7 +18,13 @@ import {
 import { ALL_EXTENSIONS } from '@gltf-transform/extensions'
 import { validateBytes } from 'gltf-validator'
 import { MeshoptDecoder } from 'meshoptimizer'
-import { type AssetContract, type AssetKind, CONTRACTS, MEASUREMENTS } from './asset-contract.ts'
+import {
+  type AssetContract,
+  type AssetKind,
+  BODY_MODULES,
+  CONTRACTS,
+  MEASUREMENTS,
+} from './asset-contract.ts'
 
 export type IssueCode =
   | 'khronos'
@@ -86,6 +92,9 @@ const unsupportedExtension = (name: string): ContractIssue[] => {
 // Document checks
 // ---------------------------------------------------------------------------------------------
 
+// A product and a body module are each one object, so each has exactly one root node.
+const ONE_ROOT_KINDS: readonly AssetKind[] = ['product', 'body-module']
+
 // The contract covers the default scene, which is the one a viewer loads.
 export function validateDocument(
   doc: Document,
@@ -117,7 +126,9 @@ export function validateDocument(
     ...checkTextures(contract, doc),
     ...checkUnits(contract, bounds),
     ...(contract.kind === 'base-car' ? checkCarPose(nodes, bounds) : []),
-    ...(contract.kind === 'product' ? checkRootCount(scene?.listChildren().length ?? 0) : []),
+    ...(ONE_ROOT_KINDS.includes(contract.kind)
+      ? checkRootCount(contract.kind, scene?.listChildren().length ?? 0)
+      : []),
   ]
 }
 
@@ -132,12 +143,24 @@ function checkBytes(contract: AssetContract, bytes: number): ContractIssue[] {
 }
 
 // Names match exactly, with case, anywhere in the scene graph. An anchor is a node with no mesh.
+// A base car's module nodes are the opposite: each must have a mesh, so a swap has something to
+// hide.
 function checkNames(contract: AssetContract, nodes: Node[]): ContractIssue[] {
   const issues: ContractIssue[] = []
   const named = (name: string) => nodes.filter((node) => node.getName() === name)
+  const meshNodes: readonly string[] = contract.kind === 'base-car' ? BODY_MODULES : []
   for (const name of contract.requiredNodes) {
-    if (named(name).length === 0)
+    const found = named(name)
+    if (found.length === 0) {
       issues.push(error('missing-node', `required node ${name} is missing`))
+    } else if (meshNodes.includes(name) && found.every((node) => !node.getMesh())) {
+      issues.push(
+        error(
+          'missing-node',
+          `${name} is a body module, so it must be a mesh node, and it has no mesh`,
+        ),
+      )
+    }
   }
   for (const name of contract.requiredAnchors) {
     const found = named(name)
@@ -373,9 +396,9 @@ function checkCarPose(nodes: Node[], bounds: Box): ContractIssue[] {
   return issues
 }
 
-function checkRootCount(roots: number): ContractIssue[] {
+function checkRootCount(kind: AssetKind, roots: number): ContractIssue[] {
   if (roots === 1) return []
-  return [error('root-count', `a product has exactly one root node, and this scene has ${roots}`)]
+  return [error('root-count', `a ${kind} has exactly one root node, and this scene has ${roots}`)]
 }
 
 // ---------------------------------------------------------------------------------------------

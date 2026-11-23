@@ -31,8 +31,8 @@ The schemas in [`src/data/schemas.ts`](../../src/data/schemas.ts) are the contra
 | Collection | Schema | What it holds |
 |---|---|---|
 | `generations` | `Generation` | Chassis, production years, engines, bodies and their sources, dimensions per body, driver eye point, stock wheel fitment per axle |
-| `variants` | `Variant` | Market, body, transmissions, packages, paints, factory wheels, interiors, which asset renders it |
-| `parts` | `Part` | A product or a generic tier, with fitment attributes, options, prices, labor, 3D model, sources |
+| `variants` | `Variant` | Market, body, transmissions, packages, paints, factory wheels, interiors, which assets render it (base car, interior, body modules) |
+| `parts` | `Part` | A product or a generic tier, with fitment attributes, options, prices, labor, 3D model (and the body modules it replaces), sources |
 | `maintenance` | `MaintenanceItem` | A service interval with parts, fluids, cost ranges and a buyer's inspection note |
 | `issues` | `KnownIssue` | A known problem with symptoms, cause, fix, cost range and how common it is |
 
@@ -41,11 +41,41 @@ The schemas reject keys they don't list, so a typo like `brnad:` is an error ins
 - A part with no `brand` has no prices, at part level or in any option.
 - A visible part has a `model`. A part that isn't visible has none.
 - A part with `options` keeps its `attributes` and `prices` on each option, with unique option ids.
+- A model's `replaces` names at least one body module, each at most once, and only from the four in `BODY_MODULES`. A variant's `render.modules` has only those four as keys.
 - A part's `attributes.kind` matches its category: `wheel` and `hub-ring` go with `wheels`, `tire` with `tires`, `brake-kit` with `brakes`, `suspension` with `suspension`.
 - `inspectWhenBuying: true` needs a non-empty `howToCheck`.
 - A maintenance interval has `miles`, `months` or both.
 - A measured driver eye point has sources. An estimated one may have none.
 - Dimensions are keyed by bodies the generation lists, and there's at least one.
+
+### Body module swaps
+
+The base car is split into four swappable modules: `bumper_front`, `bumper_rear`, `trunk_lid` and `roof`. Their names are exact, and the list is `BODY_MODULES` in [`src/lib/asset-contract.ts`](../../src/lib/asset-contract.ts). Two fields use them, and both rest on the same swap: the configurator hides the base car's module and shows the replacement asset at the car origin. How the models are built is in [the 3D asset standard](3d-assets.md#body-modules).
+
+**Factory variants: `render.modules` on a variant.** It names the module asset the variant uses in place of the base car's own. A module left out keeps the base car's.
+
+```yaml
+render:
+  baseAsset: e46-coupe-body
+  interiorAsset: e46-coupe-interior
+  modules:
+    trunk_lid: e46-csl-trunk-lid
+    roof: e46-csl-roof
+```
+
+The US coupe leaves `modules` out and renders the base car as it is. Each value is the id of a `body-module` asset. The keys are body modules only: `hood: x` is an error.
+
+**Aftermarket body parts: `replaces` on a part's `model`.** A bumper or trunk lid that replaces the stock one lists what it takes over. It sits on both kinds of model, `{ asset }` and `{ standIn }`.
+
+```yaml
+model:
+  asset: example-ducktail-trunk-lid
+  replaces: [trunk_lid]
+```
+
+`replaces` has at least one module, and no module twice. Leave it out for a part that doesn't replace anything, such as a wheel. A part that isn't visible has no model, so it has no `replaces`.
+
+**One mechanism for both.** A CSL's trunk lid and an aftermarket trunk lid are each a `body-module` asset that replaces `trunk_lid`. The variant picks the first, and a build picks the second. The schemas don't say which one wins when a build's part and its variant name the same module: the configurator decides that.
 
 Dates are calendar dates, `YYYY-MM-DD`, such as `2026-11-23`, with no time of day. Write them unquoted or quoted: both parse to the same instant, midnight UTC. A time (`2026-11-23T10:30`), an impossible date (`2026-02-31`) or a Date with a time of day is an error, because a time without a zone means different instants on different machines.
 

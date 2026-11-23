@@ -1,15 +1,29 @@
+import { readFileSync } from 'node:fs'
 import type { Document } from '@gltf-transform/core'
 import { describe, expect, test } from 'vitest'
-import { CONTRACTS } from '../../../src/lib/asset-contract.ts'
+import {
+  ASSET_KINDS,
+  type AssetKind,
+  BODY_MODULES,
+  CONTRACTS,
+} from '../../../src/lib/asset-contract.ts'
 import {
   type ContractIssue,
   validateDocument,
   validateGlb,
 } from '../../../src/lib/asset-validate.ts'
-import { jsonOnlyGlb, makeBaseCar, makeInterior, makePng, makeProduct, toGlb } from './fixtures.ts'
+import {
+  jsonOnlyGlb,
+  makeBaseCar,
+  makeBodyModule,
+  makeInterior,
+  makePng,
+  makeProduct,
+  toGlb,
+} from './fixtures.ts'
 
 const errs = (i: ContractIssue[]) => i.filter((x) => x.severity === 'error').map((x) => x.code)
-const check = (doc: Document, kind: 'base-car' | 'interior' | 'product', bytes = 1e6) =>
+const check = (doc: Document, kind: AssetKind, bytes = 1e6) =>
   validateDocument(doc, { kind, bytes })
 
 test('a well-formed base car passes', () =>
@@ -339,6 +353,137 @@ describe('interior and product', () => {
   })
 })
 
+describe('body modules in a base car', () => {
+  const MODULES = ['bumper_front', 'bumper_rear', 'trunk_lid', 'roof'] as const
+
+  test('the module names are exactly these four', () => {
+    expect(BODY_MODULES).toEqual(MODULES)
+  })
+
+  test('a base car requires the body node and one node per module', () => {
+    expect(CONTRACTS['base-car'].requiredNodes).toEqual(['body', ...MODULES])
+  })
+
+  test.each(MODULES)('a base car without %s fails with missing-node, naming it', (name) => {
+    const i = check(makeBaseCar({ omitNode: name }), 'base-car')
+    expect(errs(i)).toEqual(['missing-node'])
+    expect(i).toContainEqual(
+      expect.objectContaining({ code: 'missing-node', message: expect.stringContaining(name) }),
+    )
+  })
+
+  test('the fixture builder refuses a node that is not a module', () => {
+    expect(() => makeBaseCar({ omitNode: 'hood' })).toThrow(/body module/)
+  })
+
+  test('a module node with no mesh fails, and the message says it must be a mesh node', () => {
+    const doc = makeBaseCar()
+    doc
+      .getRoot()
+      .listNodes()
+      .find((n) => n.getName() === 'roof')
+      ?.setMesh(null)
+    const i = check(doc, 'base-car')
+    expect(errs(i)).toEqual(['missing-node'])
+    expect(i).toContainEqual(
+      expect.objectContaining({
+        code: 'missing-node',
+        message: expect.stringMatching(/roof.*must be a mesh node|mesh node.*roof/),
+      }),
+    )
+  })
+
+  test('module names are case-sensitive', () => {
+    const doc = makeBaseCar()
+    doc
+      .getRoot()
+      .listNodes()
+      .find((n) => n.getName() === 'roof')
+      ?.setName('Roof')
+    expect(check(doc, 'base-car')).toContainEqual(
+      expect.objectContaining({ code: 'missing-node', message: expect.stringContaining('roof') }),
+    )
+  })
+
+  test('a module node is not an anchor, so a module with a mesh raises no anchor error', () => {
+    expect(errs(check(makeBaseCar(), 'base-car'))).not.toContain('missing-anchor')
+    for (const name of MODULES) expect(CONTRACTS['base-car'].requiredAnchors).not.toContain(name)
+  })
+
+  test('the module meshes count toward the base car budget', () => {
+    expect(errs(check(makeBaseCar({ triangles: 100_000 }), 'base-car'))).toEqual([])
+    expect(errs(check(makeBaseCar({ triangles: 99_999 }), 'base-car'))).toContain('triangles')
+    expect(errs(check(makeBaseCar({ triangles: 200_000 }), 'base-car'))).toEqual([])
+  })
+})
+
+describe('the body-module kind', () => {
+  test('a well-formed body module passes', () =>
+    expect(errs(check(makeBodyModule(), 'body-module'))).toEqual([]))
+
+  test('a module with 2 roots fails with root-count', () => {
+    const i = check(makeBodyModule({ roots: 2 }), 'body-module')
+    expect(errs(i)).toEqual(['root-count'])
+    expect(i[0]?.message).toContain('body-module')
+  })
+
+  test('a module with no scene, or an empty one, has no root', () => {
+    const empty = makeBodyModule()
+    for (const node of empty.getRoot().listNodes()) node.dispose()
+    expect(errs(check(empty, 'body-module'))).toContain('root-count')
+    const noScene = makeBodyModule()
+    for (const scene of noScene.getRoot().listScenes()) scene.dispose()
+    expect(errs(check(noScene, 'body-module'))).toContain('root-count')
+  })
+
+  test('20,000 triangles pass, and 31,000 fail with the count in the message', () => {
+    expect(errs(check(makeBodyModule({ triangles: 20_000 }), 'body-module'))).toEqual([])
+    const over = check(makeBodyModule({ triangles: 31_000 }), 'body-module')
+    expect(errs(over)).toEqual(['triangles'])
+    expect(over[0]?.message).toContain('31,000')
+  })
+
+  test('the triangle limit is the product limit, 30,000', () => {
+    expect(errs(check(makeBodyModule({ triangles: 30_000 }), 'body-module'))).toEqual([])
+    expect(errs(check(makeBodyModule({ triangles: 30_012 }), 'body-module'))).toContain('triangles')
+  })
+
+  test('the file is held to the product size, 1,000,000 bytes', () => {
+    expect(errs(check(makeBodyModule(), 'body-module', 1_000_000))).toEqual([])
+    expect(errs(check(makeBodyModule(), 'body-module', 1_000_001))).toContain('bytes')
+  })
+
+  test('textures are held to 2K, with no 4K exception', () => {
+    const doc = makeBodyModule()
+    const paint = doc.getRoot().listMaterials()[0]
+    const big = doc.createTexture('detail').setImage(makePng(4096)).setMimeType('image/png')
+    paint?.setBaseColorTexture(big)
+    expect(errs(check(doc, 'body-module'))).toContain('texture-size')
+    big.dispose()
+    paint?.setBaseColorTexture(
+      doc.createTexture('ok').setImage(makePng(2048)).setMimeType('image/png'),
+    )
+    expect(errs(check(doc, 'body-module'))).toEqual([])
+  })
+
+  test('a module exported in centimeters fails with units', () => {
+    const doc = makeBodyModule()
+    doc.getRoot().listNodes()[0]?.setScale([100, 100, 100])
+    expect(errs(check(doc, 'body-module'))).toContain('units')
+  })
+
+  test('a module needs no particular nodes, anchors or materials', () => {
+    expect(CONTRACTS['body-module'].requiredNodes).toEqual([])
+    expect(CONTRACTS['body-module'].requiredAnchors).toEqual([])
+    expect(CONTRACTS['body-module'].requiredMaterials).toEqual([])
+  })
+
+  test('only a product and a body module need exactly one root', () => {
+    expect(errs(check(makeBaseCar(), 'base-car'))).not.toContain('root-count')
+    expect(errs(check(makeInterior(), 'interior'))).not.toContain('root-count')
+  })
+})
+
 describe('unsupported extensions', () => {
   const instancing = expect.objectContaining({
     code: 'unsupported-extension',
@@ -400,6 +545,8 @@ describe('file size', () => {
     expect(errs(check(makeInterior(), 'interior', 6_000_001))).toContain('bytes')
     expect(errs(check(makeProduct(), 'product', 1_000_000))).toEqual([])
     expect(errs(check(makeProduct(), 'product', 1_000_001))).toContain('bytes')
+    expect(errs(check(makeBodyModule(), 'body-module', 1_000_000))).toEqual([])
+    expect(errs(check(makeBodyModule(), 'body-module', 1_000_001))).toContain('bytes')
   })
 })
 
@@ -407,7 +554,7 @@ describe('contract values', () => {
   test('match spec section 9.6', () => {
     expect(CONTRACTS['base-car']).toEqual({
       kind: 'base-car',
-      requiredNodes: ['body'],
+      requiredNodes: ['body', 'bumper_front', 'bumper_rear', 'trunk_lid', 'roof'],
       requiredAnchors: [
         'wheel_FL',
         'wheel_FR',
@@ -454,6 +601,36 @@ describe('contract values', () => {
       maxBytes: 1_000_000,
       maxTextureSize: 2048,
     })
+    expect(CONTRACTS['body-module']).toEqual({
+      kind: 'body-module',
+      requiredNodes: [],
+      requiredAnchors: [],
+      requiredMaterials: [],
+      triangles: { min: 0, max: 30_000 },
+      maxBytes: 1_000_000,
+      maxTextureSize: 2048,
+    })
+  })
+
+  test('a body module has the budgets of a product, whatever they are', () => {
+    expect({ ...CONTRACTS['body-module'], kind: 'product' }).toEqual(CONTRACTS.product)
+  })
+
+  test('the kinds are base-car, interior, product and body-module, each with a contract', () => {
+    expect(ASSET_KINDS).toEqual(['base-car', 'interior', 'product', 'body-module'])
+    for (const kind of ASSET_KINDS) expect(CONTRACTS[kind].kind).toBe(kind)
+  })
+
+  // schemas.ts imports this file, and tools/check-data.ts loads schemas.ts, so a heavy import
+  // here would slow every data check down. It holds contract data only.
+  test('the contract file imports nothing', () => {
+    const source = readFileSync(
+      new URL('../../../src/lib/asset-contract.ts', import.meta.url),
+      'utf8',
+    )
+    expect(source).not.toMatch(/^\s*import\b/m)
+    expect(source).not.toMatch(/\bimport\s*\(/)
+    expect(source).not.toMatch(/\brequire\s*\(/)
   })
 })
 
@@ -461,6 +638,17 @@ describe('validateGlb', () => {
   test('a well-formed product GLB passes the Khronos validator and the contract', async () => {
     const result = await validateGlb(await toGlb(makeProduct()), 'product')
     expect(result).toEqual({ ok: true, issues: [] })
+  })
+
+  test('a well-formed body module GLB passes the Khronos validator and the contract', async () => {
+    const result = await validateGlb(await toGlb(makeBodyModule()), 'body-module')
+    expect(result).toEqual({ ok: true, issues: [] })
+  })
+
+  test('a body module GLB with 2 roots fails', async () => {
+    const result = await validateGlb(await toGlb(makeBodyModule({ roots: 2 })), 'body-module')
+    expect(result.ok).toBe(false)
+    expect(errs(result.issues)).toEqual(['root-count'])
   })
 
   test('a well-formed base car GLB passes', async () => {

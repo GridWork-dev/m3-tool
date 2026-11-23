@@ -24,7 +24,12 @@ test('entries carry paths relative to the data directory, with forward slashes',
   expect(set.parts.map((entry) => entry.file)).toEqual([
     'parts/e46/fixture-coilovers.yaml',
     'parts/e46/fixture-generic-wheels.yaml',
+    'parts/e46/fixture-trunk-lid.yaml',
     'parts/e46/fixture-wheel.yaml',
+  ])
+  expect(set.variants.map((entry) => entry.file)).toEqual([
+    'variants/e46/e46-us-coupe.yaml',
+    'variants/e46/fixture-csl-coupe.yaml',
   ])
 })
 
@@ -66,7 +71,7 @@ test('a schema failure comes back as code schema, with the Zod path in the messa
   expect(messages.some((message) => message.startsWith('options.0.prices.0.checked: '))).toBe(true)
   // The broken file is left out of the set; its neighbours still load.
   expect(set.parts.map((entry) => entry.data.id)).not.toContain('fixture-wheel')
-  expect(set.parts).toHaveLength(2)
+  expect(set.parts).toHaveLength(3)
 })
 
 test('invalid YAML, duplicate keys and empty files come back as schema issues', async () => {
