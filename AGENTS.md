@@ -4,7 +4,7 @@
 
 m3-tool is a free reference site for BMW M3 owners and shoppers: factory spec, real aftermarket parts with dated prices, build costs and maintenance. It sells nothing and links to no stores.
 
-Read the [design spec](docs/superpowers/specs/2026-11-23-m3-tool-design.md) before you plan work. This file is derived from it, plus later decisions recorded in PRs and ADRs. Where the spec and this file disagree, this file wins. Spec amendments land in `contract` PRs.
+Read the [design spec](docs/superpowers/specs/2026-11-23-m3-tool-design.md) before you plan work. This file is derived from it, plus later decisions recorded in PRs and ADRs. Where the spec and this file disagree, this file wins. Spec amendments are marked `(amended YYYY-MM-DD)`.
 
 ## Commands
 

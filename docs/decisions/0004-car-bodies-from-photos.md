@@ -14,7 +14,7 @@ The tool needs a medium photoreal body for each generation, starting with the E4
 - **Three guards, all required.** (1) A proportion check: length, wheelbase and height ratios from the side silhouette are within 2% of the data dimensions. (2) A vision critic compares the views against the real photos. (3) The user approves the set.
 - **Synthesized views are generator inputs only.** Scoring compares against real photos only. Which real photos fed which view is recorded.
 - **Generators are reached through fal** with one key (`M3_FAL_KEY`): Rodin 2.5, Hunyuan 3.1 Pro, Tripo H3.1 and Meshy 7.1. Tripo and Meshy also have direct keys. Rodin 2.5 is the main generator, and it takes up to 5 views.
-- **Hunyuan is experiment-only** because of its license, and never runs on machines in the EU, UK or South Korea.
+- **Hunyuan is experiment-only** because of its license. The terms the spec cites are the Hunyuan3D 2.x community license, which excludes the EU, UK and South Korea. 3.1 Pro is treated the same until its own terms are read. It never runs on machines in the EU, UK or South Korea.
 - **The Phase 0 spike gates this approach** (spec section 9.9). If it fails, licensed marketplace models are a fallback that is offered to the user, never switched to automatically.
 - **The Phase 0 spike cap is $50 of paid 3D generation,** logged in the ledger. View synthesis comes out of the same cap.
 
@@ -22,7 +22,7 @@ The tool needs a medium photoreal body for each generation, starting with the E4
 
 - **Buying licensed marketplace models.** Highest and most predictable quality, but it costs money per generation, and each license needs checking for in-browser use. This is the fallback, not the plan.
 - **An LLM hand-modeling the body in Blender.** Rejected. In BlenderGym, top vision models struggle with tasks that are easy for humans. 2026 Blender benchmarks show realism is the weakest dimension, and reconstruction from references is weaker than generation from text. Agents model only parametric parts.
-- **A self-hosted GPU for the spike.** Rejected. APIs are cheaper at this volume, and Hunyuan's license excludes the EU, UK and South Korea.
+- **A self-hosted GPU for the spike.** Rejected. APIs are cheaper at this volume, and the Hunyuan3D 2.x license excludes the EU, UK and South Korea.
 - **Scoring against synthesized views too.** Rejected. Scoring uses real photos only.
 - **Hunyuan as the main generator.** Rejected for its license.
 

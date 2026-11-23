@@ -10,7 +10,7 @@ Two lanes build against one set of GLB rules: the 3D lane makes models, and the 
 ## Decision
 
 - **One frame for every asset:** meters, Y up, nose toward −Z, origin on the ground under the middle of the wheelbase.
-- **Four kinds:** `base-car`, `interior`, `product` and `body-module`. Each has required nodes, anchors and materials, and a budget on triangles, file size and texture size. The names and numbers are in [the 3D asset standard](../standards/3d-assets.md) and `src/lib/asset-contract.ts`. The budgets are proposed.
+- **Four kinds:** `base-car`, `interior`, `product` and `body-module`. Each kind has its own requirements and budget. The names and numbers are in [the 3D asset standard](../standards/3d-assets.md) and `src/lib/asset-contract.ts`. The budgets are proposed.
 - **The base car carries swappable body modules:** `bumper_front`, `bumper_rear`, `trunk_lid` and `roof`. Each is a mesh node of the base car, named exactly like the module. A module node is not an anchor.
 - **The `body-module` kind is a replacement,** authored in the car frame: one root node, with its origin at the car origin and not at an anchor pivot. The configurator hides the base car's node of that name and shows the replacement at the car origin.
 - **One swap mechanism for both uses.** Factory variants name their module assets in `render.modules`. Aftermarket body parts list the modules they take over in `model.replaces`. A CSL trunk lid and an aftermarket trunk lid are the same kind of asset.
@@ -31,5 +31,5 @@ Two lanes build against one set of GLB rules: the 3D lane makes models, and the 
 - The swap must hide the base module, so the car never shows two roofs. Removing the swap shows the base module again.
 - The validator can't check that a module sits in its slot or that a model has no logo. The vision critic and the review in `/lab` check both.
 - Which part wins when two build parts replace the same module, or a build part and the variant's factory module, is not decided. It is an open item for Phase 2 (spec section 16).
-- One body-module asset may cover several modules, such as a bumper set. Its root then spans them.
+- One body-module asset may cover several modules, such as a CSL roof and trunk lid. Its root then spans them, and the validator's 4.0 m ceiling on its largest dimension still applies, so a front and rear bumper pair is too long for one asset. An asset listed under several module keys is shown once.
 - Export can't use `gltf-transform optimize`, which has no keep-leaves option. Calling `flatten()` or `join()` also needs `cleanup: false`.

@@ -77,7 +77,7 @@ model:
 
 A `standIn` with `replaces` uses a car-frame stand-in style for those modules, as a `body-module` asset does. The UI still labels it "3D look approximate".
 
-**One mechanism for both.** A CSL's trunk lid and an aftermarket trunk lid are each a `body-module` asset that replaces `trunk_lid`. The variant picks the first, and a build picks the second. One `body-module` asset may cover several modules, such as a bumper set. A variant names its id under each module it covers, and a part lists each of those modules in `replaces`. The asset's root node then spans them all, in the base car's frame.
+**One mechanism for both.** A CSL's trunk lid and an aftermarket trunk lid are each a `body-module` asset that replaces `trunk_lid`. The variant picks the first, and a build picks the second. One `body-module` asset may cover several modules, such as a CSL roof and trunk lid. A variant names its id under each module it covers, and a part lists each of those modules in `replaces`. The asset's root node then spans them all, in the base car's frame, and its largest dimension must stay within the 4.0 m ceiling for the kind, so a front and rear bumper pair is too long for one asset. An asset listed under several modules is shown once.
 
 The schemas don't say which one wins when a build's part and its variant name the same module: the configurator decides that, and the rule isn't settled yet (open item 5 in spec section 16).
 

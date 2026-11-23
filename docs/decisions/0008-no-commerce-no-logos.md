@@ -25,7 +25,7 @@ The 3D models show real cars and products that look like real products, includin
 - **Affiliate links or ads:** rejected. The user's decision is free, no selling and no store links. Hosting stays at $0 a month on free tiers.
 - **Linking a price to its source page:** rejected. It is a store link under another name.
 - **Showing logos on real products, such as wheel center caps:** rejected. Logos are marks, and the product's mark is treated like BMW's.
-- **Paraphrasing the notice or putting it behind a click:** rejected. The e2e tests check the exact text.
+- **Paraphrasing the notice or putting it behind a click:** rejected. The e2e smoke test checks the core sentence only, so "word for word" is a review rule.
 
 ## Consequences
 
