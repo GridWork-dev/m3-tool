@@ -17,11 +17,11 @@ Then check that your setup works with `pnpm check`.
 
 ## Make a change
 
-1. Branch from `main` (`git worktree add ../m3-tool.worktrees/<slug> -b <branch> origin/main` keeps your other work clean). `main` is protected, so every change is a pull request.
+1. Branch from `main` (`git worktree add ../m3-tool.worktrees/<slug> -b <branch> origin/main` keeps your other work clean, but run `pnpm install` and `uv sync --project pipeline` in it). `main` is protected, so every change is a pull request.
 2. Run `pnpm check` and `pnpm e2e` (after `pnpm build`) until both are green.
 3. Commit with [Conventional Commits](https://www.conventionalcommits.org/) (`feat(data): ...`, `fix(pipeline): ...`, `docs: ...`). Stage files by path.
 4. Open a PR from the template. Say `Closes #<issue>`. Attach before-and-after screenshots for UI or 3D changes.
-5. CI runs `check`, `e2e` and `gitleaks`, and they must pass. Each PR also gets a preview deploy. A reviewer reads it and a second model gives a second opinion before it merges.
+5. CI runs `check`, `e2e` and `gitleaks`, and they must pass. Each PR from this repo also gets a preview deploy. Fork PRs are skipped, because they get no secrets. A reviewer reads it and a second model gives a second opinion before it merges.
 
 ## The rules in short
 

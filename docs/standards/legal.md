@@ -4,7 +4,7 @@ The rules that keep a free fan project on the right side of trademark, copyright
 
 ## Trademarks
 
-- **Use "BMW" and "M3" only to describe the car.** They're BMW AG's trademarks. Write "BMW M3 (E46)" to say what the page covers. Don't use either as the name of the tool, a product or a section, and keep both out of the domain.
+- **Use "BMW" and "M3" only to describe the car.** They're BMW AG's trademarks. Write "BMW M3 (E46)" to say what the page covers. The public name and domain will avoid both words. `m3-tool` is a placeholder repo and working name until the public beta.
 - **Show no BMW marks.** Not in the UI, not in a model, not in a texture.
 - **Name a real product in text only.** A part page says "Brand Product" to identify it. Its logo is as forbidden as BMW's.
 

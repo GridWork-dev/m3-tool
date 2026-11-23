@@ -4,11 +4,11 @@
 
 m3-tool is a free reference site for BMW M3 owners and shoppers: factory spec, real aftermarket parts with dated prices, build costs and maintenance. It sells nothing and links to no stores.
 
-Read the [design spec](docs/superpowers/specs/2026-11-23-m3-tool-design.md) before you plan work. Every rule below comes from it.
+Read the [design spec](docs/superpowers/specs/2026-11-23-m3-tool-design.md) before you plan work. This file is derived from it, plus later decisions recorded in PRs and ADRs. Where the spec and this file disagree, this file wins. The next `contract` PR amends the spec.
 
 ## Commands
 
-Set up once: `mise install`, `pnpm install`, `uv sync --project pipeline`. Run everything from the repo root.
+Set up once per machine: `mise install`. Set up in every worktree, each new one included: `pnpm install` and `uv sync --project pipeline`. Then run `pnpm exec playwright install chromium` once, for `pnpm e2e`. Run everything from the repo root.
 
 | Command | What it answers |
 |---|---|
@@ -24,7 +24,7 @@ Set up once: `mise install`, `pnpm install`, `uv sync --project pipeline`. Run e
 
 `pipeline` is the Typer CLI in `pipeline/`. Run it as `uv run --project pipeline pipeline <command>`. It also has `pipeline assets`, which lists `pipeline/assets.toml`.
 
-**Why `pnpm typecheck`:** it runs `astro sync && node node_modules/typescript-7/bin/tsc --noEmit && astro check`. The root `typescript` is 6.0.3 because `astro check` needs it. TypeScript 7.0.2 is installed as the alias `typescript-7`. A bare `tsc` runs 6.0.3 and gives different answers.
+**Why `pnpm typecheck`:** it runs `astro sync && node node_modules/typescript-7/bin/tsc --noEmit && astro check`. A bare `tsc` skips `astro sync`, so a fresh tree can't resolve `astro:content`, and it skips `astro check`, so `.astro` files go unchecked. It also runs whichever TypeScript pnpm links into `node_modules/.bin`, which depends on link order. The root `typescript` is 6.0.3 because `astro check` needs it, and TypeScript 7.0.2 is installed as the alias `typescript-7`.
 
 **Dev server:** start it in the background so you can keep working.
 - `pnpm astro dev --background` starts it. Add `--port <n>` to change the port (default 4321).
@@ -50,7 +50,7 @@ infra/                  Cloudflare resources, the main ruleset, R2 CORS (see inf
 .github/workflows/ (ci, deploy)  .githooks/pre-push  renovate.json  biome.json  mise.toml  wrangler.jsonc
 ```
 
-Phase 1 adds `src/configurator/`, `tests/visual/`, `pipeline/blender/` and `docs/decisions/`.
+Phase 1 adds `src/configurator/`, `tests/visual/` and `pipeline/blender/`.
 
 ## Hard rules
 
@@ -88,7 +88,7 @@ Phase 1 adds `src/configurator/`, `tests/visual/`, `pipeline/blender/` and `docs
 
 ## Workflow
 
-1. Work on a branch in its own worktree: `git worktree add ../m3-tool.worktrees/<slug> -b <branch> origin/main`. `main` is protected, so a PR is the only way in.
+1. Work on a branch in its own worktree: `git worktree add ../m3-tool.worktrees/<slug> -b <branch> origin/main`, then set it up as above. `main` is protected, so a PR is the only way in.
 2. Run `pnpm check` and `pnpm e2e` green, push, and open a PR from the [template](.github/pull_request_template.md). Say `Closes #<issue>`. UI and 3D changes carry before-and-after screenshots.
 3. Wait for CI. The required checks are `check`, `e2e` and `gitleaks`. `deploy` runs too, but it isn't required, because it needs secrets that fork PRs don't get.
 4. Get a task review, plus a Codex second opinion through the `codex-review` skill. Data PRs also get the data verifier. `safety` PRs (maintenance and issues) wait for the user's spot-check.
