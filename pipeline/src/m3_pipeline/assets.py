@@ -1,9 +1,14 @@
+import re
 import tomllib
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal, cast, get_args
 
 AssetKind = Literal["base-car", "interior", "product"]
+
+# Asset ids are kebab-case, like every id in the data files. They also become directory names
+# under the work dir, so this keeps a hand-edited assets.toml from naming a path like `..`.
+ID_PATTERN = re.compile(r"[a-z0-9]+(-[a-z0-9]+)*")
 
 
 @dataclass(frozen=True)
@@ -25,6 +30,11 @@ def load_assets(path: Path) -> dict[str, AssetSpec]:
 
 
 def _parse(asset_id: str, table: object) -> AssetSpec:
+    if not ID_PATTERN.fullmatch(asset_id):
+        raise AssetConfigError(
+            f"asset id {asset_id!r} must be kebab-case: lowercase letters and digits "
+            "joined by single hyphens"
+        )
     if not isinstance(table, dict):
         raise AssetConfigError(f"asset {asset_id!r}: expected a table")
     fields = cast("dict[str, object]", table)
