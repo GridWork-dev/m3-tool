@@ -1,14 +1,32 @@
+import re
 from pathlib import Path
+from typing import get_args
 
 import pytest
 
-from m3_pipeline.assets import AssetConfigError, AssetSpec, load_assets
+from m3_pipeline.assets import AssetConfigError, AssetKind, AssetSpec, load_assets
 from m3_pipeline.config import load_settings
 
 
 def test_load_assets_parses_repo_file() -> None:
     assets = load_assets(load_settings({}).repo_root / "pipeline/assets.toml")
     assert assets["e46-coupe-body"] == AssetSpec("e46-coupe-body", "base-car", "e46", "e46-coupe")
+
+
+def test_load_assets_accepts_a_body_module(tmp_path: Path) -> None:
+    p = tmp_path / "a.toml"
+    p.write_text('[e46-csl-trunk-lid]\nkind = "body-module"\ngeneration = "e46"\nsubject = "s"\n')
+    assert load_assets(p) == {
+        "e46-csl-trunk-lid": AssetSpec("e46-csl-trunk-lid", "body-module", "e46", "s")
+    }
+
+
+def test_asset_kinds_match_the_typescript_contract() -> None:
+    # src/lib/asset-contract.ts is the source of truth; AssetKind is its Python copy.
+    source = (load_settings({}).repo_root / "src/lib/asset-contract.ts").read_text()
+    match = re.search(r"ASSET_KINDS\s*=\s*\[(.*?)\]\s*as const", source, re.DOTALL)
+    assert match is not None
+    assert re.findall(r"'([^']+)'", match.group(1)) == list(get_args(AssetKind))
 
 
 def test_load_assets_rejects_unknown_kind(tmp_path: Path) -> None:

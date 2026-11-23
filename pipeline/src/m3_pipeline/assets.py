@@ -4,7 +4,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal, cast, get_args
 
-AssetKind = Literal["base-car", "interior", "product"]
+# Keep in step with ASSET_KINDS in src/lib/asset-contract.ts. A test compares the two.
+AssetKind = Literal["base-car", "interior", "product", "body-module"]
 
 # Asset ids are kebab-case, like every id in the data files. They also become directory names
 # under the work dir, so this keeps a hand-edited assets.toml from naming a path like `..`.
