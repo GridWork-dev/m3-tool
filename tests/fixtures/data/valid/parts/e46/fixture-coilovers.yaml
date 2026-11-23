@@ -1,0 +1,31 @@
+# FIXTURE DATA. Invented values for tests; not a real product.
+id: fixture-coilovers
+name: Fixture Coilovers
+brand: Fixture Co
+category: suspension
+visible: true
+fits:
+  generation: e46
+  transmissions: [6mt, smg]
+attributes:
+  kind: suspension
+  rideDropMm: [20, 40]
+requires: [fixture-wheel]
+labor:
+  hours: [4, 6]
+  diy: pro
+prices:
+  - amount: 900
+    currency: USD
+    seller: Fixture Seller
+    checked: 2026-11-23
+model:
+  asset: fixture-coilovers
+claims:
+  - Fixture Co claims a fixture lowering range.
+sources:
+  - title: Fixture install guide
+    publisher: Fixture Co
+    tier: 1
+    accessed: 2026-11-23
+verified: false

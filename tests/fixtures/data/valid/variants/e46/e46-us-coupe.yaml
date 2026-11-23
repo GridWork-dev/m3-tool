@@ -1,0 +1,45 @@
+# FIXTURE DATA. Invented values for tests; none of this describes a real car.
+id: e46-us-coupe
+generation: e46
+name: Fixture US Coupe
+market: us
+body: coupe
+transmissions: [6mt, smg]
+years: [2001, 2006]
+packages:
+  - id: fixture-package
+    name: Fixture Package
+    summary: A package invented for tests.
+paints:
+  - code: FX1
+    name: Fixture Silver
+    finish: metallic
+    baseColor: '#c0c0c0'
+factoryWheels:
+  - id: fixture-factory-wheel
+    name: Fixture Factory Wheel
+    front:
+      diameterIn: 17
+      widthIn: 7.5
+      offsetMm: 40
+      tire: 225/45ZR17
+    rear:
+      diameterIn: 17
+      widthIn: 8.5
+      offsetMm: 30
+      tire: 255/40ZR17
+    asset: fixture-factory-wheel
+interiors:
+  - id: fixture-interior
+    name: Fixture Interior
+    color: Grey
+    material: cloth
+render:
+  baseAsset: fixture-base-asset
+  interiorAsset: fixture-interior-asset
+  note: Uses the fixture asset.
+sources:
+  - title: Fixture variant sheet
+    publisher: Fixture Co
+    tier: 1
+    accessed: 2026-11-23

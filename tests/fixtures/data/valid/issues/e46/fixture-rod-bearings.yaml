@@ -1,0 +1,23 @@
+# FIXTURE DATA. Invented values for tests; not a real known issue.
+id: fixture-rod-bearings
+generation: e46
+engine: FIXTURE-ENGINE
+title: Fixture bearing wear
+symptoms:
+  - A fixture noise.
+cause: A fixture cause.
+fix: A fixture fix.
+prevention: A fixture prevention.
+cost:
+  currency: USD
+  diy: [100, 200]
+  shop: [500, 900]
+frequency: very-common
+inspectWhenBuying: true
+howToCheck: A fixture check.
+sources:
+  - title: Fixture forum thread
+    publisher: Fixture Forum
+    tier: 3
+    accessed: 2026-11-23
+verified: false

@@ -1,0 +1,21 @@
+# FIXTURE DATA. Invented values for tests; not a real service interval.
+id: fixture-oil-service
+generation: e46
+engine: FIXTURE-ENGINE
+title: Fixture oil service
+interval:
+  miles: 5000
+  months: 6
+parts: [fixture oil filter]
+fluids: [fixture engine oil]
+cost:
+  currency: USD
+  diy: [20, 40]
+  shop: [60, 100]
+inspectWhenBuying: false
+sources:
+  - title: Fixture service schedule
+    publisher: Fixture Co
+    tier: 1
+    accessed: 2026-11-23
+verified: true

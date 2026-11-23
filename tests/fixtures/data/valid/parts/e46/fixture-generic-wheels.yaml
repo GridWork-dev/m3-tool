@@ -1,0 +1,12 @@
+# FIXTURE DATA. Invented values for tests; not a real product.
+id: fixture-generic-wheels
+name: Fixture Generic Wheels
+category: wheels
+visible: false
+fits:
+  generation: e46
+labor:
+  hours: [0.5, 1]
+  diy: easy
+sources: []
+verified: false

@@ -1,0 +1,120 @@
+# BMW M3 (E46), 2000-2006. Every value below was checked against the sources cited here on
+# 2026-11-23. Values with no source (the driver eye point) say so.
+id: e46
+name: M3 (E46)
+chassis: E46
+years: [2000, 2006]
+engines:
+  - code: S54B32
+    displacementCc: 3246
+    cylinders: 6
+bodies: [coupe, convertible]
+# Sources for name, chassis, years, engines and bodies. Dimensions, the eye point and fitment carry
+# their own.
+sources:
+  - title: "International presskit: Twenty Years of the BMW M3"
+    publisher: BMW Group
+    url: https://newsroom.bmwgroup.com/emea/international-presskit--twenty-years-of-the-bmw-m3
+    tier: 1
+    accessed: 2026-11-23
+    note: 'BMW Media Information 7/2007. Lists "BMW M3 (E46)" with a coupe and a convertible, dates the coupe''s debut to 2000 and the convertible to 2001, says production of the E46-based M3 ended in 2006, and gives the engine as a straight-six displacing 3,246 cc.'
+  - title: "BMW M3 Owner's Manual, online edition for part no. 01 41 0 157 628 (09/03): Engine data, p. 150"
+    publisher: BMW AG
+    url: https://archive.org/download/manualsonline-id-d3b68d3e-dade-4bda-875b-3716cdeabf3f/d3b68d3e-dade-4bda-875b-3716cdeabf3f.pdf
+    tier: 1
+    accessed: 2026-11-23
+    note: "Archive.org copy. Displacement 198.1 cu in / 3,246 cm3, 6 cylinders, bore 87 mm, stroke 91 mm."
+  - title: "ST041 M3 Complete Vehicle: E46 M3 Technical Data"
+    publisher: BMW Technical Training
+    url: https://archive.org/download/BMWTechnicalTrainingDocuments/ST041%20M3%20Complete%20Vehicle/1%20M3%20Complete%20Vehicle.pdf
+    tier: 1
+    accessed: 2026-11-23
+    note: "Copy hosted on archive.org; the file carries no publisher line. Its engine table gives engine type S54B32 (in-line, 6-cylinder, 4-valve) and engine size 3246 ccm."
+  - title: BMW M3 E46 [2000 .. 2006] wheel fitment, 3.2i (S54B32)
+    publisher: Koleso.ee (Astela OÜ)
+    url: https://koleso.ee/en/valuveljed/bmw/m3/263/e46-2000-2006/544
+    tier: 2
+    accessed: 2026-11-23
+    note: 'Tire retailer''s page. Lists generation "E46 [2000 .. 2006]", production 2000 - 2006, engine "3.2 L, S54B32, I6".'
+dimensions:
+  coupe:
+    lengthMm: 4492
+    widthMm: 1780
+    heightMm: 1372
+    wheelbaseMm: 2731
+    trackFrontMm: 1508
+    trackRearMm: 1525
+    sources:
+      - title: "BMW M3 Owner's Manual, online edition for part no. 01 41 0 157 628 (09/03): Dimensions, p. 151"
+        publisher: BMW AG
+        url: https://archive.org/download/manualsonline-id-d3b68d3e-dade-4bda-875b-3716cdeabf3f/d3b68d3e-dade-4bda-875b-3716cdeabf3f.pdf
+        tier: 1
+        accessed: 2026-11-23
+        note: "Archive.org copy of the US-market M3 manual (power in hp, sizes in inches). The drawing on p. 151 gives length 4,492, width 1,780, height 1,372, wheelbase 2,731, front track 1,508 and rear track 1,525 mm. It also shows a 1,924 mm width on the rear view, which is not used here."
+      - title: "ST041 M3 Complete Vehicle: E46 M3 Technical Data"
+        publisher: BMW Technical Training
+        url: https://archive.org/download/BMWTechnicalTrainingDocuments/ST041%20M3%20Complete%20Vehicle/1%20M3%20Complete%20Vehicle.pdf
+        tier: 1
+        accessed: 2026-11-23
+        note: "BMW training module for the E46 M3 coupe (production date 01/2001), copy hosted on archive.org; the file carries no publisher line. Its specifications table gives length 4492, width 1780, height (unladen) 1372 and wheelbase 2731 mm, and engine type S54B32. It has no track widths."
+driverEyePoint:
+  xMm: -370
+  yMm: 1100
+  zMm: 0
+  basis: estimated
+  note: Placeholder estimate. The 3D lane replaces it with a value measured from the interior asset.
+  sources: []
+# Stock here is the 18-inch wheel that Koleso.ee labels OEM for the 3.2i, and that Hubcap Haven lists
+# as Style 67 at 18x8 (front) and 18x9 (rear). The sources also show 19-inch sizes (225/40 ZR 19 and
+# 255/35 ZR 19 in the owner's manual, 19x8 ET47 and 19x9.5 ET27 at BimmerWorld). Those are not
+# modelled.
+fitment:
+  front:
+    boltPattern: 5x120
+    centerBoreMm: 72.6
+    stock:
+      diameterIn: 18
+      widthIn: 8
+      offsetMm: 47
+      tire: 225/45ZR18
+    envelopes: []
+  rear:
+    boltPattern: 5x120
+    centerBoreMm: 72.6
+    stock:
+      diameterIn: 18
+      widthIn: 9
+      offsetMm: 26
+      tire: 255/40ZR18
+    envelopes: []
+  sources:
+    - title: "BMW M3 Owner's Manual, online edition for part no. 01 41 0 157 628 (09/03): Tire inflation pressure, p. 27"
+      publisher: BMW AG
+      url: https://archive.org/download/manualsonline-id-d3b68d3e-dade-4bda-875b-3716cdeabf3f/d3b68d3e-dade-4bda-875b-3716cdeabf3f.pdf
+      tier: 1
+      accessed: 2026-11-23
+      note: "Lists tire sizes 225/45 ZR 18 (front) and 255/40 ZR 18 (rear) for the M3, and also lists 225/40 ZR 19 and 255/35 ZR 19. Gives no wheel widths or offsets."
+    - title: BMW M3 E46 [2000 .. 2006] wheel fitment, 3.2i (S54B32)
+      publisher: Koleso.ee (Astela OÜ)
+      url: https://koleso.ee/en/valuveljed/bmw/m3/263/e46-2000-2006/544
+      tier: 2
+      accessed: 2026-11-23
+      note: "Tire retailer's fitment data. Lists the OEM front as 225/45R18 on 8Jx18 ET47 and the OEM rear as 255/40R18 on 9Jx18 ET26, bolt pattern 5x120 and center bore 72.6 mm."
+    - title: ALY59367 BMW M3 Wheel/Rim Hyper Silver #36112229950
+      publisher: Hubcap Haven
+      url: https://www.hubcaphaven.com/p/3015/aly59367-bmw-m3-wheel-hyper-silver-36112229950.html
+      tier: 2
+      accessed: 2026-11-23
+      note: "Retailer listing for a replacement wheel under OE part number 36112229950 (option code Style 67, fitment front): 18x8, 5 lugs, 120 mm bolt pattern, 47 mm offset."
+    - title: ALY59368/59607 BMW M3 Wheel/Rim Hyper Silver #36112229960
+      publisher: Hubcap Haven
+      url: https://www.hubcaphaven.com/p/1705/aly59368-59607-bmw-m3-wheel-hyper-silver-36112229960.html
+      tier: 2
+      accessed: 2026-11-23
+      note: "Retailer listing for a replacement wheel under OE part number 36112229960 (option code Style 67, fitment rear): 18x9, 5 lugs, 120 mm bolt pattern, 26 mm offset."
+    - title: BMW Wheel Info and Tech Tips
+      publisher: BimmerWorld
+      url: https://www.bimmerworld.com/About-Us/Wheel-Info-Tech/
+      tier: 2
+      accessed: 2026-11-23
+      note: "Specialist shop's tech page. Its bolt pattern table gives 5x120 with a 72.56 mm center bore for the 5-lug E-chassis (E46 included), which rounds to the 72.6 used here. Its E46 M3 row lists 19x8.0 ET47 front and 19x9.5 ET27 rear as stock, which differs from the 18-inch sizes used here (Koleso.ee labels those OEM), so it is not used for the wheel sizes."
