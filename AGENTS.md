@@ -4,7 +4,7 @@
 
 m3-tool is a free reference site for BMW M3 owners and shoppers: factory spec, real aftermarket parts with dated prices, build costs and maintenance. It sells nothing and links to no stores.
 
-Read the [design spec](docs/superpowers/specs/2026-11-23-m3-tool-design.md) before you plan work. This file is derived from it, plus later decisions recorded in PRs and ADRs. Where the spec and this file disagree, this file wins. The next `contract` PR amends the spec.
+Read the [design spec](docs/superpowers/specs/2026-11-23-m3-tool-design.md) before you plan work. This file is derived from it, plus later decisions recorded in PRs and ADRs. Where the spec and this file disagree, this file wins. Spec amendments are marked `(amended YYYY-MM-DD)`.
 
 ## Commands
 
@@ -24,7 +24,7 @@ Set up once per machine: `mise install`. Set up in every worktree, each new one 
 
 `pipeline` is the Typer CLI in `pipeline/`. Run it as `uv run --project pipeline pipeline <command>`. It also has `pipeline assets`, which lists `pipeline/assets.toml`.
 
-**Why `pnpm typecheck`:** it runs `astro sync && node node_modules/typescript-7/bin/tsc --noEmit && astro check`. A bare `tsc` skips `astro sync`, so a fresh tree can't resolve `astro:content`, and it skips `astro check`, so `.astro` files go unchecked. It also runs whichever TypeScript pnpm links into `node_modules/.bin`, which depends on link order. The root `typescript` is 6.0.3 because `astro check` needs it, and TypeScript 7.0.2 is installed as the alias `typescript-7`.
+**Why `pnpm typecheck`:** it runs `astro sync && node node_modules/typescript-7/bin/tsc --noEmit && astro check`. A bare `tsc` skips `astro sync`, so a fresh tree can't resolve `astro:content`, and it skips `astro check`, so `.astro` files go unchecked. It also runs whichever TypeScript pnpm links into `node_modules/.bin`, and that version depends on how pnpm resolves the two `tsc` bins. The root `typescript` is 6.0.3 because `astro check` needs it, and TypeScript 7.0.2 is installed as the alias `typescript-7`.
 
 **Dev server:** start it in the background so you can keep working.
 - `pnpm astro dev --background` starts it. Add `--port <n>` to change the port (default 4321).
@@ -45,7 +45,7 @@ src/{pages,layouts,components,styles}/   the site
 pipeline/               Python (uv): assets.toml, src/m3_pipeline/{cli,config,assets,stages/}, tests/
 tools/                  check-data.ts, check-links.ts, validate-asset.ts (run with node)
 tests/{unit,e2e,fixtures}/   fixtures hold the sample data; visual tests arrive in Phase 1
-docs/{standards,superpowers/specs,superpowers/plans}/  docs/spend-ledger.md  (index: docs/README.md)
+docs/{standards,decisions,superpowers/specs,superpowers/plans}/  docs/spend-ledger.md  (index: docs/README.md)
 infra/                  Cloudflare resources, the main ruleset, R2 CORS (see infra/README.md)
 .github/workflows/ (ci, deploy)  .githooks/pre-push  renovate.json  biome.json  mise.toml  wrangler.jsonc
 ```
@@ -96,7 +96,7 @@ Phase 1 adds `src/configurator/`, `tests/visual/` and `pipeline/blender/`.
 
 Zero approvals are required, because the repo has one maintainer who can't approve their own PR. The review happens before the merge instead. See `infra/github-ruleset.json`.
 
-**Deploys** run from GitHub Actions (`deploy.yml`), not Workers Builds. A push to `main` runs `wrangler deploy`. Each PR gets a preview at `pr-<n>-m3-tool.broken-wood-97a9.workers.dev`, posted as a PR comment that starts with `<!-- m3-tool-preview -->`. Run the deploy script as `pnpm run deploy`: `pnpm deploy` is a pnpm built-in. Details are in [infra/README.md](infra/README.md).
+**Deploys** run from GitHub Actions (`deploy.yml`), not Workers Builds ([ADR 0001](docs/decisions/0001-static-site-on-workers.md)). A push to `main` runs `wrangler deploy`, and each same-repo PR gets a preview at `pr-<n>-m3-tool.broken-wood-97a9.workers.dev`, posted as a PR comment that starts with `<!-- m3-tool-preview -->`. Run the deploy script as `pnpm run deploy`, because `pnpm deploy` is a pnpm built-in. Details are in [infra/README.md](infra/README.md).
 
 ## Model routing
 
@@ -117,6 +117,7 @@ Opus reviews only when the orchestrator isn't Opus. With an Opus orchestrator, t
 
 - [docs/README.md](docs/README.md): the index.
 - [docs/standards/](docs/standards): code, testing, data, 3D assets, legal.
+- [docs/decisions/](docs/decisions): the ADRs. Read one before you reopen a decision.
 - [docs/superpowers/specs/](docs/superpowers/specs) and [docs/superpowers/plans/](docs/superpowers/plans): the design and the implementation plans.
 - [docs/spend-ledger.md](docs/spend-ledger.md): every paid call.
 - [infra/README.md](infra/README.md): Cloudflare resources and tokens, by name.
