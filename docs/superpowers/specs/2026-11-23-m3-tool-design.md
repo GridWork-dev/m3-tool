@@ -341,11 +341,11 @@ Real photos rarely give one matched view set of one car. This step makes one.
   3. The user approves it.
 - **Synthesized views are generator inputs only.** Section 9.7 scoring uses real photos only.
 - **Provenance:** which real photos fed which synthesized view is recorded.
-- **Cost:** it comes out of the spike cap.
+- **Cost:** every image-model call, including the A/B test of the two image models, comes out of the spike cap and gets its row in `docs/spend-ledger.md` before the call. (amended 2026-11-23)
 
 ### 9.2 Generation (`generate`)
 
-- **Main generator:** Rodin Gen-2.5 through an API (Hyper3D directly, or fal).
+- **Main generator:** Rodin 2.5 through an API (Hyper3D directly, or fal). (amended 2026-11-23)
   - Takes up to 5 views.
   - Outputs a quad or triangle mesh with PBR materials.
   - Resellers list about $0.40 per standard request.
@@ -356,7 +356,7 @@ Real photos rarely give one matched view set of one car. This step makes one.
 - **Reaching the generators** (amended 2026-11-23):
   - Through fal, with one key (`M3_FAL_KEY`): Rodin 2.5, Hunyuan 3.1 Pro, Tripo H3.1 multiview and Meshy 7.1.
   - Tripo and Meshy can also be called with their direct keys.
-  - Hunyuan stays experiment-only because of its license (section 3), and never runs on EU-hosted machines.
+  - Hunyuan stays experiment-only because of its license, and never runs on machines in the EU, UK or South Korea (see section 3). (amended 2026-11-23)
   - Inputs are the real views, plus the synthesized views from section 9.1a.
 - Several candidates are generated per asset, and the best is kept by score (section 9.7).
 - **Interior:** generated component by component (seats, dash with gauge cluster, steering wheel, door cards, center console), not as one enclosed scene. Today's generators build objects, not enclosed spaces.
@@ -428,6 +428,8 @@ Each visible product gets its own asset, built from its product photos and spec.
 | One body module (amended 2026-11-23) | ≤ 30k | ≤ 1 MB | ≤ 2K |
 
 ### 9.7 Scoring and the critic loop (`score`)
+
+**Scoring compares against real photos only** (amended 2026-11-23). The synthesized views from section 9.1a are generator inputs. Neither the automatic checks nor the vision critic score a render against them.
 
 **Automatic checks**
 - The Khronos glTF validator passes.
@@ -696,6 +698,7 @@ Still open:
 2. Spend cap for Phase 1 generation, asked once the spike result is in.
 3. Confirm the CC BY-SA 4.0 license for 3D models once the generator terms are checked.
 4. Which generation comes second, before Phase 4.
+5. Swap precedence, decided in Phase 2 when the configurator joins the build sheet: which module wins when two build parts replace the same module, and when a build part replaces a module the variant's factory module already swaps (sections 7.5 and 9.6). (amended 2026-11-23)
 
 ## 17. Left to the builder
 
