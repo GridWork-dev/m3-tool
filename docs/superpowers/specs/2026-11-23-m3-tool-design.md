@@ -4,7 +4,7 @@
 - **Status:** approved 2026-11-23
 - **Working name:** `m3-tool` (placeholder repo name). Public name and domain chosen before the public beta, with no BMW or M3 in the domain.
 - **Repo:** `GridWork-dev/m3-tool`, public from day one.
-- **Location:** `~/files/04-work/notes-and-planning/m3-tool/` until the repo exists, then `docs/superpowers/specs/` in the repo.
+- **Location:** the maintainer's notes folder until the repo existed; now `docs/superpowers/specs/` in the repo.
 
 All versions in this doc were checked on npm on 2026-11-23.
 

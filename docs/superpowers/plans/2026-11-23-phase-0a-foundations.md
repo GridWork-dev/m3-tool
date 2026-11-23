@@ -20,7 +20,7 @@ When this is done, Phase 0B (photo tooling) and both Phase 1 lanes build against
 
 **Tech Stack:** Astro 7.4.13, React 19.3.1, Tailwind 4.3.5, TypeScript 7.0.2, Vitest 5.1.1, Playwright 1.65.1, Biome 2.6.8, pnpm 12.23.0, Node 26.13.1, glTF-Transform 4.5.1, Wrangler 4.167.0, Python 3.14 + uv 0.13.9 + Typer 0.29.2, gitleaks 8.30.1.
 
-**Spec:** `docs/superpowers/specs/2026-11-23-m3-tool-design.md` (Task 1 moves it there from `~/files/04-work/notes-and-planning/m3-tool/`).
+**Spec:** `docs/superpowers/specs/2026-11-23-m3-tool-design.md` (Task 1 moves it there from the maintainer's notes folder).
 
 ## Global Constraints
 
@@ -136,7 +136,7 @@ m3-tool/
 - [ ] **Step 1: Create the repo and toolchain**
 
 ```bash
-mkdir -p ~/files/03-code/m3-tool && cd ~/files/03-code/m3-tool && git init -b main
+mkdir -p m3-tool && cd m3-tool && git init -b main
 ```
 Write `mise.toml` with `[tools]` set to the Global Constraints versions, then run `mise install`.
 Run: `node -v && pnpm -v && uv --version && gitleaks version`
@@ -281,7 +281,7 @@ If `astro check` fails to load TypeScript 7, scope TypeScript 6 to the checker o
 - `README.md`: what it is, the status (work in progress), the licenses, and links to `AGENTS.md` and `CONTRIBUTING.md` (both written in Task 7).
 - Move the docs:
   1. `git mv` isn't possible across repos, so move the spec and both plan files with `mv`.
-  2. Leave a `README.md` in `~/files/04-work/notes-and-planning/m3-tool/` that points to the repo paths.
+  2. Leave a `README.md` in the maintainer's notes folder that points to the repo paths.
 
 - [ ] **Step 12: Run everything**
 
@@ -528,7 +528,7 @@ Renovate needs its GitHub app on the GridWork-dev org. If `gh api repos/GridWork
 
 ### Task 4: Cloudflare deploy, PR previews and R2
 
-> Amended 2026-11-23 (ledger R8/R9). The user chose GitHub Actions over Workers Builds. Cloudflare tokens are minted by the **controller** through the API with the laptop's `CLOUDFLARE_KEY_MGMT_TOKEN`. Nothing is done in the dashboard. Implementers use the bootstrap token already in `~/.config/secrets.env` (`M3_CF_API_TOKEN`, `M3_CF_ACCOUNT_ID`), but never mint tokens and never print token values.
+> Amended 2026-11-23 (ledger R8/R9). The user chose GitHub Actions over Workers Builds. Cloudflare tokens are minted by the **controller** through the API with the account's key-management token. Nothing is done in the dashboard. Implementers use the bootstrap token already in `~/.config/secrets.env` (`M3_CF_API_TOKEN`, `M3_CF_ACCOUNT_ID`), but never mint tokens and never print token values.
 
 **Files:**
 - Create: `wrangler.jsonc`, `.github/workflows/deploy.yml`, `infra/README.md`, `infra/r2-models-cors.json`
