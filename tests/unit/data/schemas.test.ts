@@ -179,6 +179,69 @@ describe('source', () => {
   })
 })
 
+describe('required text', () => {
+  const ok = { amount: 1, currency: 'USD', seller: 'S', checked: '2026-11-23' }
+  const blanks = ['', ' ', '   ', '\t', '\n', ' \t\n ', '\u00a0', '\u3000']
+
+  test.each(blanks)('rejects the blank seller %j', (seller) => {
+    const r = PriceObservation.safeParse({ ...ok, seller })
+    expect(r.success).toBe(false)
+    expect(issuePaths(r)).toContain('seller')
+  })
+
+  test('rejects whitespace-only fields wherever Text is used', () => {
+    const cases: [string, unknown, string][] = [
+      [
+        'source title',
+        Source.safeParse({ title: ' ', publisher: 'p', tier: 1, accessed: '2026-11-23' }),
+        'title',
+      ],
+      [
+        'source publisher',
+        Source.safeParse({ title: 't', publisher: '  ', tier: 1, accessed: '2026-11-23' }),
+        'publisher',
+      ],
+      [
+        'optional source note',
+        Source.safeParse({
+          title: 't',
+          publisher: 'p',
+          tier: 1,
+          accessed: '2026-11-23',
+          note: ' ',
+        }),
+        'note',
+      ],
+      ['generation name', Generation.safeParse(edit(generation(), 'name', '   ')), 'name'],
+      ['part name', Part.safeParse(edit(wheel(), 'name', ' ')), 'name'],
+      ['maintenance title', MaintenanceItem.safeParse(edit(maintenance(), 'title', '  ')), 'title'],
+      ['issue cause', KnownIssue.safeParse(edit(issue(), 'cause', '\t')), 'cause'],
+      [
+        'issue symptom',
+        KnownIssue.safeParse(edit(issue(), 'symptoms', ['Knock', '  '])),
+        'symptoms.1',
+      ],
+    ]
+    for (const [name, result, path] of cases) {
+      const parsed = result as Parameters<typeof issuePaths>[0]
+      expect(parsed.success, name).toBe(false)
+      expect(issuePaths(parsed), name).toContain(path)
+    }
+  })
+
+  test('keeps the original value: nothing is trimmed or transformed', () => {
+    const padded = ' Bosch \n'
+    expect(PriceObservation.parse({ ...ok, seller: padded }).seller).toBe(padded)
+    expect(PriceObservation.parse({ ...ok, seller: 'a  b' }).seller).toBe('a  b')
+  })
+
+  test('an optional text field may still be left out', () => {
+    expect(
+      Source.safeParse({ title: 't', publisher: 'p', tier: 1, accessed: '2026-11-23' }).success,
+    ).toBe(true)
+  })
+})
+
 describe('part', () => {
   test('rejects prices on a generic (brandless) part, including option prices', () => {
     const price = { amount: 5, currency: 'USD', seller: 'S', checked: '2026-11-23' }
