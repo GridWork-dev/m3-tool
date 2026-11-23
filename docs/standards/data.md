@@ -63,7 +63,7 @@ render:
     roof: e46-csl-roof
 ```
 
-The US coupe leaves `modules` out and renders the base car as it is. Each value is the id of a `body-module` asset. The keys are body modules only: `hood: x` is an error.
+The US coupe leaves `modules` out and renders the base car as it is. An empty `modules: {}` means the same thing: the defaults. Each value is the id of a `body-module` asset. The keys are body modules only: `hood: x` is an error.
 
 **Aftermarket body parts: `replaces` on a part's `model`.** A bumper or trunk lid that replaces the stock one lists what it takes over. It sits on both kinds of model, `{ asset }` and `{ standIn }`.
 
@@ -75,7 +75,11 @@ model:
 
 `replaces` has at least one module, and no module twice. Leave it out for a part that doesn't replace anything, such as a wheel. A part that isn't visible has no model, so it has no `replaces`.
 
-**One mechanism for both.** A CSL's trunk lid and an aftermarket trunk lid are each a `body-module` asset that replaces `trunk_lid`. The variant picks the first, and a build picks the second. The schemas don't say which one wins when a build's part and its variant name the same module: the configurator decides that.
+A `standIn` with `replaces` uses a car-frame stand-in style for those modules, as a `body-module` asset does. The UI still labels it "3D look approximate".
+
+**One mechanism for both.** A CSL's trunk lid and an aftermarket trunk lid are each a `body-module` asset that replaces `trunk_lid`. The variant picks the first, and a build picks the second. One `body-module` asset may cover several modules, such as a bumper set. A variant names its id under each module it covers, and a part lists each of those modules in `replaces`. The asset's root node then spans them all, in the base car's frame.
+
+The schemas don't say which one wins when a build's part and its variant name the same module: the configurator decides that, and the rule isn't settled yet (open item 5 in spec section 16).
 
 Dates are calendar dates, `YYYY-MM-DD`, such as `2026-11-23`, with no time of day. Write them unquoted or quoted: both parse to the same instant, midnight UTC. A time (`2026-11-23T10:30`), an impossible date (`2026-02-31`) or a Date with a time of day is an error, because a time without a zone means different instants on different machines.
 
