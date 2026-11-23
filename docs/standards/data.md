@@ -30,7 +30,7 @@ The schemas in [`src/data/schemas.ts`](../../src/data/schemas.ts) are the contra
 
 | Collection | Schema | What it holds |
 |---|---|---|
-| `generations` | `Generation` | Chassis, production years, engines, bodies, dimensions per body, driver eye point, stock wheel fitment per axle |
+| `generations` | `Generation` | Chassis, production years, engines, bodies and their sources, dimensions per body, driver eye point, stock wheel fitment per axle |
 | `variants` | `Variant` | Market, body, transmissions, packages, paints, factory wheels, interiors, which asset renders it |
 | `parts` | `Part` | A product or a generic tier, with fitment attributes, options, prices, labor, 3D model, sources |
 | `maintenance` | `MaintenanceItem` | A service interval with parts, fluids, cost ranges and a buyer's inspection note |
@@ -47,7 +47,7 @@ The schemas reject keys they don't list, so a typo like `brnad:` is an error ins
 - A measured driver eye point has sources. An estimated one may have none.
 - Dimensions are keyed by bodies the generation lists, and there's at least one.
 
-Dates are ISO strings such as `2026-11-23`. Write them unquoted or quoted: both parse to the same instant.
+Dates are calendar dates, `YYYY-MM-DD`, such as `2026-11-23`, with no time of day. Write them unquoted or quoted: both parse to the same instant, midnight UTC. A time (`2026-11-23T10:30`), an impossible date (`2026-02-31`) or a Date with a time of day is an error, because a time without a zone means different instants on different machines.
 
 The `fitment.*.envelopes` list may be empty. The Phase 1 rules then report "fitment unknown" instead of guessing. Mounting geometry is in mm from the hub face: `inner = widthIn * 25.4 / 2 + offsetMm` and `outer = widthIn * 25.4 / 2 - offsetMm`.
 
@@ -58,7 +58,7 @@ Every `Source` has a `title`, `publisher`, `tier` (1 to 3) and `accessed` date, 
 - **Cite what you opened.** Record the date you read it as `accessed`. Never invent a source or a URL.
 - **Use `note` to say what the source supports,** with the page or table, so a reviewer can find the number.
 - **Say so when a copy is not the original.** An archived or mirrored copy goes in the `url`, and the `note` says it is a copy.
-- **Fields without a place for sources** (such as a generation's name and years) get a comment in the YAML naming the source.
+- **A generation's own `sources`** (at least one) cover its name, chassis, years, engines and bodies. Its dimensions, eye point and fitment carry their own.
 
 ## Source tiers
 
@@ -73,6 +73,8 @@ Every `Source` has a `title`, `publisher`, `tier` (1 to 3) and `accessed` date, 
 Maintenance intervals, and fixes for known issues, need one Tier 1 source or two independent Tier 2 sources to be marked `verified: true`.
 
 Tier 3 alone is enough for symptoms and "how common". The entry stays `verified: false`, and the UI shows an "unverified" badge.
+
+`verified` means the same thing everywhere it appears. A part with `verified: true` needs the same one Tier 1 source or two independent Tier 2 sources, and a manufacturer product page counts as Tier 1. `check-data` reports a verified part, maintenance item or issue that falls short as `verified-without-tier`.
 
 "Independent" means different publishers. `check-data` compares publisher names after trimming, collapsing spaces and ignoring case, so `Shop A` and ` shop  a ` are one publisher, and two articles from it count once.
 
@@ -126,5 +128,5 @@ It prints one `<file>: <code>: <message>` line per problem, exits 1 if there are
 | `unknown-ref` | `requires` or `conflicts` names a part that doesn't exist | Fix the id, or add the part |
 | `self-ref` | A part lists itself in `requires` or `conflicts` | Remove it |
 | `requires-conflicts-overlap` | The same id is in both `requires` and `conflicts` | Keep it in one |
-| `verified-without-tier` | A verified maintenance item or issue fails the rule above | Add the sources, or set `verified: false` |
+| `verified-without-tier` | A part, maintenance item or issue is `verified: true` but fails the rule above | Add the sources, or set `verified: false` |
 | `multiple-generic-in-category` | A generation has two brandless parts in one category | Keep one |

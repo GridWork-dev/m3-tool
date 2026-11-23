@@ -1,6 +1,7 @@
 import { describe, expect, test } from 'vitest'
 import { loadDataSet } from '../../../src/data/load.ts'
 import {
+  DateLike,
   Generation,
   KnownIssue,
   MaintenanceItem,
@@ -62,20 +63,6 @@ describe('price observation', () => {
     )
   })
 
-  test('accepts ISO dates and datetimes, and rejects strings V8 would misread', () => {
-    const checked = (value: unknown) => PriceObservation.safeParse({ ...base, checked: value })
-    expect(checked('2026-11-23').success).toBe(true)
-    expect(checked('2026-11-23T10:30:00Z').success).toBe(true)
-    expect(checked('2026-11-23T10:30:00.000+01:00').success).toBe(true)
-    expect(checked(new Date('2026-11-23')).success).toBe(true)
-    expect(checked('2026-02-31').success).toBe(false) // would roll over into March
-    expect(checked('2026-13-01').success).toBe(false)
-    expect(checked('1').success).toBe(false) // new Date('1') is the year 2001
-    expect(checked('Nov 23 2026').success).toBe(false)
-    expect(checked(20261123).success).toBe(false) // a bare YAML number, not a date
-    expect(checked(null).success).toBe(false)
-  })
-
   test('rejects a zero or negative amount, an unknown currency and a non-https url', () => {
     const ok = { ...base, checked: '2026-11-23' }
     expect(PriceObservation.safeParse({ ...ok, amount: 0 }).success).toBe(false)
@@ -84,6 +71,92 @@ describe('price observation', () => {
     expect(PriceObservation.safeParse({ ...ok, url: 'https://example.com/x' }).success).toBe(true)
     expect(PriceObservation.safeParse({ ...ok, url: 'http://example.com/x' }).success).toBe(false)
     expect(PriceObservation.safeParse({ ...ok, url: '//example.com/x' }).success).toBe(false)
+  })
+})
+
+describe('DateLike', () => {
+  const rejected = [
+    // Datetimes depend on the host time zone or on a time zone suffix, so they are not dates.
+    '2026-11-23T10:30',
+    '2026-11-23 10:30',
+    '2026-11-23T10:30:00Z',
+    '2026-11-23T10:30:00.000+01:00',
+    '2026-02-31T10:00:00Z', // would roll over into March
+    '2026-11-23T24:00:00Z', // would roll over into the next day
+    // Date-only strings that are not real calendar dates.
+    '2026-02-31',
+    '2026-02-29',
+    '2026-13-01',
+    '2026-00-10',
+    '2026-11-00',
+    '2026-11-31',
+    // Anything else V8 would happily guess at.
+    '1',
+    'soon',
+    'Nov 23 2026',
+    '2026-4-5',
+    '2026-11-23 ',
+    '',
+  ]
+
+  test('accepts a calendar date string, and a Date at exactly UTC midnight', () => {
+    expect(DateLike.safeParse('2026-11-23').success).toBe(true)
+    expect(DateLike.safeParse('2024-02-29').success).toBe(true) // a real leap day
+    expect(DateLike.safeParse(new Date('2026-11-23')).success).toBe(true)
+    expect(DateLike.safeParse(new Date(Date.UTC(2026, 10, 23))).success).toBe(true)
+  })
+
+  test('YAML date strings and Date objects parse to the same instant', () => {
+    const fromString = DateLike.parse('2026-11-23')
+    const fromDate = DateLike.parse(new Date('2026-11-23'))
+    expect(fromString.getTime()).toBe(Date.UTC(2026, 10, 23))
+    expect(fromDate.getTime()).toBe(fromString.getTime())
+  })
+
+  test.each(rejected)('rejects the string %j', (value) => {
+    expect(DateLike.safeParse(value).success).toBe(false)
+  })
+
+  test('says why a datetime string is refused', () => {
+    const result = DateLike.safeParse('2026-11-23T10:30')
+    expect(result.success).toBe(false)
+    expect(issueMessages(result).join(' ')).toMatch(/no time of day/)
+    const impossible = DateLike.safeParse('2026-02-31')
+    expect(issueMessages(impossible).join(' ')).toMatch(/not a real calendar date/)
+  })
+
+  test('rejects a Date with a time of day, and an invalid Date', () => {
+    expect(DateLike.safeParse(new Date('2026-11-23T10:30:00Z')).success).toBe(false)
+    expect(DateLike.safeParse(new Date('2026-11-23T00:00:00.001Z')).success).toBe(false)
+    expect(DateLike.safeParse(new Date('2026-11-22T23:59:59.999Z')).success).toBe(false)
+    expect(DateLike.safeParse(new Date('soon')).success).toBe(false)
+  })
+
+  test('rejects values that are not strings or dates', () => {
+    for (const value of [20261123, 0, null, undefined, true, {}, []]) {
+      expect(DateLike.safeParse(value).success).toBe(false)
+    }
+  })
+
+  // Re-run with TZ=Asia/Tokyo and TZ=America/Los_Angeles on the command line too. This test
+  // switches the zone inside the process, so a regression shows up in a plain `pnpm test`.
+  test.each([
+    ['Asia/Tokyo', -540],
+    ['America/Los_Angeles', 480],
+    ['UTC', 0],
+  ])('gives the same answers in %s', (zone, januaryOffsetMinutes) => {
+    const previous = process.env.TZ
+    process.env.TZ = zone
+    try {
+      expect(new Date(2026, 0, 15).getTimezoneOffset()).toBe(januaryOffsetMinutes) // zone took effect
+      expect(DateLike.parse('2026-11-23').toISOString()).toBe('2026-11-23T00:00:00.000Z')
+      expect(DateLike.parse(new Date('2026-11-23')).toISOString()).toBe('2026-11-23T00:00:00.000Z')
+      for (const value of rejected) expect(DateLike.safeParse(value).success).toBe(false)
+      expect(DateLike.safeParse(new Date('2026-11-23T10:30:00Z')).success).toBe(false)
+    } finally {
+      if (previous === undefined) delete process.env.TZ
+      else process.env.TZ = previous
+    }
   })
 })
 
@@ -329,6 +402,18 @@ describe('generation', () => {
     expect(Generation.safeParse(edit(measured, 'driverEyePoint.sources', [source])).success).toBe(
       true,
     )
+  })
+
+  test('requires at least one top-level source for the identity fields', () => {
+    const missing = Generation.safeParse(edit(generation(), 'sources', undefined))
+    expect(missing.success).toBe(false)
+    expect(issuePaths(missing)).toContain('sources')
+    const empty = Generation.safeParse(edit(generation(), 'sources', []))
+    expect(empty.success).toBe(false)
+    expect(issuePaths(empty)).toContain('sources')
+    const badTier = Generation.safeParse(edit(generation(), 'sources.0.tier', 4))
+    expect(badTier.success).toBe(false)
+    expect(issuePaths(badTier)).toContain('sources.0.tier')
   })
 
   test('rejects dimensions keyed by a body the generation lacks', () => {

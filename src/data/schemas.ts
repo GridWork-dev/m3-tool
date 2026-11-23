@@ -21,30 +21,47 @@ const Range = z
   .refine(([min, max]) => min <= max, 'min must not exceed max')
 const HttpsUrl = z.url({ protocol: /^https$/ })
 
-// YAML dates reach us two ways. `yaml` (YAML 1.2) keeps `2026-11-23` a string, while Astro's
-// loader turns it into a Date. Both must validate to the same instant. Strings must look like ISO
-// dates (V8 would otherwise read "1" as the year 2001) and survive a round trip (so 2026-02-31 is
-// rejected instead of rolling over into March).
-const ISO_DATE_ONLY = /^\d{4}-\d{2}-\d{2}$/
-const ISO_DATE_TIME =
-  /^\d{4}-\d{2}-\d{2}(?:[Tt ]\d{2}:\d{2}(?::\d{2}(?:\.\d+)?)?(?:[Zz]|[+-]\d{2}:?\d{2})?)?$/
-const isRealDate = (text: string): boolean => {
-  const time = Date.parse(text)
-  if (Number.isNaN(time)) return false
-  return !ISO_DATE_ONLY.test(text) || new Date(time).toISOString().startsWith(text)
+// A date is a calendar date, with no time of day: `YYYY-MM-DD`, or a Date at exactly UTC midnight.
+// YAML dates reach us two ways. `yaml` (YAML 1.2) keeps `2026-11-23` a string, while Astro's loader
+// turns it into a Date at UTC midnight. Both validate to that same instant.
+//
+// Times are refused on purpose. `new Date('2026-11-23T10:30')` is read in the host's time zone, so
+// the same file would mean different instants on different machines, and V8 rolls impossible
+// values over (2026-02-31 is March 3, T24:00 is the next day). Strings are checked by hand for the
+// same reason, so nothing here goes through the host-dependent Date parser.
+const DATE_ONLY = /^(\d{4})-(\d{2})-(\d{2})$/
+const DATE_MESSAGE = 'must be a calendar date such as 2026-11-23, with no time of day'
+
+const parseCalendarDate = (text: string): Date | undefined => {
+  const match = DATE_ONLY.exec(text)
+  if (!match) return undefined
+  const [year, month, day] = [Number(match[1]), Number(match[2]), Number(match[3])]
+  const date = new Date(0)
+  date.setUTCFullYear(year, month - 1, day) // setUTCFullYear, so years below 100 stay as written
+  const real =
+    date.getUTCFullYear() === year && date.getUTCMonth() === month - 1 && date.getUTCDate() === day
+  return real ? date : undefined
 }
+
+const isUtcMidnight = (date: Date): boolean =>
+  date.getUTCHours() === 0 &&
+  date.getUTCMinutes() === 0 &&
+  date.getUTCSeconds() === 0 &&
+  date.getUTCMilliseconds() === 0
+
 export const DateLike = z
-  .union(
-    [
-      z
-        .string()
-        .regex(ISO_DATE_TIME, 'must be an ISO date such as 2026-11-23')
-        .refine(isRealDate, 'is not a real calendar date'),
-      z.date(),
-    ],
-    { error: 'must be an ISO date such as 2026-11-23' },
-  )
-  .pipe(z.coerce.date())
+  .union([z.string(), z.date()], { error: DATE_MESSAGE })
+  .transform((value, ctx): Date => {
+    const fail = (message: string) => {
+      ctx.addIssue({ code: 'custom', message })
+      return z.NEVER
+    }
+    if (typeof value === 'string') {
+      if (!DATE_ONLY.test(value)) return fail(DATE_MESSAGE)
+      return parseCalendarDate(value) ?? fail('is not a real calendar date')
+    }
+    return isUtcMidnight(value) ? value : fail('must be at UTC midnight, with no time of day')
+  })
 
 const Body = z.enum(['coupe', 'convertible', 'sedan'])
 const Transmission = z.enum(['6mt', 'smg', 'dct', 'auto', '7mt'])
@@ -147,6 +164,9 @@ export const Generation = z
       rear: AxleFitment,
       sources: z.array(Source).min(1),
     }),
+    // Covers the identity fields: name, chassis, years, engines and bodies. Dimensions, the eye
+    // point and fitment carry their own.
+    sources: z.array(Source).min(1),
   })
   .superRefine((generation, ctx) => {
     const bodies: readonly string[] = generation.bodies

@@ -57,3 +57,8 @@ fitment:
       publisher: Fixture Co
       tier: 2
       accessed: 2026-11-23
+sources:
+  - title: Fixture generation overview
+    publisher: Fixture Co
+    tier: 1
+    accessed: 2026-11-23
