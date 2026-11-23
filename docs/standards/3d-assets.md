@@ -47,6 +47,7 @@ Every 3D model the site uses is a GLB that passes this contract. The contract va
 | `orientation` | The wheel anchors sit where Y up and a −Z nose put them. |
 | `origin` | The origin is under the middle of the wheelbase, on the ground. |
 | `root-count` | A product has exactly one root node. |
+| `unsupported-extension` | The file doesn't use `EXT_mesh_gpu_instancing` or `KHR_draco_mesh_compression`. |
 
 The details:
 
@@ -69,11 +70,16 @@ The details:
 - **Origin** (base car):
   - The mean z of the 4 wheel anchors is within 2% of the wheelbase from 0, where wheelbase = mean rear z − mean front z.
   - The bounding box's lowest point is within 0.03 m of y = 0.
-- **File reading:** the validator reads GLBs the way the export stage writes them, with meshopt-compressed geometry and KTX2 textures. Draco isn't supported.
+- **File reading:** the validator reads GLBs the way the export stage writes them, with meshopt-compressed geometry and KTX2 textures.
+- **Unsupported extensions:** a GLB that uses one of these fails with `unsupported-extension`.
+  - `EXT_mesh_gpu_instancing`. The triangle count and bounding box cover each node's mesh once, so instancing could draw far more triangles than the budget allows. Re-export without instancing: `gltf-transform optimize --instance false`, or leave `instance()` out of the API pipeline. `optimize` turns instancing on by default once a mesh is used 5 times.
+  - `KHR_draco_mesh_compression`. Draco compression isn't supported; re-export with meshopt.
 
 ## How models are made
 
 **Every change is a script in `pipeline/`.** No unscripted Blender edits, so any asset can be rebuilt and an agent can iterate on it safely. If a model needs a fix, change the script that makes it and run the stage again.
+
+**Keep the anchors when you prune.** glTF-Transform's `prune()` deletes empty leaf nodes by default, and an anchor is an empty leaf node, so a default prune removes every `wheel_*` and `mount_*`. The export stage must call `prune({ keepLeaves: true })`, or `gltf-transform prune --keep-leaves true` on the command line. `gltf-transform optimize` has no keep-leaves option, and `flatten()` and `join()` also remove empty leaf nodes unless you pass `cleanup: false`, so build the export from the individual functions rather than `optimize`.
 
 **No logos, badges or roundels,** in meshes or in textures. That includes the roundel on the steering wheel and the gauges, and badges on the grille, wheel caps and trunk. The validator can't see them, so the vision critic and the human review in `/lab` check for them.
 
