@@ -83,6 +83,7 @@ test("Astro's glob loader stores parts under their bare ids", async () => {
   expect(await loadedIds(entryId)).toEqual([
     'fixture-coilovers',
     'fixture-generic-wheels',
+    'fixture-trunk-lid',
     'fixture-wheel',
   ])
 })
@@ -92,6 +93,7 @@ test("without generateId, Astro's default ids carry the generation directory", a
   expect(await loadedIds()).toEqual([
     'e46/fixture-coilovers',
     'e46/fixture-generic-wheels',
+    'e46/fixture-trunk-lid',
     'e46/fixture-wheel',
   ])
 })

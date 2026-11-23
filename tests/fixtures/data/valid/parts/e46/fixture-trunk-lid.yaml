@@ -1,0 +1,27 @@
+# FIXTURE DATA. Invented values for tests; not a real product.
+id: fixture-trunk-lid
+name: Fixture Trunk Lid
+brand: Fixture Co
+category: aero
+visible: true
+fits:
+  generation: e46
+  bodies: [coupe]
+labor:
+  hours: [1, 2]
+  diy: intermediate
+prices:
+  - amount: 400
+    currency: USD
+    seller: Fixture Seller
+    checked: 2026-11-23
+# Swaps the car's own trunk lid for this one's: the configurator hides the base module node.
+model:
+  standIn: fixture-style
+  replaces: [trunk_lid]
+sources:
+  - title: Fixture product page
+    publisher: Fixture Co
+    tier: 1
+    accessed: 2026-11-23
+verified: false
