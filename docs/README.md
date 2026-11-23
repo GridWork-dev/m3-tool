@@ -12,6 +12,10 @@ An index of everything under `docs/`, plus the infrastructure notes. Start with 
 | [3D assets](standards/3d-assets.md) | The GLB contract, how each check is measured, the manifest |
 | [Legal](standards/legal.md) | Trademarks, forbidden marks, the notice, reference photos, licenses |
 
+## Decisions
+
+[Decisions](decisions/README.md): the architecture decision records. Each one says what was decided, what was rejected and why, and what it costs.
+
 ## Design and plans
 
 - [Design spec](superpowers/specs/2026-11-23-m3-tool-design.md): what the tool is, the stack, the architecture and the roadmap.
