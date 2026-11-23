@@ -279,6 +279,10 @@ YAML under `data/`, one entry per file, validated by Zod schemas in `src/content
 **What counts as verified**
 - Maintenance intervals, and fixes for known issues, need one Tier 1 source or two independent Tier 2 sources to be marked `verified: true`.
 - Tier 3 alone is enough for symptoms and "how common". The entry stays `verified: false`, and the UI shows an "unverified" badge.
+- `verified` applies to parts too, under the same tier rule: one Tier 1 source, or two Tier 2 sources from distinct publishers. Manufacturer product pages are Tier 1. (amended 2026-11-23)
+
+**Dates**
+- All data dates are calendar dates (`YYYY-MM-DD`, no time of day). (amended 2026-11-23)
 
 **Review**
 - Every data PR gets an Opus data verifier, which re-reads the cited sources and checks the claims against them.

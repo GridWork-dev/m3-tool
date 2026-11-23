@@ -467,7 +467,7 @@ Then `chmod +x` it and run `pnpm install`, which runs `prepare`.
 
 Run the negative test in a throwaway repo under the scratchpad:
 1. Init a repo.
-2. Commit a file containing `ghp_` followed by 36 `a` characters.
+2. Commit a file containing `ghp_` followed by 36 mixed-case, random-looking letters and digits, for example from `openssl rand -base64 48 | tr -dc 'A-Za-z0-9' | head -c 36`. Don't use 36 `a` characters: that string is below gitleaks' entropy gate and passes as clean.
 3. Run `sh <repo>/.githooks/pre-push`.
 
 Expected: exit 1, with `leaks found: 1`.
@@ -559,7 +559,7 @@ Add the script `"deploy": "wrangler deploy"`.
 
 - [ ] **Step 2: First deploy from the laptop, with the bootstrap token**
 
-Run: `pnpm build && CLOUDFLARE_API_TOKEN="$M3_CF_API_TOKEN" CLOUDFLARE_ACCOUNT_ID="$M3_CF_ACCOUNT_ID" pnpm deploy`
+Run: `pnpm build && CLOUDFLARE_API_TOKEN="$M3_CF_API_TOKEN" CLOUDFLARE_ACCOUNT_ID="$M3_CF_ACCOUNT_ID" pnpm run deploy`
 Expected: `Deployed m3-tool` with a `https://m3-tool.<subdomain>.workers.dev` URL.
 Then set that URL as the `site` default in `astro.config.ts`.
 Run: `curl -s https://m3-tool.<subdomain>.workers.dev/ | grep -c 'Not affiliated with, endorsed by'`
@@ -663,6 +663,8 @@ Then follow the landing procedure (`Closes` the Phase 0 step 1–2 issues).
 - Layout `loadDataSet` reads: `generations/*.yaml` plus `{variants,parts,maintenance,issues}/<gen>/*.yaml`.
 
 **Schema shapes.** These are decisions. Write them as Zod.
+
+> Note (2026-11-23): the `DateLike = z.coerce.date()` line below is superseded by the date-only rule: every data date is a calendar date, `YYYY-MM-DD`, with no time of day. See `DateLike` in `src/data/schemas.ts` and spec section 7.6.
 
 ```ts
 Id = /^[a-z0-9]+(-[a-z0-9]+)*$/;  Year = int 1985..2035;  Range = [min, max], 0 <= min <= max
