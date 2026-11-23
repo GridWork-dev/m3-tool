@@ -291,7 +291,8 @@ YAML under `data/`, one entry per file, validated by Zod schemas in `src/content
 ## 8. Hosting and infrastructure
 
 - **Site:** Cloudflare Workers static assets. Static requests are free and unlimited. The free plan allows 25 MiB per file and 20,000 files per version.
-- **Deploys:** Workers Builds (Git integration). Every PR gets a preview URL, and `main` deploys to production.
+- **Deploys:** GitHub Actions. `main` runs `wrangler deploy`. Each PR runs `wrangler versions upload` and gets its preview URL as a comment. (This replaced Workers Builds on 2026-11-23, by the user's choice: no GitHub app dependency, and the same Node 26 toolchain as CI.)
+- **Credentials:** Cloudflare tokens are minted through the API from the account's key-management token, one narrowly scoped token per purpose. Nothing is created by hand in the dashboard.
 - **R2 buckets:**
   - `<name>-models`: public, behind a custom domain, with content-hashed GLB names that can be cached forever.
   - `<name>-refs`: private. Holds reference and product photos, generator outputs, Blender intermediate files and spike reports.
@@ -482,7 +483,7 @@ The spike also runs the **model bake-off**:
 - Pagefind.
 - Pipeline checks: ruff, pyright, pytest.
 
-Then it runs the Playwright end-to-end and visual tests on the build, then gitleaks. Workers Builds posts the preview URL.
+Then it runs the Playwright end-to-end and visual tests on the build, then gitleaks. A deploy workflow uploads a preview version and comments its URL on the PR.
 
 **Merging to `main`** deploys to production. `main` is protected: checks must pass and a review is required.
 
@@ -644,7 +645,7 @@ Each phase ends with a release or demo the user signs off on.
 
 Settled 2026-11-23:
 
-- Repo name `m3-tool` as a placeholder. Hosting on the GridWork Cloudflare account. Phase 0 spike cap: $50 of paid 3D generation (Rodin plus 1-2 other generators for comparison), logged in `docs/spend-ledger.md`.
+- Repo name `m3-tool` as a placeholder. Hosting on the GridWork Cloudflare account. Deploys and previews from GitHub Actions, with Cloudflare tokens minted through the API. Phase 0 spike cap: $50 of paid 3D generation (Rodin plus 1-2 other generators for comparison), logged in `docs/spend-ledger.md`.
 
 Still open:
 

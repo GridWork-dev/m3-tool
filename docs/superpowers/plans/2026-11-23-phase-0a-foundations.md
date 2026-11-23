@@ -528,17 +528,20 @@ Renovate needs its GitHub app on the GridWork-dev org. If `gh api repos/GridWork
 
 ### Task 4: Cloudflare deploy, PR previews and R2
 
+> Amended 2026-11-23 (ledger R8/R9). The user chose GitHub Actions over Workers Builds. Cloudflare tokens are minted by the **controller** through the API with the laptop's `CLOUDFLARE_KEY_MGMT_TOKEN`. Nothing is done in the dashboard. Implementers use the bootstrap token already in `~/.config/secrets.env` (`M3_CF_API_TOKEN`, `M3_CF_ACCOUNT_ID`), but never mint tokens and never print token values.
+
 **Files:**
-- Create: `wrangler.jsonc`, `infra/README.md`, `infra/r2-models-cors.json`
+- Create: `wrangler.jsonc`, `.github/workflows/deploy.yml`, `infra/README.md`, `infra/r2-models-cors.json`
 - Modify: `package.json` (add `deploy`), `astro.config.ts` (default `site` becomes the workers.dev URL)
 
 **Interfaces:**
 - Produces:
   - Worker `m3-tool` on the GridWork account, at `https://m3-tool.<subdomain>.workers.dev`.
-  - Preview URLs on PRs.
+  - PR preview URLs `https://pr-<n>-m3-tool.<subdomain>.workers.dev`, posted as a PR comment.
   - R2 bucket `m3-tool-models`: public through its r2.dev URL, CORS GET/HEAD for any origin.
   - R2 bucket `m3-tool-refs`: private.
-  - Env names for Plan 0B: `M3_R2_ACCOUNT_ID`, `M3_R2_ACCESS_KEY_ID`, `M3_R2_SECRET_ACCESS_KEY`.
+  - GitHub Actions secrets (set by the controller): `M3_CF_DEPLOY_TOKEN`, `M3_CF_ACCOUNT_ID`.
+  - Laptop env for Plan 0B (set by the controller): `M3_R2_ACCOUNT_ID`, `M3_R2_ACCESS_KEY_ID`, `M3_R2_SECRET_ACCESS_KEY`.
 
 - [ ] **Step 1: Write `wrangler.jsonc`**
 
@@ -554,9 +557,9 @@ Renovate needs its GitHub app on the GridWork-dev org. If `gh api repos/GridWork
 ```
 Add the script `"deploy": "wrangler deploy"`.
 
-- [ ] **Step 2: First deploy from the laptop**
+- [ ] **Step 2: First deploy from the laptop, with the bootstrap token**
 
-Run: `pnpm build && pnpm deploy`
+Run: `pnpm build && CLOUDFLARE_API_TOKEN="$M3_CF_API_TOKEN" CLOUDFLARE_ACCOUNT_ID="$M3_CF_ACCOUNT_ID" pnpm deploy`
 Expected: `Deployed m3-tool` with a `https://m3-tool.<subdomain>.workers.dev` URL.
 Then set that URL as the `site` default in `astro.config.ts`.
 Run: `curl -s https://m3-tool.<subdomain>.workers.dev/ | grep -c 'Not affiliated with, endorsed by'`
@@ -564,51 +567,75 @@ Expected: `1`.
 Run: `curl -s -o /dev/null -w '%{http_code}' https://m3-tool.<subdomain>.workers.dev/nope`
 Expected: `404`.
 
-- [ ] **Step 3: Connect Workers Builds (user step in the dashboard)**
+- [ ] **Step 3: Controller mints the deploy token and sets the repo secrets**
 
-Ask the user to go to Workers & Pages → `m3-tool` → Settings → Builds → Connect, and set:
-- Repo: `GridWork-dev/m3-tool`.
-- Production branch: `main`.
-- Build command: `pnpm build`.
-- Deploy command: `pnpm wrangler deploy`.
-- Non-production branch deploy command: `pnpm wrangler versions upload`.
-- Build variables: `NODE_VERSION=26.13.1`, `PNPM_VERSION=12.23.0`.
+This step is done by the controller, not the implementer.
+- Mint `m3-tool-deploy (GitHub Actions deploy.yml)`: "Individual Workers Editor" scoped to the `m3-tool` Worker, plus Account Settings Read. Copy the resource format from an existing per-Worker token on the account.
+- Pipe the value straight into `gh secret set M3_CF_DEPLOY_TOKEN`.
+- Set `M3_CF_ACCOUNT_ID` the same way.
 
-If the build image can't provide Node 26, stop and report it to the orchestrator. The fallback, deploying from GitHub Actions with an API token, is the orchestrator's decision.
+Run: `gh secret list -R GridWork-dev/m3-tool`
+Expected: both names listed.
 
-- [ ] **Step 4: Verify PR previews**
+- [ ] **Step 4: Write the deploy workflow**
 
-Open this task's PR.
-Expected: the Cloudflare bot comments with a preview URL, and `curl -s <preview-url> | grep -c 'Not affiliated'` prints `1`.
+`.github/workflows/deploy.yml`:
+- Triggers: `push` to `main`, and `pull_request`. Skip the PR job when the head repo isn't `GridWork-dev/m3-tool`, because forks get no secrets.
+- `concurrency: deploy-${{ github.ref }}`, with `cancel-in-progress` on PRs only.
+- Permissions: `contents: read`, `pull-requests: write`.
+- Steps:
+  1. checkout.
+  2. `jdx/mise-action`.
+  3. `pnpm install --frozen-lockfile`.
+  4. `pnpm build`.
+  5. Then either:
+     - `main`: `pnpm wrangler deploy`.
+     - PR: `pnpm wrangler versions upload --preview-alias pr-${{ github.event.number }}`. Pull the preview URL out of its output, then create or update a single PR comment that starts with `<!-- m3-tool-preview -->` and contains the URL.
+- Env for wrangler: `CLOUDFLARE_API_TOKEN: ${{ secrets.M3_CF_DEPLOY_TOKEN }}` and `CLOUDFLARE_ACCOUNT_ID: ${{ secrets.M3_CF_ACCOUNT_ID }}`.
+- The deploy job is not a required status check. It needs secrets, and `check`/`e2e`/`gitleaks` stay the merge gate.
 
-- [ ] **Step 5: Create the R2 buckets**
+- [ ] **Step 5: Verify PR previews**
+
+Push this task's branch and open its PR.
+Expected: the deploy job passes, the PR has the `<!-- m3-tool-preview -->` comment, and `curl -s <preview-url> | grep -c 'Not affiliated'` prints `1`.
+
+- [ ] **Step 6: Create the R2 buckets, with the bootstrap token**
 
 ```bash
+export CLOUDFLARE_API_TOKEN="$M3_CF_API_TOKEN" CLOUDFLARE_ACCOUNT_ID="$M3_CF_ACCOUNT_ID"
 pnpm wrangler r2 bucket create m3-tool-models
 pnpm wrangler r2 bucket create m3-tool-refs
 pnpm wrangler r2 bucket dev-url enable m3-tool-models
 pnpm wrangler r2 bucket cors set m3-tool-models --file infra/r2-models-cors.json
 ```
-`r2-models-cors.json` allows `GET` and `HEAD` from origin `*`, with `MaxAgeSeconds: 86400`. The models are public, CC BY-SA content.
+`r2-models-cors.json` allows `GET` and `HEAD` from origin `*`, with `MaxAgeSeconds: 86400`. The models are public, CC BY-SA content. R2 is already enabled on the account.
 
-If bucket creation says R2 isn't enabled, make it a user step: enable R2 on the GridWork account. That can require a payment method on file, even on the free tier.
+Run: `pnpm wrangler r2 bucket list | grep -c m3-tool- && pnpm wrangler r2 bucket dev-url get m3-tool-refs`
+Expected: `2`, and the refs bucket reports public access disabled.
 
-Run: `pnpm wrangler r2 bucket list && pnpm wrangler r2 bucket dev-url get m3-tool-refs`
-Expected: both buckets are listed, and the refs bucket reports public access disabled.
+- [ ] **Step 7: Controller mints the R2 token and derives the S3 keys**
 
-- [ ] **Step 6: R2 API credentials for the pipeline (user step)**
+This step is done by the controller.
+1. Mint `m3-tool-r2 (laptop pipeline)`: "Workers R2 Storage Bucket Item Write", scoped to the two m3-tool buckets.
+2. Derive the S3 keys: access key ID = token id, secret = SHA-256 hex of the token value.
+3. Append `M3_R2_ACCOUNT_ID`, `M3_R2_ACCESS_KEY_ID` and `M3_R2_SECRET_ACCESS_KEY` to `~/.config/secrets.env`, grepping each name first. Never print the values.
 
-Ask the user to create an R2 API token: Object Read & Write, scoped to `m3-tool-refs` and `m3-tool-models`. They add `M3_R2_ACCOUNT_ID`, `M3_R2_ACCESS_KEY_ID` and `M3_R2_SECRET_ACCESS_KEY` to `~/.config/secrets.env` themselves, grepping each exact name first.
+Verify: `uv run --with boto3==1.44.9` lists `m3-tool-refs` through `https://$M3_R2_ACCOUNT_ID.r2.cloudflarestorage.com`.
+Expected: an empty listing and no error.
 
-- [ ] **Step 7: Document the infrastructure and land it**
+- [ ] **Step 8: Document the infrastructure and land it**
 
 `infra/README.md` lists, for each resource:
 - What it is.
 - Whether it's public.
 - The command that recreates it.
-- Which secret names exist. Names only.
+- Which token or secret names exist and what each is scoped to. Names only.
 
-Cloudflare Web Analytics waits for the beta domain (Phase 1). Say so in this README.
+It also notes:
+- Tokens are minted through the API with the key-management token.
+- The bootstrap token expires on 2026-12-07.
+- Cloudflare Web Analytics waits for the beta domain (Phase 1).
+
 Then follow the landing procedure (`Closes` the Phase 0 step 1–2 issues).
 
 ---
@@ -1100,7 +1127,7 @@ Each ADR is 60 lines at most, with this structure:
 
 | ADR | Decision |
 |---|---|
-| 0001 | Astro static site on Workers static assets. No adapter until Phase 2's dynamic route. Workers Builds previews. Plus the TS 6 override for `astro check`, if Task 1 needed it. |
+| 0001 | Astro static site on Workers static assets. No adapter until Phase 2's dynamic route. Deploys and PR previews from GitHub Actions (ledger R8), with Cloudflare tokens minted through the API, one per purpose (R9). TypeScript split: root `typescript` 6.0.3 so `astro check` runs, and 7.0.2 as the alias `typescript-7` for `tsc` (R10). |
 | 0002 | three.js WebGPURenderer with WebGL2 fallback and TSL. R3F 9 now, v10 once it's beta. Path-traced photo mode in its own canvas. |
 | 0003 | YAML data validated by Zod, shared by Astro and `check-data`. The source tiers and verification rule. CC BY-SA 4.0 for data. |
 | 0004 | Bodies AI-generated from curated online photos, gated by the Phase 0 spike. Buying licensed models is a fallback offered to the user, never switched to automatically. |
