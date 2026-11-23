@@ -1,0 +1,80 @@
+name: deploy
+
+# Production deploys from main and per-PR preview versions on Cloudflare Workers.
+# This workflow needs secrets, so it is not a required status check. The merge gate
+# stays check, e2e and gitleaks (see ci.yml).
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+concurrency:
+  group: deploy-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  deploy:
+    # Forks get no secrets, so only same-repo PRs and pushes to main run.
+    if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    # The Cloudflare secrets are set on the two wrangler steps only. Checkout, mise, install and
+    # build run third-party and dependency code and must never see them.
+    steps:
+      - uses: actions/checkout@v7
+      - uses: jdx/mise-action@v5
+        with:
+          install_args: node pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm build
+
+      - name: Deploy to production
+        if: github.event_name == 'push'
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.M3_CF_DEPLOY_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.M3_CF_ACCOUNT_ID }}
+        run: pnpm wrangler deploy
+
+      - name: Upload preview version
+        if: github.event_name == 'pull_request'
+        id: preview
+        shell: bash
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.M3_CF_DEPLOY_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.M3_CF_ACCOUNT_ID }}
+          PREVIEW_ALIAS: pr-${{ github.event.number }}
+        run: |
+          pnpm wrangler versions upload --preview-alias "$PREVIEW_ALIAS" | tee wrangler-output.txt
+          url="$(awk '/^Version Preview Alias URL:/ { print $NF; exit }' wrangler-output.txt)"
+          if [ -z "$url" ]; then
+            echo "::error::wrangler did not print a 'Version Preview Alias URL' line"
+            exit 1
+          fi
+          echo "url=$url" >> "$GITHUB_OUTPUT"
+
+      - name: Comment preview URL on the PR
+        if: github.event_name == 'pull_request'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.number }}
+          PREVIEW_URL: ${{ steps.preview.outputs.url }}
+          MERGE_SHA: ${{ github.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          marker='<!-- m3-tool-preview -->'
+          body="$(printf '%s\nPreview: %s\n\nBuilt from merge commit %s (PR head %s merged into the base branch).' \
+            "$marker" "$PREVIEW_URL" "$MERGE_SHA" "$HEAD_SHA")"
+          existing="$(gh api "repos/$GH_REPO/issues/$PR_NUMBER/comments" --paginate \
+            --jq ".[] | select(.user.login == \"github-actions[bot]\" and (.body | startswith(\"$marker\"))) | .id")"
+          existing="${existing%%$'\n'*}"
+          if [ -n "$existing" ]; then
+            gh api --method PATCH "repos/$GH_REPO/issues/comments/$existing" -f body="$body" > /dev/null
+          else
+            gh api --method POST "repos/$GH_REPO/issues/$PR_NUMBER/comments" -f body="$body" > /dev/null
+          fi

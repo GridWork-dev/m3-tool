@@ -1,0 +1,8 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "m3-tool",
+  "compatibility_date": "2026-11-23",
+  "assets": { "directory": "./dist", "not_found_handling": "404-page" },
+  "workers_dev": true,
+  "preview_urls": true
+}
