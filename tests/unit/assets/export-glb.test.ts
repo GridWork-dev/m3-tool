@@ -21,6 +21,7 @@ import {
   contractStructure,
   type ExportProxy,
   exportGlb,
+  fitProxyBudget,
   runExportGlb,
   structureProblems,
 } from '../../../tools/export-glb.ts'
@@ -86,6 +87,34 @@ function worldVertexKeys(doc: Document): Set<string> {
 }
 
 const sha256 = (bytes: Uint8Array): string => createHash('sha256').update(bytes).digest('hex')
+
+// A car whose `trunk_lid` is animated. quantize() moves the mesh of an animated node onto an
+// unnamed child too, and the export has no way to put it back, so this is an input that makes the
+// export lose a required mesh.
+function carWithAnimatedTrunkLid(): Document {
+  const doc = makeBaseCar({ triangles: 2_000 })
+  const lid = nodeNamed(doc, 'trunk_lid')
+  const buffer = doc.getRoot().listBuffers()[0]
+  if (!(lid && buffer)) throw new Error('the fixture car lost its trunk lid')
+  const times = doc
+    .createAccessor()
+    .setType('SCALAR')
+    .setArray(new Float32Array([0, 1]))
+    .setBuffer(buffer)
+  const values = doc
+    .createAccessor()
+    .setType('VEC3')
+    .setArray(new Float32Array([0, 0, 0, 0, 0.1, 0]))
+    .setBuffer(buffer)
+  const sampler = doc.createAnimationSampler().setInput(times).setOutput(values)
+  const channel = doc
+    .createAnimationChannel()
+    .setTargetNode(lid)
+    .setTargetPath('translation')
+    .setSampler(sampler)
+  doc.createAnimation('open').addSampler(sampler).addChannel(channel)
+  return doc
+}
 
 const ANCHORS = CONTRACTS['base-car'].requiredAnchors
 const MATERIALS = CONTRACTS['base-car'].requiredMaterials
@@ -273,6 +302,150 @@ describe('exportGlb', () => {
     const { ok } = await validateGlb(glb, 'product')
     expect(ok).toBe(true)
   })
+
+  test('fails, and writes nothing, when it would lose a required mesh', async () => {
+    const input = await toGlb(carWithAnimatedTrunkLid())
+    await expect(exportGlb(input, { kind: 'base-car' })).rejects.toThrow(
+      "the export would break the asset's structure: trunk_lid lost its mesh",
+    )
+  })
+})
+
+// A flat-shaded mesh has a vertex for every corner of every triangle, and its normals and UVs
+// differ at each, so only the positions can say which vertices are one.
+describe('a flat-shaded mesh', () => {
+  // A sphere of `latitudes` x `longitudes` quads, two triangles each with their own three
+  // vertices, a face normal and UVs, on a textured material (an untextured one would lose its UVs
+  // in `prune`). Triangles that collapse at a pole are left out.
+  function flatShadedSphere(latitudes: number, longitudes: number): Document {
+    const radius = 0.2
+    const point = (i: number, j: number): number[] => {
+      const theta = (Math.PI * i) / latitudes
+      const phi = (2 * Math.PI * j) / longitudes
+      return [
+        radius * Math.sin(theta) * Math.cos(phi),
+        radius + radius * Math.cos(theta),
+        radius * Math.sin(theta) * Math.sin(phi),
+      ]
+    }
+    const positions: number[] = []
+    const normals: number[] = []
+    const uvs: number[] = []
+    for (let i = 0; i < latitudes; i++) {
+      for (let j = 0; j < longitudes; j++) {
+        const corners = [
+          [point(i, j), j, i],
+          [point(i, j + 1), j + 1, i],
+          [point(i + 1, j), j, i + 1],
+          [point(i + 1, j + 1), j + 1, i + 1],
+        ] as const
+        for (const [first, second, third] of [
+          [0, 2, 1],
+          [1, 2, 3],
+        ] as const) {
+          const [a, b, c] = [corners[first], corners[second], corners[third]]
+          const u = [0, 1, 2].map((axis) => (b[0][axis] ?? 0) - (a[0][axis] ?? 0))
+          const v = [0, 1, 2].map((axis) => (c[0][axis] ?? 0) - (a[0][axis] ?? 0))
+          const cross = [
+            (u[1] ?? 0) * (v[2] ?? 0) - (u[2] ?? 0) * (v[1] ?? 0),
+            (u[2] ?? 0) * (v[0] ?? 0) - (u[0] ?? 0) * (v[2] ?? 0),
+            (u[0] ?? 0) * (v[1] ?? 0) - (u[1] ?? 0) * (v[0] ?? 0),
+          ]
+          const length = Math.hypot(...cross)
+          if (length < 1e-12) continue
+          for (const corner of [a, b, c]) {
+            positions.push(...corner[0])
+            normals.push(...cross.map((value) => value / length))
+            uvs.push(corner[1] / longitudes, corner[2] / latitudes)
+          }
+        }
+      }
+    }
+    const doc = new Document()
+    doc.setLogger(new Logger(Logger.Verbosity.SILENT))
+    const buffer = doc.createBuffer()
+    const attribute = (type: 'VEC2' | 'VEC3', values: number[]) =>
+      doc.createAccessor().setType(type).setArray(new Float32Array(values)).setBuffer(buffer)
+    const material = doc
+      .createMaterial('surface')
+      .setBaseColorTexture(doc.createTexture('t').setImage(makePng(8)).setMimeType('image/png'))
+    const primitive = doc
+      .createPrimitive()
+      .setAttribute('POSITION', attribute('VEC3', positions))
+      .setAttribute('NORMAL', attribute('VEC3', normals))
+      .setAttribute('TEXCOORD_0', attribute('VEC2', uvs))
+      .setMaterial(material)
+    doc
+      .createScene('scene')
+      .addChild(doc.createNode('ball').setMesh(doc.createMesh('ball').addPrimitive(primitive)))
+    return doc
+  }
+
+  test('still gets a proxy within the budget, and the GLB keeps its normals and UVs', async () => {
+    // 160 x 320 quads: about 102,000 triangles, and a vertex split at nearly every corner.
+    const { glb, proxy } = await exportGlb(await toGlb(flatShadedSphere(160, 320)), {
+      kind: 'product',
+    })
+    expect(proxy.triangles).toBeGreaterThan(100_000)
+    expect(proxy.faces.length).toBeLessThanOrEqual(31_000)
+    expect(proxy.faces.length).toBeGreaterThan(10_000)
+    // Coincident corners are one vertex in the proxy, so it stays small.
+    expect(proxy.vertices.length).toBeLessThan(20_000)
+    expect(JSON.stringify(proxy).length).toBeLessThan(2_000_000)
+
+    const primitive = (await read(glb)).getRoot().listMeshes()[0]?.listPrimitives()[0]
+    // The two triangles of a quad share their normal, so welding joins two of their six corners:
+    // four vertices a quad stay in the GLB, and none of them lost its normal or UV to the proxy.
+    const normals = primitive?.getAttribute('NORMAL')?.getCount()
+    expect(normals).toBeGreaterThan(200_000)
+    expect(primitive?.getAttribute('TEXCOORD_0')?.getCount()).toBe(normals)
+    expect(primitive?.getAttribute('POSITION')?.getCount()).toBe(normals)
+  }, 120_000)
+})
+
+// What the proxy does when decimation does not reach the budget in one pass.
+describe('fitProxyBudget', () => {
+  test('does not simplify a mesh that is already at the target', async () => {
+    const ratios: number[] = []
+    const left = await fitProxyBudget(30_000, async (ratio) => {
+      ratios.push(ratio)
+      return 0
+    })
+    expect(ratios).toEqual([])
+    expect(left).toBe(30_000)
+  })
+
+  test('stops after the first pass that lands within the budget', async () => {
+    const ratios: number[] = []
+    const left = await fitProxyBudget(120_000, async (ratio) => {
+      ratios.push(ratio)
+      return 30_080
+    })
+    expect(ratios).toEqual([0.25])
+    expect(left).toBe(30_080)
+  })
+
+  test('tightens the ratio and tries again when a pass lands over the budget', async () => {
+    const ratios: number[] = []
+    const counts = [60_000, 45_000, 30_900]
+    const left = await fitProxyBudget(120_000, async (ratio) => {
+      ratios.push(ratio)
+      return counts[ratios.length - 1] ?? 0
+    })
+    expect(ratios).toEqual([0.25, 0.5, 30_000 / 45_000])
+    expect(left).toBe(30_900)
+  })
+
+  test('fails, naming the count it is stuck at, when it never gets within the budget', async () => {
+    let passes = 0
+    await expect(
+      fitProxyBudget(120_000, async () => {
+        passes++
+        return 50_000
+      }),
+    ).rejects.toThrow(/31,?000 triangles or fewer.*50,?000 left after 4 passes/)
+    expect(passes).toBe(4)
+  })
 })
 
 // quantize() scales a mesh through its node's matrix, and for a node with children it moves the
@@ -330,6 +503,74 @@ describe('a mesh node that has children', () => {
     const { glb } = await exportGlb(await toGlb(carWithChildAnchors()), { kind: 'base-car' })
     const nodes = (await read(glb)).getRoot().listNodes()
     expect(nodes.filter((node) => node.getName() === '')).toEqual([])
+  })
+
+  // quantize()'s correction is folded into the parent and its inverse into the children, so the
+  // children's whole world matrices (rotation and scale as well as position) must come out as
+  // they went in, whatever the parent's own rotation, scale and mirroring are.
+  function carWithTransformedParents(): Document {
+    const unit = (q: number[]): [number, number, number, number] => {
+      const length = Math.hypot(...q)
+      return [
+        (q[0] ?? 0) / length,
+        (q[1] ?? 0) / length,
+        (q[2] ?? 0) / length,
+        (q[3] ?? 0) / length,
+      ]
+    }
+    const doc = makeBaseCar()
+    const lid = nodeNamed(doc, 'trunk_lid')
+    const roof = nodeNamed(doc, 'roof')
+    const trunk = nodeNamed(doc, 'mount_trunk')
+    const interior = nodeNamed(doc, 'mount_interior')
+    if (!(lid && roof && trunk && interior)) throw new Error('the fixture car lost a node')
+    lid
+      .setTranslation([0.1, 0.05, -0.2])
+      .setRotation(unit([0.1, 0.25, -0.3, 0.9]))
+      .setScale([1.2, 0.8, 1.1])
+      .addChild(
+        trunk
+          .setTranslation([0.3, -0.2, 0.5])
+          .setRotation(unit([0.4, -0.1, 0.2, 0.8]))
+          .setScale([0.9, 1.3, 0.7]),
+      )
+    roof
+      .setTranslation([-0.05, 0.02, 0.1])
+      .setRotation(unit([-0.2, 0.1, 0.3, 0.9]))
+      .setScale([-1.1, 1, 0.9]) // mirrored along X
+      .addChild(
+        interior
+          .setTranslation([0.2, 0.4, -0.3])
+          .setRotation(unit([0.3, 0.3, -0.1, 0.7]))
+          .setScale([1.4, 0.6, 1]),
+      )
+    return doc
+  }
+
+  test('keeps the children whole world matrices under a rotated, scaled and mirrored parent', async () => {
+    const source = carWithTransformedParents()
+    const { glb } = await exportGlb(await toGlb(carWithTransformedParents()), {
+      kind: 'base-car',
+    })
+    const out = await read(glb)
+    for (const name of ['mount_trunk', 'mount_interior']) {
+      const was = nodeNamed(source, name)?.getWorldMatrix() ?? []
+      const now = nodeNamed(out, name)?.getWorldMatrix() ?? []
+      expect(now, name).toHaveLength(16)
+      for (let index = 0; index < 16; index++) {
+        expect(now[index], `${name}[${index}]`).toBeCloseTo(was[index] ?? Number.NaN, 5)
+      }
+    }
+    // The parents still draw their meshes where they were drawn, mirrored one included.
+    for (const name of ['trunk_lid', 'roof']) {
+      expect(nodeNamed(out, name)?.getMesh(), name).not.toBeNull()
+      const was = getBounds(nodeNamed(source, name) ?? sceneOf(source))
+      const now = getBounds(nodeNamed(out, name) ?? sceneOf(out))
+      for (let axis = 0; axis < 3; axis++) {
+        expect(now.min[axis], name).toBeCloseTo(was.min[axis] ?? Number.NaN, 3)
+        expect(now.max[axis], name).toBeCloseTo(was.max[axis] ?? Number.NaN, 3)
+      }
+    }
   })
 
   test('puts the children in the proxy where they are', async () => {
@@ -536,6 +777,18 @@ describe('runExportGlb', () => {
     expect(bad.exitCode).toBe(2)
     expect(bad.stderr.join('\n')).toMatch(/markers/)
     expect(spawnSync('test', ['-e', out]).status).not.toBe(0)
+  })
+
+  test('exits 1, naming the node, and writes nothing when it would lose a required mesh', async () => {
+    const animated = join(dir, 'animated.glb')
+    await writeFile(animated, await toGlb(carWithAnimatedTrunkLid()))
+    const out = join(dir, 'animated-out.glb')
+    const result = await runExportGlb([animated, out, '--kind', 'base-car'])
+    expect(result.exitCode).toBe(1)
+    expect(result.stdout).toEqual([])
+    expect(result.stderr.join('\n')).toContain('trunk_lid lost its mesh')
+    expect(spawnSync('test', ['-e', out]).status).not.toBe(0)
+    expect(spawnSync('test', ['-e', join(dir, 'animated-out.proxy.json')]).status).not.toBe(0)
   })
 
   test('exits 1 and writes nothing for bytes that are not a GLB', async () => {

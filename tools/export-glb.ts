@@ -31,6 +31,11 @@ const USAGE = `usage: node tools/export-glb.ts <in.glb> <out.glb> --kind <${ASSE
 
 // The proxy keeps about this many triangles, for the scorer to render and compare.
 const PROXY_TRIANGLES = 30_000
+// The most triangles a proxy may keep. The simplifier lands a little over its target, so this
+// leaves room for that, and a result above it is retried and then refused.
+const PROXY_MAX_TRIANGLES = 31_000
+// How many times the simplifier runs on the way to the budget.
+const PROXY_PASSES = 4
 // glTF primitive modes of a triangle list, a strip and a fan.
 const TRIANGLES = 4
 const TRIANGLE_STRIP = 5
@@ -50,8 +55,9 @@ export interface ExportOptions {
 
 // What `score` loads instead of reading the GLB. `bbox_min`, `bbox_max`, `triangles` and
 // `node_positions` describe the full mesh in the contract frame (glTF world space). `vertices` and
-// `faces` are the same geometry in that frame, decimated to about PROXY_TRIANGLES, so they must
-// not be used to measure anything. `sha256` is the digest of the exported GLB's bytes.
+// `faces` are the same geometry in that frame, decimated to about PROXY_TRIANGLES (the export
+// fails rather than write more than PROXY_MAX_TRIANGLES), so they must not be used to measure
+// anything. `sha256` is the digest of the exported GLB's bytes.
 export interface ExportProxy {
   sha256: string
   bbox_min: number[]
@@ -154,24 +160,56 @@ function worldGeometry(doc: Document): { vertices: number[][]; faces: number[][]
   return { vertices, faces }
 }
 
-// Decimates a copy of the document, so the real one keeps its full geometry (and its strips and
-// fans: the copy turns them into triangle lists first, so they reach the proxy whether or not it
-// needs decimating). The error limit is off (1 is the whole mesh radius): the target alone
-// decides, and a curved car would otherwise stop far above it.
-async function decimatedGeometry(doc: Document, triangles: number) {
+// Runs `pass(ratio)`, which simplifies the proxy's mesh to that share of its triangles and returns
+// how many it has left, until the count is within PROXY_MAX_TRIANGLES. A pass that lands above it
+// is followed by one aimed again at PROXY_TRIANGLES from where it stopped. Past PROXY_PASSES
+// passes it throws, rather than hand `score` a proxy over the budget. Returns the final count.
+export async function fitProxyBudget(
+  count: number,
+  pass: (ratio: number) => Promise<number>,
+): Promise<number> {
+  let left = count
+  for (let attempt = 0; attempt < PROXY_PASSES && left > PROXY_TRIANGLES; attempt++) {
+    left = await pass(PROXY_TRIANGLES / left)
+    if (left <= PROXY_MAX_TRIANGLES) return left
+  }
+  if (left > PROXY_MAX_TRIANGLES) {
+    throw new Error(
+      `could not decimate the proxy to ${PROXY_MAX_TRIANGLES.toLocaleString('en-US')} triangles or fewer: ${left.toLocaleString('en-US')} left after ${PROXY_PASSES} passes`,
+    )
+  }
+  return left
+}
+
+// Cuts the proxy's geometry from a copy of the document, so the real one keeps everything it has.
+// On the copy:
+// - Strips and fans become triangle lists, so they reach the proxy.
+// - Every attribute but POSITION goes, and then coincident positions are welded. The simplifier
+//   keeps a vertex split wherever normals or UVs differ, so a flat-shaded or seam-ridden mesh
+//   (each triangle with vertices of its own) would otherwise stay far above the budget. The proxy
+//   is positions only, so the splits mean nothing to it.
+// - Then `simplify` takes it to PROXY_TRIANGLES through `fitProxyBudget`. The error limit is off
+//   (1 is the whole mesh radius): the target alone decides, and a curved car would otherwise stop
+//   far above it.
+async function decimatedGeometry(doc: Document) {
   const copy = cloneDocument(doc)
   for (const mesh of copy.getRoot().listMeshes()) {
     for (const primitive of mesh.listPrimitives()) {
       const mode = primitive.getMode()
       if (mode === TRIANGLE_STRIP || mode === TRIANGLE_FAN) convertPrimitiveToTriangles(primitive)
+      for (const semantic of primitive.listSemantics()) {
+        if (semantic !== 'POSITION') primitive.setAttribute(semantic, null)
+      }
+      for (const target of primitive.listTargets()) primitive.removeTarget(target)
     }
   }
-  if (triangles > PROXY_TRIANGLES) {
+  await copy.transform(weld())
+  const scene = sceneOf(copy)
+  await fitProxyBudget(countTriangles(scene), async (ratio) => {
     await MeshoptSimplifier.ready
-    await copy.transform(
-      simplify({ simplifier: MeshoptSimplifier, ratio: PROXY_TRIANGLES / triangles, error: 1 }),
-    )
-  }
+    await copy.transform(simplify({ simplifier: MeshoptSimplifier, ratio, error: 1 }))
+    return countTriangles(scene)
+  })
   return worldGeometry(copy)
 }
 
@@ -322,7 +360,7 @@ export async function exportGlb(
   const triangles = countTriangles(scene)
   const bounds = getBounds(scene)
   const nodePositions = namedPositions(scene)
-  const { vertices, faces } = await decimatedGeometry(doc, triangles)
+  const { vertices, faces } = await decimatedGeometry(doc)
 
   const parents = meshParents(doc)
   await doc.transform(reorder({ encoder: MeshoptEncoder }), quantize())
