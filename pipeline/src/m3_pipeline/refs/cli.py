@@ -12,6 +12,7 @@ from m3_pipeline.refs.commons import CommonsClient
 from m3_pipeline.refs.crawl.engine import crawl_pages
 from m3_pipeline.refs.crawl.fetchers import MissingCredentials, open_fetcher
 from m3_pipeline.refs.crawl.robots import RobotsCache
+from m3_pipeline.refs.credits import render_credits
 from m3_pipeline.refs.cutouts import BackgroundRemovalUnavailable, load_remover, make_cutouts
 from m3_pipeline.refs.dedupe import apply_dedupe
 from m3_pipeline.refs.importer import import_directory
@@ -19,6 +20,7 @@ from m3_pipeline.refs.sources import SubjectSources, load_sources
 from m3_pipeline.refs.store import RefStore
 from m3_pipeline.refs.subjects import parse_subject
 from m3_pipeline.refs.throttle import Throttle
+from m3_pipeline.refs.viewsets import ViewSet, write_viewset
 
 refs_app = typer.Typer(help="Reference photo collection and curation")
 
@@ -201,3 +203,34 @@ def cutouts(subject: Annotated[str, typer.Option("--subject")]) -> None:
         raise typer.Exit(1) from None
     report = make_cutouts(store, subject, remover)
     typer.echo(f"created={report.created} existing={report.existing} failed={report.failed}")
+
+
+viewsets_app = typer.Typer(help="Select reference views")
+refs_app.add_typer(viewsets_app, name="viewsets")
+
+
+@viewsets_app.command("build")
+def viewsets_build(subject: Annotated[str, typer.Option("--subject")]) -> None:
+    """Build and store a ranked view set."""
+    store = RefStore(load_settings())
+    vs = write_viewset(store, subject, store.work_dir / "refs/viewsets" / f"{subject}.json")
+    for entry in vs.entries():
+        typer.echo(
+            f"{entry.view}: {entry.image_id} score={entry.score} mirrored={entry.mirrored} "
+            f"contains_text_risk={entry.contains_text_risk} license={entry.license_short}"
+        )
+    typer.echo(f"missing={','.join(vs.missing)}")
+    typer.echo(f"all_cc_or_pd={vs.all_cc_or_pd}")
+    for reason, count in sorted(vs.rejected.items()):
+        typer.echo(f"rejected {reason}={count}")
+
+
+@refs_app.command()
+def credits(subject: Annotated[str, typer.Option("--subject")]) -> None:
+    """Print credits from a previously built view set."""
+    parse_subject(subject)
+    path = load_settings().work_dir / "refs/viewsets" / f"{subject}.json"
+    if not path.exists():
+        typer.echo("run `pipeline refs viewsets build --subject <id>` first", err=True)
+        raise typer.Exit(1)
+    typer.echo(render_credits(ViewSet.model_validate_json(path.read_text())), nl=False)
