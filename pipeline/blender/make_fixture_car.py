@@ -3,10 +3,10 @@
 
 A coupe-shaped box body with four cylinder wheels, 4.40 x 1.80 x 1.40 m (length, width, height),
 rotated so that its up is -Y and its nose +Z and scaled to centimeters, as a generated mesh
-arrives. Reaching the E46 data takes a uniform 1.0209, then 0.9599 on height and 0.9686 on width.
-Wheel centers sit where the data puts the wheel anchors (after those corrections). The body's
-lowest point is a skid plate, so the wheels stay clear of it, and the wheels cut the body floor,
-which is what `prepare_car.py` caps.
+arrives. Reaching the E46 data takes total factors of 0.98889 on width, 1.02091 on length and 0.98
+on height. Each wheel is round, 64-sided and at the data's tire radius after those factors, with
+its center on the data's wheel anchor, the case a cut at 0.98 x the radius missed. The wheels
+overlap the body floor, which `prepare_car.py` caps once they are gone.
 """
 
 import argparse
@@ -25,13 +25,18 @@ BOXES = (
     ("cabin", (-0.70, -1.30, 0.85), (0.70, 0.50, 1.40), 8),
     ("skid", (-0.50, -1.00, 0.00), (0.50, 1.00, 0.12), 0),
 )
-# Wheel centers: (x, y, z) as pre-correction meters, radius and width.
-WHEEL_RADIUS, WHEEL_WIDTH, WHEEL_SIDES = 0.30, 0.20, 16
+# The scale prepare_car.py's per-axis factors end up applying to a fixture axis (data / fixture
+# size: width 1.78 / 1.80, length 4.492 / 4.40, height 1.372 / 1.40), so wheels built with its
+# inverse come out round, at the data's tire radius, after the corrections.
+POST = (1.78 / 1.80, 4.492 / 4.40, 1.372 / 1.40)
+# Wheels: (anchor x, anchor y along the length with the nose at +y, tire radius), in meters of the
+# data. Each is 64-sided, as a generated tire is, and 0.20 m wide. Its center is one radius up.
+WHEEL_WIDTH, WHEEL_SIDES = 0.20, 64
 WHEELS = {
-    "wheel_FL": (-0.7625, -1.3375, 0.33658),
-    "wheel_FR": (0.7625, -1.3375, 0.33658),
-    "wheel_RL": (-0.7710, 1.3375, 0.33735),
-    "wheel_RR": (0.7710, 1.3375, 0.33735),
+    "wheel_FL": (-0.754, -1.3655, 0.32985),
+    "wheel_FR": (0.754, -1.3655, 0.32985),
+    "wheel_RL": (-0.7625, 1.3655, 0.3306),
+    "wheel_RR": (0.7625, 1.3655, 0.3306),
 }
 # Rotation of the finished car: +90 degrees about X turns up (+z) into -y and the nose (+y) into +z.
 SPIN = Matrix.Rotation(math.radians(90), 4, "X")
@@ -75,16 +80,18 @@ def main(out):
     for _name, low, high, cuts in BOXES:
         add_box(bm, low, high, cuts)
     objects = [make_object("body", bm, paint)]
-    for name, center in WHEELS.items():
+    for name, (ax, ay, radius) in WHEELS.items():
         bm = bmesh.new()
-        axle_to_x = Matrix.Translation(center) @ Matrix.Rotation(math.radians(90), 4, "Y")
+        center = Vector((ax / POST[0], ay / POST[1], radius / POST[2]))
+        undo = Matrix.Diagonal(Vector((1 / POST[0], 1 / POST[1], 1 / POST[2], 1.0)))
+        axle_to_x = Matrix.Translation(center) @ undo @ Matrix.Rotation(math.radians(90), 4, "Y")
         bmesh.ops.create_cone(
             bm,
             cap_ends=True,
             cap_tris=False,
             segments=WHEEL_SIDES,
-            radius1=WHEEL_RADIUS,
-            radius2=WHEEL_RADIUS,
+            radius1=radius,
+            radius2=radius,
             depth=WHEEL_WIDTH,
             matrix=axle_to_x,
         )
@@ -98,10 +105,10 @@ def main(out):
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--out", required=True)
-    args = parser.parse_args(sys.argv[sys.argv.index("--") + 1 :])
     try:
+        parser = argparse.ArgumentParser()
+        parser.add_argument("--out", required=True)
+        args = parser.parse_args(sys.argv[sys.argv.index("--") + 1 :])
         main(args.out)
     except Exception:
         traceback.print_exc()

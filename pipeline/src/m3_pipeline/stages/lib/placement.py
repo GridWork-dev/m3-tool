@@ -30,8 +30,12 @@ _MAX_DIVERGENCE = 0.05
 # body_width_m: the band above the lowest point that sits below the door mirrors.
 _BODY_BAND_M = (0.30, 0.90)
 
-# wheel_cylinders: the share of the tire radius that counts as generated wheel.
-_WHEEL_CYLINDER_FRACTION = 0.98
+# wheel_cylinders: the cut radius as a multiple of the tire radius, and the margin past the tire's
+# section width on each side. A tread quad of an n-sided tire has its center at r * cos(pi / n),
+# just under its radius r, so the cut must reach past the data radius to take the tread, and a
+# generated tire runs a little large. The factor is a plan value that the calibration tasks tune.
+_WHEEL_CUT_RADIUS_FACTOR = 1.04
+_WHEEL_CUT_AXIAL_MARGIN_M = 0.010
 
 # mount_anchor_positions (estimates).
 _FRONT_LIP_Y_M = 0.18
@@ -191,6 +195,19 @@ def axis_scales(
     return (factors[0], factors[1], factors[2])
 
 
+def compose_scales(uniform: float, factors_lhw: Vec) -> Vec:
+    """Total `(length, height, width)` factors from the uniform step to the data's length and the
+    near-1.0 factors of `axis_scales`, which are measured after that step.
+
+    A plan carries only these totals, in `scales_blender` (through `lhw_to_blender_xyz`), so the
+    uniform step is never applied twice or left out.
+    """
+    if not uniform > 0:
+        raise ValueError(f"uniform scale {uniform} must be positive")
+    length, height, width = factors_lhw
+    return (uniform * length, uniform * height, uniform * width)
+
+
 def wheel_anchor_positions(
     dims: Dimensions, front_radius_m: float, rear_radius_m: float
 ) -> dict[str, Vec]:
@@ -263,13 +280,17 @@ def wheel_cylinders(
     rear_radius_m: float,
     front_width_m: float,
     rear_width_m: float,
+    wheel_cut_radius_factor: float = _WHEEL_CUT_RADIUS_FACTOR,
 ) -> list[dict[str, float]]:
     """The four cylinders that mark the generated wheels for removal, in the order FL, FR, RL, RR.
 
     Each is `{cx, cy, cz, radius, x_min, x_max}` in the contract frame: its axis runs along x
-    through the wheel anchor, its radius is 98% of the tire radius, and it spans the tire's
-    section width, which sits outboard of the chassis.
+    through the wheel anchor, its radius is `wheel_cut_radius_factor` times the tire radius, and
+    it spans the tire's section width plus 10 mm on each side, centered on the anchor because the
+    tire is centered on the hub.
     """
+    if not wheel_cut_radius_factor > 0:
+        raise ValueError(f"wheel_cut_radius_factor {wheel_cut_radius_factor} must be positive")
     anchors = wheel_anchor_positions(dims, front_radius_m, rear_radius_m)
     sizes = {
         "wheel_FL": (front_radius_m, front_width_m),
@@ -280,14 +301,15 @@ def wheel_cylinders(
     cylinders: list[dict[str, float]] = []
     for name, (cx, cy, cz) in anchors.items():
         radius, width = sizes[name]
+        half_span = width / 2 + _WHEEL_CUT_AXIAL_MARGIN_M
         cylinders.append(
             {
                 "cx": cx,
                 "cy": cy,
                 "cz": cz,
-                "radius": _WHEEL_CYLINDER_FRACTION * radius,
-                "x_min": cx - width / 2,
-                "x_max": cx + width / 2,
+                "radius": wheel_cut_radius_factor * radius,
+                "x_min": cx - half_span,
+                "x_max": cx + half_span,
             }
         )
     return cylinders

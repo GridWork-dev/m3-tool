@@ -75,10 +75,10 @@ def main(plan):
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--plan", required=True)
-    args = parser.parse_args(sys.argv[sys.argv.index("--") + 1 :])
     try:
+        parser = argparse.ArgumentParser()
+        parser.add_argument("--plan", required=True)
+        args = parser.parse_args(sys.argv[sys.argv.index("--") + 1 :])
         main(json.loads(Path(args.plan).read_text("utf-8")))
     except Exception:
         traceback.print_exc()

@@ -4,13 +4,13 @@
 Plan (every spatial number in the Blender frame, under a key ending `_blender`):
   glb, out_dir                  the generated file and where the results go
   orientation_blender           {up, nose}: axes of the import, like "-y" and "+z"
-  uniform_scale                 factor that makes the car the data's length
-  scales_blender                per-axis factors (x, y, z) of the oriented car, near 1.0
+  scales_blender                TOTAL per-axis factors (x, y, z), import size to the data's
   translation_blender           (x, y, z) added last: car centered, lowest point at z = 0
-  wheel_cylinders_blender       [{center_blender, radius, x_range_blender}]
-Order: rotate to Z up and nose +Y, scale uniformly, scale per axis, translate; delete the faces
-centered inside a wheel cylinder and cap each hole. Writes `prepared.glb` (the exporter turns
-Blender's frame into the contract's) and `prepared.npz` (`vertices`, `faces`, Blender frame).
+  wheel_cylinders_blender       [{name, center_blender, radius, x_range_blender}]
+Order: rotate to Z up and nose +Y, scale per axis, translate; delete the faces centered inside a
+wheel cylinder and cap each hole. One scale only: a plan with `uniform_scale` is refused. Each
+cylinder must cut a face, or the run fails naming the wheel. Writes `prepared.glb` (the exporter
+turns Blender's frame into the contract's) and `prepared.npz` (Blender frame).
 """
 
 import argparse
@@ -25,13 +25,10 @@ import bpy
 import numpy as np
 from mathutils import Matrix, Vector
 
-MERGE_DISTANCE = 1e-5  # meters: the car is at the data's scale by the time faces are cut
-
 
 def orientation_matrix(up, nose):
     """The proper rotation taking the import's `up` axis to +Z and its `nose` axis to +Y."""
-    axis = {"x": Vector((1, 0, 0)), "y": Vector((0, 1, 0)), "z": Vector((0, 0, 1))}
-    u, n = (axis[a[1]] * (1 if a[0] == "+" else -1) for a in (up, nose))
+    u, n = (Vector([(c == a[1]) * (1 if a[0] == "+" else -1) for c in "xyz"]) for a in (up, nose))
     if abs(u.dot(n)) > 0.5:
         raise ValueError(f"up {up!r} and nose {nose!r} must be on different axes")
     return Matrix((n.cross(u), n, u))  # rows: new x, y, z
@@ -58,19 +55,25 @@ def import_joined(glb):
 
 def remove_wheels(bm, cylinders):
     """Delete the faces centered inside a wheel cylinder, then cap each hole. Returns the counts."""
-    # glTF splits vertices at seams and hard edges, which would make every seam a hole.
-    bmesh.ops.remove_doubles(bm, verts=bm.verts, dist=MERGE_DISTANCE)
+    # glTF splits vertices at seams and hard edges, which would make every seam a hole. Meters.
+    bmesh.ops.remove_doubles(bm, verts=bm.verts, dist=1e-5)
     for edge in bm.edges:
         edge.tag = edge.is_boundary  # boundaries the car already had stay as they are
-    doomed = []
+    doomed, per_wheel = [], [0] * len(cylinders)
     for face in bm.faces:
         c = face.calc_center_median()
-        for cyl in cylinders:
+        for i, cyl in enumerate(cylinders):
             x0, x1 = cyl["x_range_blender"]
             cx, cy, cz = cyl["center_blender"]
             if x0 <= c.x <= x1 and math.hypot(c.y - cy, c.z - cz) <= cyl["radius"]:
                 doomed.append(face)
+                per_wheel[i] += 1
                 break
+    for cyl, count in zip(cylinders, per_wheel, strict=True):
+        if count == 0:  # a cut that misses leaves the wheel on and writes a valid file
+            raise RuntimeError(
+                f"wheel cylinder {cyl.get('name', cyl['center_blender'])} cut no face"
+            )
     bmesh.ops.delete(bm, geom=doomed, context="FACES")
     created = 0
     for hole in components([e for e in bm.edges if e.is_boundary and not e.tag]):
@@ -103,7 +106,6 @@ def triangles(mesh):
 
 
 def save_arrays(path, mesh):
-    """`vertices` (Nx3 float32) and `faces` (Mx3 int32) of `mesh`, in its own frame."""
     verts = np.empty(len(mesh.vertices) * 3, dtype=np.float32)
     mesh.vertices.foreach_get("co", verts)
     faces = np.empty(triangles(mesh) * 3, dtype=np.int32)
@@ -112,17 +114,17 @@ def save_arrays(path, mesh):
 
 
 def main(plan):
+    if "uniform_scale" in plan:
+        raise ValueError("uniform_scale is gone: put the total per-axis factors in scales_blender")
+    scales = plan["scales_blender"]
+    if min(scales) <= 0:
+        raise ValueError("scales must be positive")
     out = Path(plan["out_dir"])
     out.mkdir(parents=True, exist_ok=True)
     obj = import_joined(plan["glb"])
-    scales = plan["scales_blender"]
-    if min(scales) <= 0 or plan["uniform_scale"] <= 0:
-        raise ValueError("scales must be positive")
     rotation = orientation_matrix(**plan["orientation_blender"]).to_4x4()
-    stretch = Matrix.Diagonal(Vector((*scales, 1.0)))
     shift = Matrix.Translation(Vector(plan["translation_blender"]))
-    obj.data.transform(shift @ stretch @ Matrix.Scale(plan["uniform_scale"], 4) @ rotation)
-
+    obj.data.transform(shift @ Matrix.Diagonal(Vector((*scales, 1.0))) @ rotation)
     before = triangles(obj.data)
     bm = bmesh.new()
     bm.from_mesh(obj.data)
@@ -131,18 +133,16 @@ def main(plan):
     bm.to_mesh(obj.data)
     bm.free()
     after = triangles(obj.data)
-
     save_arrays(out / "prepared.npz", obj.data)
     bpy.ops.export_scene.gltf(filepath=str(out / "prepared.glb"), export_format="GLB")
-    counts = dict(before=before, removed=removed, capped=capped, after=after)
-    print("PREPARE", json.dumps(counts))
+    print("PREPARE", json.dumps(dict(before=before, removed=removed, capped=capped, after=after)))
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--plan", required=True)
-    args = parser.parse_args(sys.argv[sys.argv.index("--") + 1 :])
     try:
+        parser = argparse.ArgumentParser()
+        parser.add_argument("--plan", required=True)
+        args = parser.parse_args(sys.argv[sys.argv.index("--") + 1 :])
         main(json.loads(Path(args.plan).read_text("utf-8")))
     except Exception:
         traceback.print_exc()

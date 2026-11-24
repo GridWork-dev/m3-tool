@@ -1,5 +1,6 @@
 import ast
 import itertools
+import math
 import re
 import sys
 from collections.abc import Sequence
@@ -8,13 +9,14 @@ import pytest
 
 from m3_pipeline.config import load_settings
 from m3_pipeline.stages.lib.dims import Dimensions, tire_radius_m, tire_width_m
-from m3_pipeline.stages.lib.frames import Vec
+from m3_pipeline.stages.lib.frames import Vec, lhw_to_blender_xyz
 from m3_pipeline.stages.lib.placement import (
     Orientation,
     ScaleRefused,
     apply_orientation,
     axis_scales,
     body_width_m,
+    compose_scales,
     decimate_ratio,
     interior_fit,
     module_cut_planes,
@@ -262,22 +264,91 @@ def test_decimate_ratio_targets_150k() -> None:
         decimate_ratio(0)
 
 
-def test_wheel_cylinders_use_98_percent_of_tire_radius() -> None:
-    cylinders = wheel_cylinders(
-        E46, FRONT_R, REAR_R, tire_width_m(FRONT_TIRE), tire_width_m(REAR_TIRE)
-    )
+def _cylinders(factor: float | None = None) -> list[dict[str, float]]:
+    widths = (tire_width_m(FRONT_TIRE), tire_width_m(REAR_TIRE))
+    if factor is None:
+        return wheel_cylinders(E46, FRONT_R, REAR_R, *widths)
+    return wheel_cylinders(E46, FRONT_R, REAR_R, *widths, wheel_cut_radius_factor=factor)
+
+
+def test_wheel_cylinders_cut_at_the_factor_times_the_tire_radius() -> None:
+    cylinders = _cylinders()
     assert len(cylinders) == 4
     anchors = wheel_anchor_positions(E46, FRONT_R, REAR_R)
-    by_center = {(c["cx"], c["cy"], c["cz"]): c for c in cylinders}
-    assert set(by_center) == set(anchors.values())
-    for position in anchors.values():
-        cylinder = by_center[position]
-        front = position[2] < 0
-        radius, width = (FRONT_R, 0.225) if front else (REAR_R, 0.255)
-        assert cylinder["radius"] == pytest.approx(0.98 * radius)
-        # The axle runs along x: the cylinder spans the tire's section width at the wheel.
-        assert cylinder["x_min"] == pytest.approx(position[0] - width / 2)
-        assert cylinder["x_max"] == pytest.approx(position[0] + width / 2)
+    assert [(c["cx"], c["cy"], c["cz"]) for c in cylinders] == list(anchors.values())
+    for c in cylinders:
+        radius = FRONT_R if c["cz"] < 0 else REAR_R
+        assert c["radius"] == pytest.approx(1.04 * radius)  # the default factor
+    # The factor is a plan value, so the calibration tasks can change it.
+    for c in _cylinders(factor=1.10):
+        radius = FRONT_R if c["cz"] < 0 else REAR_R
+        assert c["radius"] == pytest.approx(1.10 * radius)
+    with pytest.raises(ValueError, match="factor"):
+        _cylinders(factor=0.0)
+
+
+def test_wheel_cylinders_span_the_tire_width_plus_10_mm_each_side() -> None:
+    for c in _cylinders():
+        width = 0.225 if c["cz"] < 0 else 0.255
+        # Centered on the wheel anchor, because the tire is centered on the hub.
+        assert c["x_min"] == pytest.approx(c["cx"] - width / 2 - 0.010)
+        assert c["x_max"] == pytest.approx(c["cx"] + width / 2 + 0.010)
+
+
+def _tire_face_centers(
+    c: dict[str, float], tread_radius: float, width: float, sides: int = 64
+) -> list[Vec]:
+    """Centers (as Blender's median center gives them) of every face of a tire: `sides` tread
+    quads, and the two flat caps, around the axle through (cx, cy, cz) along x."""
+    centers: list[Vec] = []
+    for i in range(sides):
+        a0, a1 = 2 * math.pi * i / sides, 2 * math.pi * (i + 1) / sides
+        corners = [
+            (
+                c["cx"] + dx,
+                c["cy"] + tread_radius * math.cos(a),
+                c["cz"] + tread_radius * math.sin(a),
+            )
+            for dx in (-width / 2, width / 2)
+            for a in (a0, a1)
+        ]
+        centers.append(
+            (
+                sum(p[0] for p in corners) / 4,
+                sum(p[1] for p in corners) / 4,
+                sum(p[2] for p in corners) / 4,
+            )
+        )
+    centers += [(c["cx"] - width / 2, c["cy"], c["cz"]), (c["cx"] + width / 2, c["cy"], c["cz"])]
+    return centers
+
+
+@pytest.mark.parametrize("oversize", [1.0, 1.03])
+def test_every_face_of_a_fine_tire_falls_inside_the_planned_cylinder(oversize: float) -> None:
+    """A tread quad of an n-sided tire has its center at r * cos(pi / n), just under the tread
+    radius. A cut at 0.98 R left every tread band of a 64-sided tire at R, and capped it into a
+    drum. The cut must take the tread of a tire at the data radius and 3% over it."""
+    for c in _cylinders():
+        data_radius = FRONT_R if c["cz"] < 0 else REAR_R
+        width = 0.225 if c["cz"] < 0 else 0.255
+        for x, y, z in _tire_face_centers(c, oversize * data_radius, width):
+            assert c["x_min"] <= x <= c["x_max"]
+            assert math.hypot(y - c["cy"], z - c["cz"]) <= c["radius"]
+
+
+def test_compose_scales_takes_a_raw_mesh_to_the_data_dimensions() -> None:
+    """The plan carries one set of per-axis factors, the total. The uniform step to the data's
+    length and the near-1.0 axis factors are composed here, never applied twice."""
+    raw_lhw = (4.40, 1.40, 1.80)  # a mesh whose body is 1.80 m wide and 1.40 m tall
+    uniform = 4.492 / raw_lhw[0]
+    measured = (raw_lhw[0] * uniform, raw_lhw[1] * uniform, raw_lhw[2] * uniform)
+    factors = axis_scales(measured, E46)
+    total = compose_scales(uniform, factors)
+    scaled = tuple(t * r for t, r in zip(total, raw_lhw, strict=True))
+    assert scaled == pytest.approx((4.492, 1.372, 1.78))
+    assert lhw_to_blender_xyz(total) == (total[2], total[0], total[1])
+    with pytest.raises(ValueError, match="uniform"):
+        compose_scales(0.0, factors)
 
 
 def test_interior_eye_anchor_is_the_data_eye_point() -> None:
