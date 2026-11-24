@@ -1,0 +1,56 @@
+# Air cleaner (engine air filter) element replacement on the E46 M3. Every source below was opened
+# on 2026-11-24.
+#
+# Markets: `markets: [us]` (ruling R61). Every source is a BMW of North America document or a US
+# English owner's manual, and a document for one market covers that market only. No European BMW
+# schedule (service booklet or owner's handbook) was found: the M3 owner's manuals I opened in
+# archive.org's BMW manuals collection are all US English editions, and web searches found no
+# European one.
+#
+# Model years: `modelYears: [2004, 2004]` (rulings R86 and R88). The 2004 booklet names the model
+# year on its cover ('2004 E46 M3'), and the owner's manual (09/03) goes with it: the manual names
+# no model year itself, and ManualsLib lists it as 'BMW M3 2004'. The 2005 checklist, ST050 and
+# ST041 are Tier 2 copies and cannot widen the range on their own. I looked for another year's BMW
+# document that is Tier 1 under R77 or R84 and says the same: the archive.org copies of BMW NA's US
+# M3 booklets are for 2004 and for 2008 to 2010, and the 2005 booklet (SD 92-269) on ManualsLib is a
+# viewer's re-rendering, so I could not show it is the native file. The other years' owner's manuals
+# on archive.org name no model year in the document. The field is explicit because the US cars start
+# in 2001, so no US item can leave it out (R88).
+#
+# Interval: `triggers: [inspection-ii]` and no number. The 2004 booklet lists 'Replace air cleaner
+# element.' under Inspection II only, and again in its emission control schedule (the 'Air filter'
+# row is marked at Inspection II). The owner's manual has nothing on the air cleaner element, so the
+# trigger rests on the booklet (Tier 1) and the entry is `verified: true`.
+#
+# Tiers (data.md, 'Sources', rulings R77 and R84): the owner's manual copy and the booklet copy are
+# Tier 1; the ST050 and ST041 copies are Tier 2, because they have no issuer line or module number.
+#
+# No cost is published: no Tier 1 or Tier 2 source gives a figure for this service, and price
+# collection is a separate lane (data.md, 'Costs that are absent').
+id: e46-air-cleaner-element
+generation: e46
+engine: S54B32
+markets: [us]
+modelYears: [2004, 2004]
+title: "Air cleaner element"
+interval:
+  triggers: [inspection-ii]
+parts:
+  - "air cleaner element"
+fluids: []
+inspectWhenBuying: false
+sources:
+  - title: "Service and Warranty Information, 2004 E46 M3 (SD 92-255, printed 9/03)"
+    publisher: BMW of North America, LLC
+    url: https://archive.org/download/manualzilla-id-7066322/7066322.pdf
+    tier: 1
+    accessed: 2026-11-24
+    note: "Third-party copy on archive.org (item manualzilla-id-7066322, uploaded to archive.org from Manualzilla by a private account); the copy is complete (all 42 PDF pages) and nothing is missing. Tier 1 under data.md, 'Sources', ruling R84: it is BMW NA's own print file (QuarkXPress 5.01, Acrobat Distiller 4.05, created 2003-11-13, live text) with the line '© BMW of North America, LLC ... Printed in U.S.A. 9/03 SD 92-255' on the cover, which also names the model year ('2004 E46 M3'); the number fits BMW NA's sequence (SD 92-269, printed 08/04, on ManualsLib; SD 92-322, printed 07/06, on NHTSA's site); and the owner's manual (Tier 1) pp. 125-126 names 'the Service and Warranty Information Booklet for US models', which confirms what kind of document it is and that it serves the US market. A BMW NA document, so it speaks for US-market cars only. Page numbers are the booklet's printed pages (PDF page = printed page + 3). 2004 model year. Inspection II, Engine Compartment: 'Replace air cleaner element. (Note: Reduce replacement interval in dusty operating conditions).' (p. 8). The Emission Control Maintenance Schedule (p. 13) marks 'Air filter' with an R under Inspection II."
+  - title: "Sample 2005 BMW Service Maintenance Checklist (BMW NA SD92-283 8/04), as reproduced in ST050 Service and Maintenance, pp. 12-13"
+    publisher: BMW of North America, LLC
+    url: https://archive.org/download/BMWTechnicalTrainingDocuments/ST050%20Technical%20Systems%20%28Archive%201%29/Service%20and%20Maintenance.pdf
+    tier: 2
+    accessed: 2026-11-24
+    note: "BMW NA's sample 2005 checklist (form 'BMW NA SD92-283 8/04', 3 Series and Z4 with an M3 column), as reproduced in the ST050 chapter 'Service and Maintenance'. Tier 2 under data.md, 'Sources' (R77), tests 1 and 3: the copy has no issuer line or module number and no independent source states the form number. BMW NA is also the booklet's publisher, so the two count once for the verification rule. A 2005 model-year document. 2005 model year. Inspection II, Engine Compartment: 'Replace intake air cleaner element. Note: Reduce replacement interval in dusty operating conditions.', with a mark in all three columns including the M3 (p. 13)."
+verified: true
+notes: "Dusty conditions: BMW's 2004 US booklet says 'Replace air cleaner element. (Note: Reduce replacement interval in dusty operating conditions).' under Inspection II (p. 8). The 2005 US checklist says 'Replace intake air cleaner element. Note: Reduce replacement interval in dusty operating conditions.' (ST050 p. 13). Neither gives a shorter interval. The only Tier 1 source for this item is the booklet, a third-party copy on archive.org accepted under ruling R84, so the item rests on that copy alone (data.md, 'Sources')."

@@ -377,14 +377,14 @@ function checkAgainstGeneration(set: DataSet, add: Add): void {
       }
     }
     // Exactly the generation's years, with no slack at either end (ruling R88, data.md "Model
-    // years"): the site's year choices are the generation's years, so a range past them would
-    // describe a year no car has, and could not be picked.
+    // years"): the site's year choices are the generation's years, so a range past them could not
+    // be picked. A source that names a year past them means fixing the generation's years first.
     if (modelYears !== undefined && outside(modelYears, generation.years)) {
       const [first, last] = generation.years
       add(
         file,
         'model-years-outside-generation',
-        `${kind} "${id}" has modelYears [${modelYears[0]}, ${modelYears[1]}], outside generation "${generation.id}"'s years [${first}, ${last}]`,
+        `${kind} "${id}" has modelYears [${modelYears[0]}, ${modelYears[1]}], outside generation "${generation.id}" years [${first}, ${last}]`,
       )
     }
   }

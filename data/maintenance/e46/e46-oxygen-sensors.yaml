@@ -1,0 +1,57 @@
+# Oxygen sensor replacement on the E46 M3. An optional item, added because the schema holds it
+# cleanly: the booklet gives a mileage and no trigger. Every source below was opened on 2026-11-24.
+#
+# Markets: `markets: [us]` (ruling R61). Every source is a BMW of North America document or a US
+# English owner's manual, and a document for one market covers that market only. No European BMW
+# schedule (service booklet or owner's handbook) was found: the M3 owner's manuals I opened in
+# archive.org's BMW manuals collection are all US English editions, and web searches found no
+# European one.
+#
+# Model years: `modelYears: [2004, 2004]` (rulings R86 and R88). The 2004 booklet names the model
+# year on its cover ('2004 E46 M3'), and the owner's manual (09/03) goes with it: the manual names
+# no model year itself, and ManualsLib lists it as 'BMW M3 2004'. The 2005 checklist, ST050 and
+# ST041 are Tier 2 copies and cannot widen the range on their own. I looked for another year's BMW
+# document that is Tier 1 under R77 or R84 and says the same: the archive.org copies of BMW NA's US
+# M3 booklets are for 2004 and for 2008 to 2010, and the 2005 booklet (SD 92-269) on ManualsLib is a
+# viewer's re-rendering, so I could not show it is the native file. The other years' owner's manuals
+# on archive.org name no model year in the document. The field is explicit because the US cars start
+# in 2001, so no US item can leave it out (R88).
+#
+# Interval: `miles: 100000`, with no trigger, because the booklet ties it to mileage alone
+# ('deteriorates strictly on a mileage basis'). The number is in the 2004 booklet three times (pp.
+# 3, 8 and 13) and in the 2005 checklist ('M3: 100,000 mi.'), both BMW NA documents, and the booklet
+# is Tier 1, so the entry is `verified: true`.
+#
+# Tiers (data.md, 'Sources', rulings R77 and R84): the owner's manual copy and the booklet copy are
+# Tier 1; the ST050 and ST041 copies are Tier 2, because they have no issuer line or module number.
+#
+# No cost is published: no Tier 1 or Tier 2 source gives a figure for this service, and price
+# collection is a separate lane (data.md, 'Costs that are absent').
+id: e46-oxygen-sensors
+generation: e46
+engine: S54B32
+markets: [us]
+modelYears: [2004, 2004]
+title: "Oxygen sensor replacement"
+interval:
+  miles: 100000
+parts:
+  - "oxygen sensor"
+fluids: []
+inspectWhenBuying: true
+howToCheck: "Look in the booklet's Special Maintenance Record for entries under 'Record of Oxygen Sensor replacement (Every 100,000 Miles)', which has a date and a mileage. No entry on a car past 100,000 miles is a question to ask."
+sources:
+  - title: "Service and Warranty Information, 2004 E46 M3 (SD 92-255, printed 9/03)"
+    publisher: BMW of North America, LLC
+    url: https://archive.org/download/manualzilla-id-7066322/7066322.pdf
+    tier: 1
+    accessed: 2026-11-24
+    note: "Third-party copy on archive.org (item manualzilla-id-7066322, uploaded to archive.org from Manualzilla by a private account); the copy is complete (all 42 PDF pages) and nothing is missing. Tier 1 under data.md, 'Sources', ruling R84: it is BMW NA's own print file (QuarkXPress 5.01, Acrobat Distiller 4.05, created 2003-11-13, live text) with the line '© BMW of North America, LLC ... Printed in U.S.A. 9/03 SD 92-255' on the cover, which also names the model year ('2004 E46 M3'); the number fits BMW NA's sequence (SD 92-269, printed 08/04, on ManualsLib; SD 92-322, printed 07/06, on NHTSA's site); and the owner's manual (Tier 1) pp. 125-126 names 'the Service and Warranty Information Booklet for US models', which confirms what kind of document it is and that it serves the US market. A BMW NA document, so it speaks for US-market cars only. Page numbers are the booklet's printed pages (PDF page = printed page + 3). 2004 model year. 'Oxygen Sensor Service: The oxygen sensor deteriorates strictly on a mileage basis and must therefore be replaced every 100,000 miles to maximize vehicle fuel economy and minimize exhaust pollution. The replacement of the oxygen sensor is required under the terms of the applicable BMW emission system warranties.' (p. 3); 'Replace Oxygen Sensor every 100,000 miles.' (p. 8); the Emission Control Maintenance Schedule, 'Oxygen sensor' 'Replace at intervals of 100,000 miles' (p. 13); and the record page, 'Record of Oxygen Sensor replacement (Every 100,000 Miles)' (p. 9)."
+  - title: "Sample 2005 BMW Service Maintenance Checklist (BMW NA SD92-283 8/04), as reproduced in ST050 Service and Maintenance, pp. 12-13"
+    publisher: BMW of North America, LLC
+    url: https://archive.org/download/BMWTechnicalTrainingDocuments/ST050%20Technical%20Systems%20%28Archive%201%29/Service%20and%20Maintenance.pdf
+    tier: 2
+    accessed: 2026-11-24
+    note: "BMW NA's sample 2005 checklist (form 'BMW NA SD92-283 8/04', 3 Series and Z4 with an M3 column), as reproduced in the ST050 chapter 'Service and Maintenance'. Tier 2 under data.md, 'Sources' (R77), tests 1 and 3: the copy has no issuer line or module number and no independent source states the form number. BMW NA is also the booklet's publisher, so the two count once for the verification rule. A 2005 model-year document. 2005 model year. 'BMW Oxygen Sensor Replacement, required at intervals of 120,000 mi. (325i SULEV: 150,000 mi. M3: 100,000 mi.)' (p. 12)."
+verified: true
+notes: "BMW's 2004 US booklet says the sensor 'deteriorates strictly on a mileage basis and must therefore be replaced every 100,000 miles' and that the replacement 'is required under the terms of the applicable BMW emission system warranties' (p. 3). The 2005 US checklist gives the M3 100,000 miles too ('M3: 100,000 mi.'), and 120,000 miles for the other cars on the sheet, with 150,000 for the 325i SULEV (ST050 p. 12). The only Tier 1 source for this item is the booklet, a third-party copy on archive.org accepted under ruling R84, so the item rests on that copy alone (data.md, 'Sources')."
