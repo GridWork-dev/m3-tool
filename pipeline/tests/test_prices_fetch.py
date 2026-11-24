@@ -147,14 +147,15 @@ def test_javascript_shell_from_an_unblock_rung_escalates_to_the_next(
 
 
 def test_a_failing_javascript_render_becomes_a_page_error() -> None:
-    from collections.abc import Iterator
+    from collections.abc import Generator
     from contextlib import contextmanager
     from types import SimpleNamespace
+    from typing import Any
 
     from playwright.sync_api import TimeoutError as PlaywrightTimeout
 
     @contextmanager
-    def factory() -> Iterator[SimpleNamespace]:
+    def factory() -> Generator[Any]:
         def fetch_page(url: str) -> object:
             raise PlaywrightTimeout("navigation timed out")
 

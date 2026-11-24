@@ -9,7 +9,7 @@ from typing import TYPE_CHECKING
 import httpx
 
 from m3_pipeline.prices.apply import ApplyResult, apply_observations
-from m3_pipeline.prices.check import check_prices, save_report
+from m3_pipeline.prices.check import check_prices, merged_with_unapplied, save_report
 from m3_pipeline.prices.config import PricingConfig
 from m3_pipeline.prices.pr import open_pr
 from m3_pipeline.prices.report import CheckReport
@@ -43,7 +43,7 @@ def run_week(
     no_apply: bool = False,
     no_pr: bool = False,
 ) -> WeekResult:
-    report = _check(parts_dir, cfg=cfg, http=http, store=store, today=today)
+    report = merged_with_unapplied(_check(parts_dir, cfg=cfg, http=http, store=store, today=today))
     save_report(report)
     applied = ApplyResult() if no_apply else _apply(parts_dir, report)
     if not no_apply:

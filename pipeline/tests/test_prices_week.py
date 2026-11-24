@@ -1,4 +1,5 @@
 from datetime import date
+from decimal import Decimal
 from pathlib import Path
 
 import httpx
@@ -7,8 +8,10 @@ from typer.testing import CliRunner
 
 from m3_pipeline.cli import app
 from m3_pipeline.prices import week
-from m3_pipeline.prices.apply import ApplyResult
+from m3_pipeline.prices.apply import ApplyResult, PriceChange
+from m3_pipeline.prices.check import read_report, save_report
 from m3_pipeline.prices.config import PricingConfig
+from m3_pipeline.prices.models import Observation
 from m3_pipeline.prices.report import CheckReport
 
 
@@ -149,3 +152,45 @@ def test_pricing_currency_stays_within_the_read_only_data_contract(tmp_path: Pat
     )
     with pytest.raises(ConfigError, match="currency"):
         load_pricing(path, {})
+
+
+def test_repeated_check_preserves_unapplied_observations(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("M3_WORK_DIR", str(tmp_path / "work"))
+    observation = Observation(
+        "fixture-wheel",
+        None,
+        "https://example.test/p",
+        "example",
+        Decimal("110"),
+        "USD",
+        date(2026, 11, 24),
+    )
+    first = CheckReport(
+        observations=[observation], previous={"https://example.test/p": Decimal("100")}
+    )
+    save_report(first)
+    save_report(CheckReport(checked=0, skipped_this_week=1))
+    kept = read_report()
+    assert kept.observations == [observation]
+    assert kept.previous["https://example.test/p"] == Decimal("100")
+
+
+def test_applied_observations_are_not_remerged(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("M3_WORK_DIR", str(tmp_path / "work"))
+    observation = Observation(
+        "fixture-wheel",
+        None,
+        "https://example.test/p",
+        "example",
+        Decimal("110"),
+        "USD",
+        date(2026, 11, 24),
+    )
+    save_report(CheckReport(observations=[observation]))
+    week.save_apply_result(ApplyResult(changes=[PriceChange(observation, None)]))
+    save_report(CheckReport())
+    assert read_report().observations == []
