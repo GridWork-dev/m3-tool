@@ -1,0 +1,84 @@
+# BMW M3 CS (E46), 2005-2006: the European Competition Package, which BMW UK marketed as the
+# M3 CS. Every value below was checked against the sources cited here on 2026-11-23. paints
+# and interiors are empty on purpose: BMW names Interlagos Blue Metallic as the package's
+# exclusive paint, but no source opened gives a swatch colour. No render.modules: none of the
+# package contents BMW lists is a body-module swap.
+id: e46-cs-coupe
+generation: e46
+name: "M3 CS (Competition Package, Euro)"
+market: euro
+body: coupe
+transmissions: [6mt, smg]
+years: [2005, 2006]
+packages:
+  - id: competition-package
+    name: "Competition Package (M3 CS in the UK)"
+    summary: "Available from December 2004. Per BMW: 19-inch wheels in the CSL's styling (225/40 R 19 on 8J at the front, 255/35 R 19 on 9.5J at the rear), retuned suspension, a 14.5:1 steering ratio (15.4:1 standard), the CSL's M Track mode and front brake discs, Alcantara on the steering wheel and handbrake lever, Alu Tec interior trim and Interlagos Blue Metallic as an exclusive paint."
+paints: []
+factoryWheels:
+  - id: zcp-19-style-163m
+    name: "19-inch Competition Package wheel (Style 163M)"
+    front:
+      diameterIn: 19
+      widthIn: 8
+      offsetMm: 47
+      tire: 225/40ZR19
+    rear:
+      diameterIn: 19
+      widthIn: 9.5
+      offsetMm: 27
+      tire: 255/35ZR19
+interiors: []
+render:
+  baseAsset: e46-coupe-body
+  interiorAsset: e46-coupe-interior
+  note: "No body-module swap: BMW's release lists the package as wheels, suspension, steering, M Track mode, brakes, interior trim and paint, and the CSL's carbon roof, rear lid and front air dam are not among them. Renders the standard coupe body (left-hand-drive base car)."
+sources:
+  - title: "Nouveau Package Compétition pour le Coupé BMW M3"
+    publisher: "BMW Group"
+    url: https://newsroom.bmwgroup.com/emea/fr/nouveau-package-competition-pour-le-coupe-bmw-m3
+    tier: 1
+    accessed: 2026-11-23
+    note: "BMW France, 25 November 2004. Package for the M3 Coupé 'disponible dès décembre 2004, en Allemagne': 19-inch wheels designed after the CSL's, 8J x 19 with 225/40 R 19 at the front and 9.5J x 19 with 255/35 R 19 at the rear, steering ratio 14.5:1 instead of 15.4:1, perforated front discs 20 mm larger from the CSL, M Track mode 'précédemment réservé au Coupé CSL', Alu Tec trim, Alcantara on the steering wheel and handbrake lever (and gear selector with the sequential M transmission), and the metallic Interlagos blue as an option. Source for the package contents and the Euro market. The only transmission it mentions is the optional sequential M gearbox."
+  - title: "New Competition Package for the BMW M3 Coupé. Attractive equipment for the exceptionally sportsminded driver."
+    publisher: "BMW Group"
+    url: https://newsroom.bmwgroup.com/americas/en-ca/new-competition-package-for-the-bmw-m3-coupe-attractive-equipment-for-the-exceptionally-sportsminded-driver/
+    tier: 1
+    accessed: 2026-11-23
+    note: "BMW Canada, 16 November 2004. The same package for the Canadian M3 Coupé, available from December 2004, with the same wheel sizes, steering ratio, M Track mode and brakes. Says Alu Tec trim and Interlagos Blue are 'available exclusively with the package' and adds a High Gloss Shadowline."
+  - title: "Used BMW M3 CS (E46, 2005 - 2006) review - BMW M's forgotten modern classic"
+    publisher: "evo"
+    url: https://www.evo.co.uk/bmw/m3/6324/bmw-m3-cs-review
+    tier: 2
+    accessed: 2026-11-23
+    note: "By Jethro Bovingdon, 17 Apr 2025 (first published in evo 219, March 2016). Reviews the 'M3 CS (E46, 2005 - 2006)', calls the CS pack 'known as the Competition Package in the US and Europe', and lists CSL-style 19-inch alloys (half an inch narrower at the front than the CSL wheel), a faster rack, the CSL's M Track setting, revised spring rates, bigger discs and an Alcantara steering wheel. Six-speed manual as standard, SMG as an option that most cars had. 338 bhp at 7,900 rpm, 269 lb ft at 5,000 rpm, 1,495 kg. The tested car is Carbon Black, so Interlagos Blue was not the only colour; the years are from its title."
+  - title: "21 Years Ago, BMW Built A Manual M3 CS Few Remember"
+    publisher: "BMWBLOG"
+    url: https://www.bmwblog.com/2026/05/23/2005-bmw-m3-e46-cs/
+    tier: 2
+    accessed: 2026-11-23
+    note: "By Adrian Padeanu, 23 May 2026. Calls the CS 'Essentially the UK's version of the Competition Package available in the rest of Europe and the United States', a 2005 run-out edition of the E46 sold in the UK, with a manual launch version and an SMG option that most cars took. Gives roughly 250 to 275 UK cars (an estimate; no production number is recorded in the data), 338 hp, 269 lb-ft and 1,495 kg. It does not say the car carried a CS badge."
+  - title: "BMW E46 M3 Buyer's Guide: 10 Things You Need To Know"
+    publisher: "Supercars.net"
+    url: https://www.supercars.net/blog/bmw-e46-m3-buyers-guide/
+    tier: 3
+    accessed: 2026-11-23
+    note: "Sports Car Digest buyer's guide. Says 'Offered only in 2005, the CS model was a cross between the standard car and the rare M3 CSL', with the six-speed manual and SMG unchanged. It disagrees with evo's 2005 to 2006; evo's years are used, because BMW offered the package from December 2004 and E46 production ran to 2006."
+  - title: "BMW M3 E46 [2000 .. 2006] wheel fitment, 3.2i (S54B32)"
+    publisher: "Koleso.ee (Astela OÜ)"
+    url: https://koleso.ee/en/valuveljed/bmw/m3/263/e46-2000-2006/544
+    tier: 2
+    accessed: 2026-11-23
+    note: "Tire retailer's fitment data for the E46 M3. Lists a 19-inch pair, 225/40R19 on 8J ET47 and 255/35R19 on 9.5J ET27. It has no Competition Package entry, so it supports the tire sizes only."
+  - title: "Genuine BMW E46 M3 ZCP Style 163M 19x8 ET47 Front Wheel"
+    publisher: "BimmerWorld"
+    url: https://www.bimmerworld.com/BMW-Parts/Genuine-BMW-E46-M3-M-cross-spoke-163-Wheel-8x19-36112282895.html
+    tier: 2
+    accessed: 2026-11-23
+    note: "US specialist shop's listing: 'the original BMW wheel as used on the E46 M3 Competition Package (ZCP)', 19x8, ET47, style 163M. Offset for the Competition Package front wheel. This is the US ZCP wheel; BMW's European and Canadian releases give only the width and tire, and evo's report that the CS wheel is the CSL style half an inch narrower in front fits it, so the same offsets are used here."
+  - title: "Genuine BMW E46 M3 ZCP/CSL Style 163M 19x9.5 ET27 Rear Wheel"
+    publisher: "BimmerWorld"
+    url: https://www.bimmerworld.com/Wheels-Tires/Wheels/Genuine-BMW-E46-M3-M-cross-spoke-163-Wheel-95x19-36112282999.html
+    tier: 2
+    accessed: 2026-11-23
+    note: "US specialist shop's listing: 'the original BMW wheel as used on the E46 M3 Competition Package (ZCP) and CSL', 19x9.5, ET27, style 163M. Offset for the Competition Package rear wheel."

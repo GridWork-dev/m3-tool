@@ -1,0 +1,134 @@
+# BMW M3 (E46) coupe, US market. Every value below was checked against the sources cited
+# here on 2026-11-23. paints and interiors are empty on purpose: no Tier 1 or Tier 2 source
+# opened gives paint codes with a swatch colour or the upholstery colours. Power and weight
+# have no field on a variant, so the sources' notes carry them (US rating 333 hp, 262 lb-ft).
+id: e46-us-coupe
+generation: e46
+name: "M3 Coupe (US)"
+market: us
+body: coupe
+transmissions: [6mt, smg]
+years: [2001, 2006]
+packages:
+  - id: zcp
+    name: "Competition Package (ZCP)"
+    summary: "US option from 2005. Per BMW North America it started with the CSL's 19-inch wheels and Michelin Pilot Sport tires, larger brakes with cross-drilled rotors, a 14.5:1 steering rack (15.4:1 standard), an Alcantara-wrapped steering wheel and M Track Mode for DSC, and it carried the exclusive Interlagos Blue paint. Wheels are listed under factoryWheels as zcp-19-style-163m."
+  - id: sunroof
+    name: "Glass sunroof"
+    summary: "Optional electric glass sunroof, listed as optional equipment in the US owner's manual. No roof module asset is assigned to it yet."
+paints: []
+factoryWheels:
+  - id: standard-18
+    name: "18-inch Double Spoke (Style 67)"
+    front:
+      diameterIn: 18
+      widthIn: 8
+      offsetMm: 47
+      tire: 225/45ZR18
+    rear:
+      diameterIn: 18
+      widthIn: 9
+      offsetMm: 26
+      tire: 255/40ZR18
+  - id: optional-19
+    name: "19-inch optional wheel"
+    front:
+      diameterIn: 19
+      widthIn: 8
+      offsetMm: 47
+      tire: 225/40ZR19
+    rear:
+      diameterIn: 19
+      widthIn: 9.5
+      offsetMm: 27
+      tire: 255/35ZR19
+  - id: zcp-19-style-163m
+    name: "19-inch Competition Package wheel (Style 163M)"
+    front:
+      diameterIn: 19
+      widthIn: 8
+      offsetMm: 47
+      tire: 225/40ZR19
+    rear:
+      diameterIn: 19
+      widthIn: 9.5
+      offsetMm: 27
+      tire: 255/35ZR19
+interiors: []
+render:
+  baseAsset: e46-coupe-body
+  interiorAsset: e46-coupe-interior
+  note: "US-spec base car with no module swaps. The optional sunroof is not modelled yet."
+sources:
+  - title: "BMW M3 Owner's Manual, online edition for part no. 01 41 0 157 628 (09/03): Engine data p. 150, Weights p. 152, sunroof p. 41, SMG p. 67, tires p. 27"
+    publisher: "BMW AG"
+    url: https://archive.org/download/manualsonline-id-d3b68d3e-dade-4bda-875b-3716cdeabf3f/d3b68d3e-dade-4bda-875b-3716cdeabf3f.pdf
+    tier: 1
+    accessed: 2026-11-23
+    note: "Archive.org copy of the US-market M3 manual (power in hp, sizes in inches). The text describes a glass sunroof and never mentions a convertible top, so it is used for the coupe only. Engine data, p. 150: 333 hp at 7,900 rpm and 262 lb-ft at 4,900 rpm (the US rating; BMW's European rating is higher, see e46-euro-coupe). Weights, p. 152: curb weight 3,415 lb / 1,549 kg. P. 5 says an asterisk marks all optional equipment, and the electric glass sunroof (p. 41) and the Sequential M gearbox with Drivelogic (p. 67) carry it. Tire table, p. 27: 225/45 ZR 18 and 255/40 ZR 18 for the M3, and also 225/40 ZR 19 and 255/35 ZR 19."
+  - title: "ST041 M3 Complete Vehicle: E46 M3 Technical Data"
+    publisher: "BMW Technical Training"
+    url: https://archive.org/download/BMWTechnicalTrainingDocuments/ST041%20M3%20Complete%20Vehicle/1%20M3%20Complete%20Vehicle.pdf
+    tier: 1
+    accessed: 2026-11-23
+    note: "BMW training module for the E46 M3 coupe (cover: Production Date 01/2001), copy hosted on archive.org; the file carries no publisher line. Dates the US-rated coupe (333 bhp at 7,900 rpm, 355 Nm at 4,900 rpm) to 01/2001, which is why the US years start in 2001. Lists a six-speed gearbox and a curb weight (DIN) of 1,495 kg. That weight disagrees with the owner's manual's 1,549 kg; a variant has no weight field, so neither is recorded in the data."
+  - title: "Buyer's Guide: BMW E46 M3"
+    publisher: "BMWBLOG"
+    url: https://www.bmwblog.com/2022/04/18/buyers-guide-bmw-e46-m3/
+    tier: 2
+    accessed: 2026-11-23
+    note: "By Steven Paul, 18 April 2022. Says the E46 M3 is the M3 'produced between 2001 and 2006 model years', that it comes as a coupe or convertible with a six-speed manual or SMG II ('the one we've come to know stateside is SMG II'), and that a sunroof was an option. Says the Competition Package (option code ZCP) is 'the only way you can get' Interlagos Blue Metallic. It dates the package to 2004, which disagrees with BMW North America's 2005; BMW's date is used."
+  - title: "BMW NA 50th Anniversary, 50 Stories for 50 Years, Chapter 33: Just for U.S.: BMW of North America Creates Special Models with Enhanced Enthusiast Appeal"
+    publisher: "BMW Group"
+    url: https://newsroom.bmwgroup.com/americas/bmw-na-50th-anniversary--50-stories-for-50-years--chapter-33-just-for-us-bmw-of-north-america-creates-special-models-with-enhanced-enthusiast-appeal
+    tier: 1
+    accessed: 2026-11-23
+    note: "BMW of North America, 19 August 2025. Says that in 2005 BMW NA created the E46 M3 ZCP ('Z Competition Package') and that it started with the CSL's 19-inch Double Spoke wheels and Michelin Pilot Sport tires, larger brakes with cross-drilled iron rotors, a faster steering rack (14.5:1 rather than 15.4:1), an Alcantara-wrapped steering wheel and M Track Mode, in the exclusive colour Interlagos Blue. Source for the ZCP package and its 2005 start. It also says the CSL was not street-legal in the US."
+  - title: "New Competition Package for the BMW M3 Coupé. Attractive equipment for the exceptionally sportsminded driver."
+    publisher: "BMW Group"
+    url: https://newsroom.bmwgroup.com/americas/en-ca/new-competition-package-for-the-bmw-m3-coupe-attractive-equipment-for-the-exceptionally-sportsminded-driver/
+    tier: 1
+    accessed: 2026-11-23
+    note: "BMW Canada, 16 November 2004. Describes the Competition Package for the M3 Coupé, available from December 2004: 19-inch wheels in the CSL's styling with 225/40 R 19 on 8Jx19 at the front and 255/35 R 19 on 9.5x19 at the rear, a 14.5:1 steering ratio, M Track mode, front discs enlarged by 20 mm to 345 mm, Alcantara on the steering wheel, handbrake lever and (with the Sequential M transmission) shift knob, and Interlagos Blue available only with the package. It describes the Canadian coupe; it is used here for the wheel sizes, which the US account does not give."
+  - title: "Genuine BMW E46 M3 ZCP Style 163M 19x8 ET47 Front Wheel"
+    publisher: "BimmerWorld"
+    url: https://www.bimmerworld.com/BMW-Parts/Genuine-BMW-E46-M3-M-cross-spoke-163-Wheel-8x19-36112282895.html
+    tier: 2
+    accessed: 2026-11-23
+    note: "US specialist shop's listing: 'the original BMW wheel as used on the E46 M3 Competition Package (ZCP)', 19x8, ET47, part 36112282895, style 163M. Source for the ZCP front wheel's offset."
+  - title: "Genuine BMW E46 M3 ZCP/CSL Style 163M 19x9.5 ET27 Rear Wheel"
+    publisher: "BimmerWorld"
+    url: https://www.bimmerworld.com/Wheels-Tires/Wheels/Genuine-BMW-E46-M3-M-cross-spoke-163-Wheel-95x19-36112282999.html
+    tier: 2
+    accessed: 2026-11-23
+    note: "US specialist shop's listing: 'the original BMW wheel as used on the E46 M3 Competition Package (ZCP) and CSL', 19x9.5, ET27, part 36112282999, style 163M. Source for the ZCP rear wheel's offset."
+  - title: "BMW M3 E46 [2000 .. 2006] wheel fitment, 3.2i (S54B32)"
+    publisher: "Koleso.ee (Astela OÜ)"
+    url: https://koleso.ee/en/valuveljed/bmw/m3/263/e46-2000-2006/544
+    tier: 2
+    accessed: 2026-11-23
+    note: "Tire retailer's fitment data for the E46 M3, without separating coupe and convertible. Lists the OEM front as 225/45R18 on 8Jx18 ET47 and the OEM rear as 255/40R18 on 9Jx18 ET26. It also lists a 19-inch pair, 225/40R19 on 8J ET47 and 255/35R19 on 9.5J ET27, without an OEM label. Source for the widths, offsets and tire sizes of the 18-inch and optional 19-inch wheels."
+  - title: "ALY59367 BMW M3 Wheel/Rim Hyper Silver #36112229950"
+    publisher: "Hubcap Haven"
+    url: https://www.hubcaphaven.com/p/3015/aly59367-bmw-m3-wheel-hyper-silver-36112229950.html
+    tier: 2
+    accessed: 2026-11-23
+    note: "Retailer listing under OE part number 36112229950: style '10 Double Spoke (option code: Style 67)', 18x8, 5 lugs, 120 mm, offset 47 mm, fits the BMW M3 2001-2006 as a front wheel. Source for the 18-inch wheel's style name."
+  - title: "ALY59368/59607 BMW M3 Wheel/Rim Hyper Silver #36112229960"
+    publisher: "Hubcap Haven"
+    url: https://www.hubcaphaven.com/p/1705/aly59368-59607-bmw-m3-wheel-hyper-silver-36112229960.html
+    tier: 2
+    accessed: 2026-11-23
+    note: "Retailer listing under OE part number 36112229960: style '10 Double Spoke (option code listed as Style 67)', 18x9, 5 lugs, 120 mm, offset 26 mm, fits the BMW M3 2001-2006 as a rear wheel."
+  - title: "BMW Wheel Info and Tech Tips"
+    publisher: "BimmerWorld"
+    url: https://www.bimmerworld.com/About-Us/Wheel-Info-Tech/
+    tier: 2
+    accessed: 2026-11-23
+    note: "Specialist shop's tech page. Its E46 M3 row lists 19x8.0 ET47 front and 19x9.5 ET27 rear as stock, and gives no 18-inch size. It agrees with the 19-inch widths and offsets used here. It calls the 19-inch pair stock, while BMW's CSL press kit calls the 19-inch wheels an option on the M3 (the 18-inch wheel is the standard fitment), so the pair is recorded as the optional wheel."
+  - title: "BMW M3 CSL press kit (3/2003), Press Kit for BMW M3 CSL at the Geneva Motor Show 2003"
+    publisher: "BMW Group"
+    url: https://newsroom.bmwgroup.com/americas/press-kit-for-bmw-m3-csl-at-the-geneva-motor-show-2003
+    tier: 1
+    accessed: 2026-11-23
+    note: "BMW's M3 CSL press kit (3/2003, PDF 'AG030228 M3 CSL Press Kit_GB_finalversion.pdf' linked from this page). Calls the 19-inch wheels 'available as an option on the M3' and describes them as forged ('the forged 19-inch wheels featured on the standard M3'), which is why the 19-inch pair is listed as an option and the 18-inch wheel as the standard fitment. For the CSL itself see e46-csl-coupe."

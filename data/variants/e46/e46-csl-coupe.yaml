@@ -1,0 +1,104 @@
+# BMW M3 CSL (E46), 2003-2004. Every value below was checked against the sources cited here
+# on 2026-11-23. paints and interiors are empty on purpose: BMW names two paints (Silver
+# Grey Metallic, Black Sapphire Metallic) but no source opened gives a swatch colour, and
+# the press kit gives no upholstery colour. The module asset ids below are planned names for
+# the 3D lane; the front bumper id is a pick, because the docs name only the trunk lid and
+# roof ids.
+id: e46-csl-coupe
+generation: e46
+name: "M3 CSL"
+market: euro
+body: coupe
+transmissions: [smg]
+years: [2003, 2004]
+packages: []
+paints: []
+factoryWheels:
+  - id: csl-19-style-163m
+    name: "19-inch CSL wheel (Style 163M)"
+    front:
+      diameterIn: 19
+      widthIn: 8.5
+      offsetMm: 44
+      tire: 235/35ZR19
+    rear:
+      diameterIn: 19
+      widthIn: 9.5
+      offsetMm: 27
+      tire: 265/30ZR19
+  - id: optional-19
+    name: "19-inch optional wheel"
+    front:
+      diameterIn: 19
+      widthIn: 8
+      offsetMm: 47
+      tire: 225/40ZR19
+    rear:
+      diameterIn: 19
+      widthIn: 9.5
+      offsetMm: 27
+      tire: 255/35ZR19
+interiors: []
+render:
+  baseAsset: e46-coupe-body
+  interiorAsset: e46-coupe-interior
+  modules:
+    trunk_lid: e46-csl-trunk-lid
+    roof: e46-csl-roof
+    bumper_front: e46-csl-bumper-front
+  note: "Swaps the carbon-fibre roof (e46-csl-roof), the rear lid with integrated spoiler (e46-csl-trunk-lid) and the front air dam with its engine air intake (e46-csl-bumper-front). The CSL's rear diffuser, bucket seats and carbon interior trim are outside the four body modules and are not modelled yet. Renders the left-hand-drive base car."
+sources:
+  - title: "BMW M3 CSL press kit (3/2003), Press Kit for BMW M3 CSL at the Geneva Motor Show 2003"
+    publisher: "BMW Group"
+    url: https://newsroom.bmwgroup.com/americas/press-kit-for-bmw-m3-csl-at-the-geneva-motor-show-2003
+    tier: 1
+    accessed: 2026-11-23
+    note: "BMW press kit 3/2003 (PDF 'AG030228 M3 CSL Press Kit_GB_finalversion.pdf', linked from this page; the page is dated 28 February 2003). Specifications p. 19: 360 bhp (265 kW) at 7,900 rpm, 370 Nm at 4,900 rpm, unladen weight (EU) 1,385 kg, 'approximately 110 kg (243 lb) less than the standard M3', 8.5J x 19 (IS 44) front and 9.5J x 19 (IS 27) rear wheels with 235/35 ZR19 and 265/30 ZR19 tyres. The text says the CSL 'comes exclusively with' the Sequential M Gearbox with Drivelogic, while its specifications table says 'Six-speed manual'; the text is used, and the table row reads as the gearbox the SMG is built on. The carbon-fibre-reinforced plastic front air dam carries an extra engine air intake on the driver's side, the rear lid is sheet moulding compound with an integrated spoiler, the roof is carbon-fibre-reinforced plastic, and there are only two exterior colours, Silver Grey Metallic and Black Sapphire Metallic. The kit also says the buyer may opt for 'the forged 19-inch wheels featured on the standard M3'. The CSL roof is described as about six kilos lighter than the standard steel roof; the kit does not mention a sunroof."
+  - title: "La BMW M3 CSL élue Sportive de l'Année"
+    publisher: "BMW Group"
+    url: https://newsroom.bmwgroup.com/emea/fr/la-bmw-m3-csl-elue-sportive-de-lannee
+    tier: 1
+    accessed: 2026-11-23
+    note: "BMW France, 24 November 2003. Reports Echappement magazine's 'Sportive de l'Année 2003' award to the M3 CSL, 17 hp more powerful and 110 kg lighter than the standard M3, with 360 hp at 7,900 rpm and 370 Nm at 4,900 rpm. Shows the CSL was a production car by November 2003, which is why the years start in 2003."
+  - title: "BMW M3 CSL (E46)"
+    publisher: "BMW Group Classic"
+    url: https://www.bmwgroup-classic.com/en/models/bmw-classics/product-description-page.ad-1005-1.bmw-m3-csl-e46.html
+    tier: 1
+    accessed: 2026-11-23
+    note: "BMW Group Classic model page, which states 'This content was created using AI'. Gives production '09/2002 - 01/2004' (used for the 2004 end of the years), 'Only 1,383 examples were produced', 360 hp (265 kW) at 7,900 rpm and a kerb weight of 1,460 kg. The 1,460 kg disagrees with the press kit's 1,385 kg, which is the EU unladen weight with 75 kg already added for driver and luggage, so the press kit's figure is used. The 09/2002 start is not used: BMW presented the CSL in February 2003 and the years start with that launch."
+  - title: "Every BMW M3 Generation: Explained"
+    publisher: "Motor1.com"
+    url: https://www.motor1.com/features/787295/bmw-m3-generations/
+    tier: 2
+    accessed: 2026-11-23
+    note: "By Chris Tsui. Says the CSL was introduced in 2003 and 'BMW only ever made 1,383 CSLs'. Second source for the 2003 start and the production count."
+  - title: "40 Years of the BMW M3"
+    publisher: "BMW Group"
+    url: https://newsroom.bmwgroup.com/global/40-years-of-the-bmw-m3
+    tier: 1
+    accessed: 2026-11-23
+    note: "BMW Group, 9 October 2026. Says the special-edition M3 CSL produced 265 kW/360 hp and could sprint from 0 to 100 km/h in 4.9 seconds."
+  - title: "BMW NA 50th Anniversary, 50 Stories for 50 Years, Chapter 33: Just for U.S.: BMW of North America Creates Special Models with Enhanced Enthusiast Appeal"
+    publisher: "BMW Group"
+    url: https://newsroom.bmwgroup.com/americas/bmw-na-50th-anniversary--50-stories-for-50-years--chapter-33-just-for-us-bmw-of-north-america-creates-special-models-with-enhanced-enthusiast-appeal
+    tier: 1
+    accessed: 2026-11-23
+    note: "BMW of North America, 19 August 2025. Says the CSL, with composite bumpers, roof and seat backs, 'wasn't street-legal in the U.S.', so the CSL is not a US variant and is recorded as market euro."
+  - title: "BMW M3 E46 [2000 .. 2006] wheel fitment, 3.2i (S54B32)"
+    publisher: "Koleso.ee (Astela OÜ)"
+    url: https://koleso.ee/en/valuveljed/bmw/m3/263/e46-2000-2006/544
+    tier: 2
+    accessed: 2026-11-23
+    note: "Tire retailer's fitment data. Its '3.2i CSL' block lists the OEM front as 235/35R19 on 8.5J ET44 and the OEM rear as 265/30R19 on 9.5J ET27, which matches the press kit. It also lists the standard M3's 19-inch pair (225/40R19 on 8J ET47, 255/35R19 on 9.5J ET27) for the CSL, the basis for listing the optional 19-inch wheel."
+  - title: "Genuine BMW E46 M3 CSL Style 163M 19x8.5 ET44 Front Wheel"
+    publisher: "BimmerWorld"
+    url: https://www.bimmerworld.com/Wheels-Tires/Wheels/BMW-E46-M3-CSL-Style-163M-19x85-ET44-Front-Wheel.html
+    tier: 2
+    accessed: 2026-11-23
+    note: "Specialist shop's listing: 'Genuine BMW E46 M3 CSL Style 163M 19x8.5 ET44 Front Wheel', replaces BMW part 36112282650. Confirms the CSL front wheel's width and offset and its style name."
+  - title: "Genuine BMW E46 M3 ZCP/CSL Style 163M 19x9.5 ET27 Rear Wheel"
+    publisher: "BimmerWorld"
+    url: https://www.bimmerworld.com/Wheels-Tires/Wheels/Genuine-BMW-E46-M3-M-cross-spoke-163-Wheel-95x19-36112282999.html
+    tier: 2
+    accessed: 2026-11-23
+    note: "Specialist shop's listing: 'the original BMW wheel as used on the E46 M3 Competition Package (ZCP) and CSL', 19x9.5, ET27, style 163M. Confirms the CSL rear wheel's offset and its style name."
