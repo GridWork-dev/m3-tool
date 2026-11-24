@@ -152,6 +152,71 @@ def test_mesh_stats_reads_names_materials_and_textures(tmp_path: Path) -> None:
     assert stats.texture_count == 2
 
 
+def _one_mesh_document(position: dict[str, object], scale: float) -> dict[str, object]:
+    """One node, scaled by `scale`, using a mesh with a single POSITION accessor."""
+    return {
+        "asset": {"version": "2.0"},
+        "scene": 0,
+        "scenes": [{"nodes": [0]}],
+        "nodes": [{"name": "part", "mesh": 0, "scale": [scale, scale, scale]}],
+        "meshes": [{"primitives": [{"attributes": {"POSITION": 0}}]}],
+        "accessors": [{"bufferView": 0, "type": "VEC3", "count": 8, **position}],
+        "buffers": [{"byteLength": 4}],
+        "bufferViews": [{"buffer": 0, "byteLength": 4}],
+    }
+
+
+# componentType: (name, largest value, smallest raw value, a normalized accessor's unit)
+INTEGER_POSITIONS = [
+    pytest.param(5120, 127, -128, id="int8"),
+    pytest.param(5121, 255, 0, id="uint8"),
+    pytest.param(5122, 32767, -32768, id="int16"),
+    pytest.param(5123, 65535, 0, id="uint16"),
+]
+
+
+@pytest.mark.parametrize(("component_type", "largest", "smallest"), INTEGER_POSITIONS)
+def test_mesh_stats_decodes_normalized_integer_position_bounds(
+    tmp_path: Path, component_type: int, largest: int, smallest: int
+) -> None:
+    """A quantized file (KHR_mesh_quantization with normalized positions) stores min and max as
+    raw integers, and its node scale carries the real size. The bounds must be decoded first."""
+    signed = smallest < 0
+    decoded_low = -1.0 if signed else 0.0
+    quantized = _one_mesh_document(
+        {
+            "componentType": component_type,
+            "normalized": True,
+            "min": [smallest, 0, smallest],
+            "max": [largest, largest, largest],
+        },
+        scale=0.3,
+    )
+    as_floats = _one_mesh_document(
+        {
+            "componentType": 5126,
+            "min": [decoded_low, 0.0, decoded_low],
+            "max": [1.0, 1.0, 1.0],
+        },
+        scale=0.3,
+    )
+    got = mesh_stats(_glb(tmp_path / "q.glb", quantized))
+    want = mesh_stats(_glb(tmp_path / "f.glb", as_floats))
+    assert got.bbox_min == pytest.approx(want.bbox_min)
+    assert got.bbox_max == pytest.approx(want.bbox_max)
+    assert max(b - a for a, b in zip(got.bbox_min, got.bbox_max, strict=True)) <= 0.6 + 1e-9
+
+
+def test_mesh_stats_leaves_unnormalized_integer_bounds_alone(tmp_path: Path) -> None:
+    """Without `normalized`, an integer position is its own value; only the node scales it."""
+    document = _one_mesh_document(
+        {"componentType": 5122, "min": [-100, 0, -100], "max": [100, 100, 100]}, scale=0.01
+    )
+    stats = mesh_stats(_glb(tmp_path / "a.glb", document))
+    assert stats.bbox_min == pytest.approx((-1.0, 0.0, -1.0))
+    assert stats.bbox_max == pytest.approx((1.0, 1.0, 1.0))
+
+
 def test_mesh_stats_of_a_file_without_geometry_is_an_error(tmp_path: Path) -> None:
     path = _glb(tmp_path / "a.glb", {"asset": {"version": "2.0"}})
     with pytest.raises(GlbError, match="geometry"):

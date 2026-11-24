@@ -2,7 +2,9 @@
 
 The numbers come from the accessors (`count`, and `min` and `max` of POSITION), which every
 valid GLB carries whether or not its buffers are compressed, so they hold for meshopt files that
-nothing here decodes. The binary chunk is never read. Triangles and bounds are measured the way
+nothing here decodes. The binary chunk is never read. A quantized file stores POSITION min and max
+as raw integers, so those are decoded first when the accessor is `normalized`. Triangles and
+bounds are measured the way
 `src/lib/asset-validate.ts` measures them: over the default scene, once per node that uses a
 mesh, with every node's transform applied.
 
@@ -24,6 +26,10 @@ _JSON_CHUNK = 0x4E4F534A
 _HEADER = struct.Struct("<4sII")  # magic, version, total length
 _CHUNK_HEADER = struct.Struct("<II")  # chunk length, chunk type
 _TRIANGLES, _TRIANGLE_STRIP, _TRIANGLE_FAN = 4, 5, 6
+# The largest value of each integer componentType, which a normalized accessor maps to 1.0
+# (glTF 2.0 section 3.11): int8, uint8, int16, uint16.
+_NORMALIZED_LARGEST = {5120: 127.0, 5121: 255.0, 5122: 32767.0, 5123: 65535.0}
+_SIGNED_TYPES = frozenset({5120, 5122})
 
 # A column-major 4x4 matrix, as glTF writes `matrix`.
 _Matrix = tuple[float, ...]
@@ -296,7 +302,18 @@ def _position_bounds(
     accessor = _at(accessors, position, "accessor", path)
     low = _numbers(accessor.get("min"), 3, "a POSITION accessor's min", path)
     high = _numbers(accessor.get("max"), 3, "a POSITION accessor's max", path)
+    component_type = accessor.get("componentType")
+    if accessor.get("normalized") is True and component_type in _NORMALIZED_LARGEST:
+        low = tuple(_decode_normalized(v, cast("int", component_type)) for v in low)
+        high = tuple(_decode_normalized(v, cast("int", component_type)) for v in high)
     return (low[0], low[1], low[2]), (high[0], high[1], high[2])
+
+
+def _decode_normalized(value: float, component_type: int) -> float:
+    """A raw integer of a normalized accessor as the number it stands for: `c / largest`, and for
+    the signed types never below -1 (so int8 -128 and -127 are both -1)."""
+    decoded = value / _NORMALIZED_LARGEST[component_type]
+    return max(decoded, -1.0) if component_type in _SIGNED_TYPES else decoded
 
 
 def _transformed_box(world: _Matrix, low: Vec, high: Vec) -> tuple[Vec, Vec]:
