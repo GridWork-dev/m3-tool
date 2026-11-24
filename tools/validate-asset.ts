@@ -21,7 +21,8 @@ const isKind = (value: string): value is AssetKind =>
   (ASSET_KINDS as readonly string[]).includes(value)
 
 // Checks one GLB against the asset contract. Prints one `<SEVERITY> <code>: <message>` line per
-// issue, or `{ ok, issues }` as JSON with --json.
+// issue, or `{ ok, issues, stats }` as JSON with --json. `stats` is `{ triangles, bytes }`, with a
+// null triangle count when the file could not be read.
 export async function runValidateAsset(args: string[]): Promise<ValidateAssetResult> {
   let parsed: ReturnType<
     typeof parseArgs<{
@@ -56,9 +57,9 @@ export async function runValidateAsset(args: string[]): Promise<ValidateAssetRes
     return usageError(missing ? `file not found: ${file}` : `cannot read ${file}: ${String(error)}`)
   }
 
-  const { ok, issues } = await validateGlb(bytes, values.kind)
+  const { ok, issues, stats } = await validateGlb(bytes, values.kind)
   const stdout = values.json
-    ? [JSON.stringify({ ok, issues })]
+    ? [JSON.stringify({ ok, issues, stats })]
     : issues.length === 0
       ? ['ok']
       : issues.map((issue) => `${issue.severity.toUpperCase()} ${issue.code}: ${issue.message}`)

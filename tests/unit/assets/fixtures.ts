@@ -1,10 +1,11 @@
 // Builders for the asset tests. Every GLB is made in code, so no binary file is committed.
 //
 // The base car is a subdivided box of 4.49 x 1.37 x 1.78 m (an E46 coupe's length, height and
-// width), Y up, nose toward -Z, sitting on the ground at the middle of the wheelbase. The box is
-// subdivided so no triangle is degenerate, which the Khronos validator flags. Four small boxes
-// inside it stand in for the body modules (bumpers, trunk lid and roof), so the car's bounding box
-// stays the box's.
+// width), Y up, nose toward -Z, centered on the middle of the wheelbase. It is a wheel-less body,
+// as the generated ones are (spec 9.3): its lowest point is 0.12 m above the ground, and the wheel
+// anchors sit 0.32 m up, where the wheel centers would be. The box is subdivided so no triangle is
+// degenerate, which the Khronos validator flags. Four small boxes inside it stand in for the body
+// modules (bumpers, trunk lid and roof), so the car's bounding box stays the box's.
 import { crc32, deflateSync } from 'node:zlib'
 import {
   Document,
@@ -31,6 +32,8 @@ const SILENT = new Logger(Logger.Verbosity.SILENT)
 
 const WHEEL_X = 0.75
 const WHEEL_Y = 0.32
+// How far the lowest point of a wheel-less body sits above the ground.
+const BODY_BOTTOM = 0.12
 const WHEEL_Z = 1.3655 // half of the 2.731 m wheelbase
 const TINY_BOX_TRIANGLES = 12
 
@@ -190,6 +193,13 @@ export interface BaseCarOptions {
   // Moves the origin from the middle of the wheelbase to the front axle.
   originAtFrontAxle?: boolean
   omitAnchor?: string
+  // The y of the body's lowest point, in meters. Every mesh moves with it, the anchors do not.
+  // Default 0.12, a wheel-less body above the ground.
+  bodyBottom?: number
+  // The y of all four wheel anchors. Default 0.32.
+  wheelY?: number
+  // The y of single wheel anchors, by name, such as { wheel_FL: 0.37 }. Beats `wheelY`.
+  wheelYBy?: Record<string, number>
   // Leaves out one body module node, such as `trunk_lid`. Any other name throws.
   omitNode?: string
   omitMaterial?: string
@@ -200,6 +210,7 @@ export interface BaseCarOptions {
 }
 
 const CAR_MATERIALS = ['paint', 'glass', 'trim', 'lights_front', 'lights_rear']
+// The anchors, with the y of the wheel anchors left to the caller.
 const CAR_ANCHORS: [string, Vec3][] = [
   ['wheel_FL', [-WHEEL_X, WHEEL_Y, -WHEEL_Z]],
   ['wheel_FR', [WHEEL_X, WHEEL_Y, -WHEEL_Z]],
@@ -213,8 +224,9 @@ const CAR_ANCHORS: [string, Vec3][] = [
   ['mount_interior', [0, 0.8, 0]],
 ]
 
-// The body modules, with the size and center of the small box that stands in for each. They sit
-// inside the car's 4.49 x 1.37 x 1.78 m box, so they don't change its bounds.
+// The body modules, with the size and center of the small box that stands in for each. The y is
+// measured up from the body's lowest point. The boxes sit inside the car's 4.49 x 1.37 x 1.78 m
+// box, so they don't change its bounds.
 const MODULE_NODES: [string, Vec3, Vec3][] = [
   ['bumper_front', [1.6, 0.4, 0.2], [0, 0.4, -2.1]],
   ['bumper_rear', [1.6, 0.4, 0.2], [0, 0.4, 2.1]],
@@ -237,13 +249,18 @@ export function makeBaseCar(o: BaseCarOptions = {}): Document {
   const main = materials.get('paint') ?? doc.createMaterial('other')
   const modules = MODULE_NODES.filter(([name]) => name !== o.omitNode)
   const tiny = small.length + modules.length
+  const floor = o.bodyBottom ?? BODY_BOTTOM
   const parts: [Material, Geometry][] = [
-    [main, box([1.78, 1.37, 4.49], [0, 0.685, 0], total - tiny * TINY_BOX_TRIANGLES)],
+    [main, box([1.78, 1.37, 4.49], [0, floor + 0.685, 0], total - tiny * TINY_BOX_TRIANGLES)],
   ]
   small.forEach((name, i) => {
     const material = materials.get(name)
-    if (material)
-      parts.push([material, box([0.1, 0.1, 0.1], [0, 0.6 + i * 0.1, 0], TINY_BOX_TRIANGLES)])
+    if (material) {
+      parts.push([
+        material,
+        box([0.1, 0.1, 0.1], [0, floor + 0.6 + i * 0.1, 0], TINY_BOX_TRIANGLES),
+      ])
+    }
   })
   if (o.texture) {
     const material = materials.get(o.texture.material)
@@ -259,11 +276,17 @@ export function makeBaseCar(o: BaseCarOptions = {}): Document {
     root.addChild(
       doc
         .createNode(name)
-        .setMesh(meshOf(doc, name, [[main, box(size, center, TINY_BOX_TRIANGLES)]])),
+        .setMesh(
+          meshOf(doc, name, [
+            [main, box(size, [center[0], floor + center[1], center[2]], TINY_BOX_TRIANGLES)],
+          ]),
+        ),
     )
   }
   for (const [name, at] of CAR_ANCHORS) {
-    if (name !== o.omitAnchor) root.addChild(anchor(doc, name, at))
+    if (name === o.omitAnchor) continue
+    const y = o.wheelYBy?.[name] ?? (name.startsWith('wheel_') ? o.wheelY : undefined) ?? at[1]
+    root.addChild(anchor(doc, name, [at[0], y, at[2]]))
   }
   if (o.scale !== undefined) root.setScale([o.scale, o.scale, o.scale])
   if (o.originAtFrontAxle) root.setTranslation([0, 0, WHEEL_Z * (o.scale ?? 1)])

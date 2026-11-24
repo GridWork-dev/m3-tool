@@ -11,13 +11,19 @@ const ROOT = fileURLToPath(new URL('../../..', import.meta.url))
 let dir: string
 let good: string
 let bad: string
+let goodBytes: number
+let badBytes: number
 
 beforeAll(async () => {
   dir = await mkdtemp(join(tmpdir(), 'validate-asset-'))
   good = join(dir, 'good.glb')
   bad = join(dir, 'bad.glb')
-  await writeFile(good, await toGlb(makeProduct()))
-  await writeFile(bad, await toGlb(makeProduct({ roots: 2 })))
+  const goodGlb = await toGlb(makeProduct())
+  const badGlb = await toGlb(makeProduct({ roots: 2 }))
+  goodBytes = goodGlb.byteLength
+  badBytes = badGlb.byteLength
+  await writeFile(good, goodGlb)
+  await writeFile(bad, badGlb)
 })
 afterAll(() => rm(dir, { recursive: true }))
 
@@ -28,7 +34,26 @@ describe('runValidateAsset', () => {
     expect(plain.stdout).toEqual(['ok'])
     const json = await runValidateAsset([good, '--kind', 'product', '--json'])
     expect(json.exitCode).toBe(0)
-    expect(JSON.parse(json.stdout.join('\n'))).toEqual({ ok: true, issues: [] })
+    expect(JSON.parse(json.stdout.join('\n'))).toEqual({
+      ok: true,
+      issues: [],
+      stats: { triangles: 1_200, bytes: goodBytes },
+    })
+  })
+
+  test('--json prints the stats of a failing asset too, and text output has no stats line', async () => {
+    const json = await runValidateAsset([bad, '--kind', 'product', '--json'])
+    expect(JSON.parse(json.stdout.join('\n')).stats).toEqual({ triangles: 1_200, bytes: badBytes })
+    const plain = await runValidateAsset([bad, '--kind', 'product'])
+    expect(plain.stdout.join('\n')).not.toMatch(/triangles|bytes/)
+  })
+
+  test('--json prints a null triangle count for a file that cannot be read', async () => {
+    const junk = join(dir, 'junk.glb')
+    await writeFile(junk, new Uint8Array([1, 2, 3, 4]))
+    const json = await runValidateAsset([junk, '--kind', 'product', '--json'])
+    expect(json.exitCode).toBe(1)
+    expect(JSON.parse(json.stdout.join('\n')).stats).toEqual({ triangles: null, bytes: 4 })
   })
 
   test('accepts --kind body-module', async () => {
@@ -88,7 +113,11 @@ describe('the CLI', () => {
   test('prints JSON on stdout and nothing else, and sets the exit code', () => {
     const ok = run(good, '--kind', 'product', '--json')
     expect(ok.status).toBe(0)
-    expect(JSON.parse(ok.stdout)).toEqual({ ok: true, issues: [] })
+    expect(JSON.parse(ok.stdout)).toEqual({
+      ok: true,
+      issues: [],
+      stats: { triangles: 1_200, bytes: goodBytes },
+    })
     expect(ok.stderr).toBe('')
     const failed = run(bad, '--kind', 'product', '--json')
     expect(failed.status).toBe(1)
