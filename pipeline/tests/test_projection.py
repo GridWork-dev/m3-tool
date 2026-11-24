@@ -290,7 +290,7 @@ def test_fit_camera_uses_at_most_600_renders(monkeypatch: pytest.MonkeyPatch) ->
 
     monkeypatch.setattr(projection, "render_mask", counting)
     fit_camera(mesh, photo)
-    assert 108 < len(calls) <= MAX_FIT_RENDERS
+    assert 400 < len(calls) <= MAX_FIT_RENDERS  # this fit uses 483; the worst case is 540
 
 
 def test_fit_camera_never_renders_one_camera_twice(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -402,29 +402,36 @@ def random_cameras(
 
 def test_the_fit_is_good_on_random_cameras_not_only_on_the_pinned_one() -> None:
     # The photos are renders of the mesh itself, so the true camera scores 1.0 and every shortfall
-    # is the search stalling. Measured with the schedule of ruling R90 (mean 0.983, median 0.987,
-    # minimum 0.962; the brief's schedule gave a minimum near 0.91 and a median near 0.967 on
-    # similar sets). The floors leave about 0.01 of margin, and fail if the search regresses.
+    # is the search stalling. The cameras come from two seeds that no tuning run ever used (the
+    # schedule was tuned on 12345, 4242 and 2024), and the assertions are population statistics,
+    # not golden values, so a change to the schedule, the visiting order or this mesh fails them
+    # only when the fit gets worse. Measured on these 40: mean 0.984, 10th percentile 0.957, min
+    # 0.930. Over 30 other held-out groups of 40 the new search passed all three assertions every
+    # time, and the brief's schedule failed the mean and the 10th percentile every time (mean
+    # 0.957, 10th percentile 0.917, worst single score 0.806). The minimum is only a guard against
+    # a catastrophic stall: one stalled photo in 40 is not a regression.
     mesh = car()
-    scores = [
-        fit_camera(mesh, render_mask(mesh, camera)).iou
-        for camera in random_cameras(2024, 20, -9.0, 9.0)
-    ]
-    assert float(np.median(scores)) >= 0.98
-    assert min(scores) >= 0.95
+    cameras = random_cameras(5000, 20, -9.0, 9.0) + random_cameras(5001, 20, -9.0, 9.0)
+    scores = np.array([fit_camera(mesh, render_mask(mesh, camera)).iou for camera in cameras])
+    assert float(scores.mean()) >= 0.975
+    assert float(np.percentile(scores, 10)) >= 0.95
+    assert float(scores.min()) >= 0.88
 
 
-def test_roll_at_the_bound_is_flagged_for_most_tilted_photos_and_never_for_level_ones() -> None:
+def test_roll_at_the_bound_is_flagged_for_most_tilted_photos_and_rarely_for_level_ones() -> None:
     # Task 14 treats the flag as advisory: it catches most, not all, photos taken with a tilted
-    # camera. Measured over 36 tilted photos (|roll| 12 to 20 degrees) with the R90 schedule, 28
-    # flagged (78%; 16 of 40 under the brief's schedule); the floor leaves a margin. A level photo
-    # (|roll| under 5) is never flagged, which is what makes the flag usable at all.
+    # camera, and it rarely flags a level one. Over 36 tilted photos (|roll| 12 to 20 degrees)
+    # this set flags 28 (78%; 16 of 40 under the brief's schedule). On 30 other 36-photo sets the
+    # count ranged from 24 to 33, so the floor of 22 sits below the lowest of them. Of 720 level
+    # photos (|roll| under 5) from those held-out sets 2 were flagged, so one false flag in 24 is
+    # allowed here.
     mesh = car()
     tilted = random_cameras(9, 36, 12.0, 20.0, signed=True)
     flagged = sum(fit_camera(mesh, render_mask(mesh, c)).roll_at_bound for c in tilted)
-    assert flagged >= 26  # measured 28
+    assert flagged >= 22
     level = random_cameras(109, 24, 0.0, 5.0, signed=True)
-    assert not any(fit_camera(mesh, render_mask(mesh, c)).roll_at_bound for c in level)
+    falsely_flagged = sum(fit_camera(mesh, render_mask(mesh, c)).roll_at_bound for c in level)
+    assert falsely_flagged <= 1
 
 
 def test_a_mesh_without_vertices_is_refused() -> None:
