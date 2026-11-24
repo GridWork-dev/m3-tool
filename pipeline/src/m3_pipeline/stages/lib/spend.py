@@ -15,10 +15,16 @@ Rules, checked in this order:
 5. The rows before it plus the price stay within the cap.
 6. The journal has not authorized the tag before: one tag, one call.
 7. The reconciled spend, with this call, stays within the cap. Each tag counts once, at the
-   higher of its ledger cost and what the journal authorized for it, and a ledger row without a
-   call tag counts at its cost. The ledger can lose a spent row (a bad merge, a tidy-up) and the
-   journal can miss spend that only the ledger records, so neither total is trusted alone:
-   two independent checks both pass while the sum of the two sources passes the cap.
+   highest of its ledger cost, what the journal authorized for it and any cost a recorded
+   outcome reports for it; a ledger row without a call tag counts at its cost. The ledger can
+   lose a spent row (a bad merge, a tidy-up), the journal can miss spend that only the ledger
+   records, and a call can cost more than its estimate, so no one source is trusted alone: two
+   independent checks both pass while the sum of the sources passes the cap.
+
+The ledger is prose, then exactly one table that runs to the end of the file. Once the header
+row is seen, every non-blank line after it must be a valid table row, or the guard denies and
+names the line. That is an allowlist: a row whose frame was lost, swapped for other bars or
+prefixed with a bullet cannot be skipped as prose, because no prose may follow the table.
 
 The cap is the smallest of the cap row's cell, the `cap` argument and `SPIKE_CAP_USD`.
 
@@ -68,11 +74,6 @@ _SESSION_CAP = re.compile(rf"\$({_AMOUNT})(?:\s+\(.*\))?")
 _COST = re.compile(_AMOUNT)
 _RUNNING = re.compile(rf"({_AMOUNT})\s*/\s*{_AMOUNT}")
 _SEPARATOR_CELL = re.compile(r":?-{3,}:?")
-# Vertical bars a paste or an editor can swap in for `|`: fullwidth, box drawing, broken bar,
-# divides, light vertical bar. A line with one is a row, not prose.
-_LOOKALIKE_BARS = "|\uff5c\u2502\u2503\u2551\u00a6\u2223\u2758\u23d0"
-_LEADING_DATE = re.compile(r"\s*[0-9]{4}-[0-9]{2}-[0-9]{2}")
-_DOLLAR_OR_DIGIT = re.compile(r"[$0-9]")
 _CALL_TAG = re.compile(r"spike:([a-z0-9]+(?:-[a-z0-9]+)*)(?:\s.*)?")
 _SESSION_LABEL = re.compile(r"cap approved by the user session:([a-z0-9-]+)(?:\s.*)?")
 
@@ -172,55 +173,43 @@ def _row(line_number: int, cells: list[str]) -> LedgerRow:
     )
 
 
-def _looks_like_a_row(line: str) -> bool:
-    """Whether a line outside the framed table still reads as a ledger row.
-
-    Skipping such a line as prose would drop its cost from the cap, so after the table has
-    started it is denied instead. A row can lose its frame three ways: its leading `|`, the
-    bars themselves (look-alike characters), or the bars and the frame together (a row pasted
-    with tabs or spaces, which still starts with its date or carries a tab and an amount).
-    """
-    return (
-        any(bar in line for bar in _LOOKALIKE_BARS)
-        or ("\t" in line and _DOLLAR_OR_DIGIT.search(line) is not None)
-        or _LEADING_DATE.match(line) is not None
-    )
-
-
 def parse_ledger(text: str) -> list[LedgerRow]:
-    """The data rows of `docs/spend-ledger.md`.
+    """The data rows of `docs/spend-ledger.md`: prose, then one table that runs to the end.
 
-    The first table line must be the exact header and the second the separator, so a column
-    that moved cannot be misread silently. Prose lines are ignored, except that once the table
-    has started a line that looks like a row (see `_looks_like_a_row`) must be a framed table
-    row: a row that lost its frame would otherwise be skipped and its cost left out of the cap.
-    Any malformed row raises `SpendDenied` naming its line, because a row the guard cannot read
-    is a row it cannot count.
+    Before the table, lines that do not start with `|` are prose and are ignored. The first
+    line that does must be the exact header, so a column that moved cannot be misread silently.
+    From the header on there is no prose: every non-blank line must be the separator row and
+    then valid data rows, or `SpendDenied` names the line. An allowlist, not a search for
+    row-shaped lines, because a row that lost its frame, swapped its bars or gained a bullet
+    would otherwise be skipped and its cost left out of the cap. Any malformed row is denied
+    too: a row the guard cannot read is a row it cannot count.
     """
     rows: list[LedgerRow] = []
     expecting = "header"
     for number, line in enumerate(text.splitlines(), start=1):
-        if not line.strip().startswith("|"):
-            if expecting != "header" and _looks_like_a_row(line):
-                # Skipping it as prose would drop its cost from the cap.
-                raise _bad(
-                    number,
-                    "this line looks like a table row (a bar or look-alike, a tab and an "
-                    "amount, or a leading date) but does not start with '|': it would be "
-                    "skipped as prose and its cost would escape the cap",
-                )
-            continue
-        cells = _cells(number, line)
+        framed = line.strip().startswith("|")
         if expecting == "header":
-            if tuple(cells) != _HEADER:
+            if not framed:
+                continue
+            if tuple(_cells(number, line)) != _HEADER:
                 raise _bad(number, f"expected the table header {' | '.join(_HEADER)!r}")
             expecting = "separator"
-        elif expecting == "separator":
+            continue
+        if not line.strip():
+            continue
+        if expecting == "separator":
+            cells = _cells(number, line) if framed else []
             if len(cells) != len(_HEADER) or not all(_SEPARATOR_CELL.fullmatch(c) for c in cells):
                 raise _bad(number, "expected the table separator row (---) under the header")
             expecting = "rows"
+        elif framed:
+            rows.append(_row(number, _cells(number, line)))
         else:
-            rows.append(_row(number, cells))
+            raise _bad(
+                number,
+                "this line is not a table row: the ledger is prose, then one table that runs "
+                "to the end of the file, so nothing but table rows may follow its header",
+            )
     return rows
 
 
@@ -288,13 +277,16 @@ def _approve(
     return row, limit
 
 
-def _reconciled_spend(rows: list[LedgerRow], journal_prices: dict[str, Decimal]) -> Decimal:
-    """What has been spent, counting each tag once at the higher of its ledger cost (all of its
-    rows added) and its journal price, a missing side being zero. A row without a call tag has no
-    journal counterpart and counts at its cost.
+def _reconciled_spend(
+    rows: list[LedgerRow], authorized: dict[str, Decimal], outcomes: dict[str, Decimal]
+) -> Decimal:
+    """What has been spent, counting each tag once at the highest of its ledger cost (all of its
+    rows added), its authorized journal price and its highest recorded outcome cost, a missing
+    source being zero. A row without a call tag has no journal counterpart and counts at its
+    cost.
 
-    Adding the ledger total to the journal total would count every spent tag twice, and checking
-    them separately lets spend recorded in only one of them hide behind the other.
+    Adding the sources would count every spent tag twice, and checking them separately lets
+    spend recorded in only one of them hide behind the others.
     """
     spent = Decimal(0)
     ledger_by_tag: dict[str, Decimal] = {}
@@ -304,8 +296,12 @@ def _reconciled_spend(rows: list[LedgerRow], journal_prices: dict[str, Decimal])
             spent += row.cost
         else:
             ledger_by_tag[tag] = ledger_by_tag.get(tag, Decimal(0)) + row.cost
-    for tag in ledger_by_tag.keys() | journal_prices.keys():
-        spent += max(ledger_by_tag.get(tag, Decimal(0)), journal_prices.get(tag, Decimal(0)))
+    for tag in ledger_by_tag.keys() | authorized.keys() | outcomes.keys():
+        spent += max(
+            ledger_by_tag.get(tag, Decimal(0)),
+            authorized.get(tag, Decimal(0)),
+            outcomes.get(tag, Decimal(0)),
+        )
     return spent
 
 
@@ -316,18 +312,26 @@ def _read(path: Path, what: str) -> str:
         raise SpendDenied(f"could not read the {what} at {path}: {error}") from error
 
 
-def _read_journal(journal: Path) -> tuple[set[str], dict[str, Decimal]]:
-    """Every tag the journal mentions (outcomes included) and the price it authorized for each
-    tag. A failed call's price stays: the guard cannot tell a failed call that cost nothing from
-    one that was billed.
+@dataclass(frozen=True)
+class _Journal:
+    tags: set[str]  # every tag any entry names, outcomes included
+    authorized: dict[str, Decimal]  # prices authorized per tag (summed if a tag has several)
+    outcomes: dict[str, Decimal]  # highest cost any recorded outcome reports per tag
 
-    A line that is not a JSON object with a string `tag`, or an authorization without a valid
-    string `price`, denies everything: a torn or edited line must not hide a spent tag or price.
+
+def _read_journal(journal: Path) -> _Journal:
+    """What the journal says about each tag: that it was mentioned, the price authorized for it
+    and the highest cost an outcome recorded for it. A failed call's price stays: the guard
+    cannot tell a failed call that cost nothing from one that was billed. Outcome costs are
+    maxed, not added, because a later outcome corrects an earlier report of the same call.
+
+    A line that is not a JSON object with a string `tag`, an authorization without a valid
+    string `price`, or an entry whose `cost` is neither absent, null nor a plain decimal amount
+    string denies everything: a torn or edited line must not hide a spent tag or price.
     """
+    found = _Journal(set(), {}, {})
     if not journal.exists():
-        return set(), {}
-    tags: set[str] = set()
-    authorized: dict[str, Decimal] = {}
+        return found
     for number, line in enumerate(_read(journal, "spend journal").splitlines(), start=1):
         if not line.strip():
             continue
@@ -339,7 +343,7 @@ def _read_journal(journal: Path) -> tuple[set[str], dict[str, Decimal]]:
         tag = fields.get("tag")
         if not isinstance(tag, str):
             raise SpendDenied(f"{journal} line {number} has no string 'tag': repair it")
-        tags.add(tag)
+        found.tags.add(tag)
         if fields.get("status") == "authorized":
             price = fields.get("price")
             if not isinstance(price, str) or not _COST.fullmatch(price):
@@ -347,8 +351,16 @@ def _read_journal(journal: Path) -> tuple[set[str], dict[str, Decimal]]:
                     f"{journal} line {number} is an authorization without a valid string "
                     "'price': repair it"
                 )
-            authorized[tag] = authorized.get(tag, Decimal(0)) + Decimal(price)
-    return tags, authorized
+            found.authorized[tag] = found.authorized.get(tag, Decimal(0)) + Decimal(price)
+        cost = fields.get("cost")
+        if cost is not None:
+            if not isinstance(cost, str) or not _COST.fullmatch(cost):
+                raise SpendDenied(
+                    f"{journal} line {number} has a 'cost' that is not a plain decimal amount "
+                    "string: repair it"
+                )
+            found.outcomes[tag] = max(found.outcomes.get(tag, Decimal(0)), Decimal(cost))
+    return found
 
 
 def _json_default(value: object) -> str:
@@ -442,17 +454,18 @@ def authorize(
             # Read the ledger inside the lock: the row we check must be the one that exists now.
             rows = parse_ledger(_read(ledger, "ledger"))
             row, limit = _approve(rows, tag, price, session, today, cap)
-            tags, authorized_prices = _read_journal(journal)
-            if tag in tags:
+            found = _read_journal(journal)
+            if tag in found.tags:
                 raise SpendDenied(
                     f"tag {tag!r} is already authorized in {journal}: one tag authorizes one "
                     "call, so add a new row with a new tag"
                 )
-            spent = _reconciled_spend(rows, {**authorized_prices, tag: price})
+            spent = _reconciled_spend(rows, {**found.authorized, tag: price}, found.outcomes)
             if spent > limit:
                 raise SpendDenied(
                     f"spend would reach {spent} against the {limit:.2f} cap (each tag counts "
-                    "once, at the higher of its ledger cost and its journal price)"
+                    "once, at the highest of its ledger cost, its journal price and its "
+                    "recorded outcome cost)"
                 )
             entry: dict[str, object] = {
                 "tag": tag,
@@ -472,7 +485,18 @@ def record_outcome(journal: Path, tag: str, **fields: object) -> None:
     Append-only: the line is added under the same lock and nothing is rewritten. It does not
     free the tag, because `authorize` counts every entry that names it. `tag` and `at` are set
     here and cannot be overridden by `fields`.
+
+    `cost` is what the guard reads back: the call is then counted at the highest of its ledger
+    cost, its authorized price and this cost. It must be a finite, non-negative `Decimal` (or
+    `None` when unknown), so a float or a malformed amount never reaches the journal, where it
+    would deny every later call.
     """
+    cost = fields.get("cost")
+    if cost is not None:
+        if not isinstance(cost, Decimal):
+            raise TypeError(f"cost must be a Decimal or None, not {type(cost).__name__}")
+        if not cost.is_finite() or cost < 0:
+            raise ValueError(f"cost {cost} must be a finite, non-negative amount")
     entry: dict[str, object] = {
         **fields,
         "tag": tag,

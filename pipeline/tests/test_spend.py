@@ -521,6 +521,103 @@ def test_every_journal_authorization_of_a_tag_counts(tmp_path: Path) -> None:
         attempt(tmp_path, cap_approval(), call("gen-1", "0.40"))
 
 
+@pytest.mark.parametrize("estimate", ["20.00", "0.40"])
+def test_a_recorded_outcome_cost_above_the_estimate_counts(tmp_path: Path, estimate: str) -> None:
+    # The call was authorized at the estimate and cost 45.00; the ledger row was never corrected.
+    attempt(tmp_path, cap_approval(), call("gen-a", estimate), tag="gen-a", price=estimate)
+    record_outcome(tmp_path / "j.jsonl", "gen-a", status="succeeded", cost=Decimal("45.00"))
+    rows = (cap_approval(), call("gen-a", estimate), call("gen-b", "10.00"))
+    with pytest.raises(SpendDenied, match=r"would reach 55\.00 against the 50\.00 cap"):
+        attempt(tmp_path, *rows, tag="gen-b", price="10.00")
+
+
+@pytest.mark.parametrize(
+    ("outcome_cost", "next_price", "denial"),
+    [
+        # An outcome below the authorization, or with no cost, still counts at the 20.00.
+        (Decimal("5.00"), "30.00", None),
+        (Decimal("5.00"), "31.00", r"would reach 51\.00 against the 50\.00 cap"),
+        (None, "30.00", None),
+        (None, "31.00", r"would reach 51\.00 against the 50\.00 cap"),
+    ],
+    ids=["lower-ok", "lower-over", "no-cost-ok", "no-cost-over"],
+)
+def test_a_recorded_outcome_never_lowers_the_authorized_price(
+    tmp_path: Path, outcome_cost: Decimal | None, next_price: str, denial: str | None
+) -> None:
+    attempt(tmp_path, cap_approval(), call("gen-a", "20.00"), tag="gen-a", price="20.00")
+    if outcome_cost is None:
+        record_outcome(tmp_path / "j.jsonl", "gen-a", status="succeeded")
+    else:
+        record_outcome(tmp_path / "j.jsonl", "gen-a", status="succeeded", cost=outcome_cost)
+    rows = (cap_approval(), call("gen-b", next_price))  # gen-a's row is gone from the ledger
+    if denial is None:
+        attempt(tmp_path, *rows, tag="gen-b", price=next_price)
+    else:
+        with pytest.raises(SpendDenied, match=denial):
+            attempt(tmp_path, *rows, tag="gen-b", price=next_price)
+
+
+def test_an_outcome_for_a_tag_with_no_authorization_or_row_still_counts(tmp_path: Path) -> None:
+    # The journal alone knows gen-0 cost 45.00: no authorization entry survives, and no row.
+    record_outcome(tmp_path / "j.jsonl", "gen-0", status="succeeded", cost=Decimal("45.00"))
+    with pytest.raises(SpendDenied, match=r"would reach 55\.00 against the 50\.00 cap"):
+        attempt(tmp_path, cap_approval(), call("gen-1", "10.00"), price="10.00")
+
+
+def test_a_ledger_cost_above_the_recorded_outcome_still_counts(tmp_path: Path) -> None:
+    attempt(tmp_path, cap_approval(), call("gen-a", "1.00"), tag="gen-a", price="1.00")
+    record_outcome(tmp_path / "j.jsonl", "gen-a", status="succeeded", cost=Decimal("5.00"))
+    # The ledger row was corrected to the real 40.00 and sits below gen-b's row, so only the
+    # reconciled check sees it: 40.00 + 11.00 passes the cap.
+    rows = (cap_approval(), call("gen-b", "11.00"), call("gen-a", "40.00"))
+    with pytest.raises(SpendDenied, match=r"would reach 51\.00 against the 50\.00 cap"):
+        attempt(tmp_path, *rows, tag="gen-b", price="11.00")
+
+
+def test_an_outcome_with_a_null_cost_counts_like_one_without_a_cost(tmp_path: Path) -> None:
+    attempt(tmp_path, cap_approval(), call("gen-a", "20.00"), tag="gen-a", price="20.00")
+    record_outcome(tmp_path / "j.jsonl", "gen-a", status="succeeded", cost=None)
+    attempt(tmp_path, cap_approval(), call("gen-b", "30.00"), tag="gen-b", price="30.00")
+
+
+def test_a_tag_counts_at_its_highest_recorded_outcome_not_the_sum(tmp_path: Path) -> None:
+    attempt(tmp_path, cap_approval(), call("gen-a", "1.00"), tag="gen-a", price="1.00")
+    # Two reports of the same call: the second corrects the first, so they are not added.
+    record_outcome(tmp_path / "j.jsonl", "gen-a", status="succeeded", cost=Decimal("20.00"))
+    record_outcome(tmp_path / "j.jsonl", "gen-a", status="reconciled", cost=Decimal("25.00"))
+    rows = (cap_approval(), call("gen-b", "25.00"))
+    attempt(tmp_path, *rows, tag="gen-b", price="25.00")  # 25.00 + 25.00 reaches the cap exactly
+    with pytest.raises(SpendDenied, match=r"would reach 50\.01 against the 50\.00 cap"):
+        attempt(tmp_path, cap_approval(), call("gen-c", "0.01"), tag="gen-c", price="0.01")
+
+
+@pytest.mark.parametrize(
+    "cost",
+    ['"cost":45', '"cost":45.0', '"cost":"abc"', '"cost":"-1"', '"cost":"NaN"', '"cost":true'],
+)
+def test_a_journal_entry_with_a_malformed_cost_denies_everything(tmp_path: Path, cost: str) -> None:
+    (tmp_path / "j.jsonl").write_text('{"tag":"gen-0","status":"succeeded",' + cost + "}\n")
+    with pytest.raises(SpendDenied, match=r"j\.jsonl line 1.*cost"):
+        attempt(tmp_path, cap_approval(), call("gen-1", "0.40"))
+
+
+@pytest.mark.parametrize("cost", [45.0, 45, "45.00", True])
+def test_record_outcome_refuses_a_cost_that_is_not_a_decimal(tmp_path: Path, cost: object) -> None:
+    with pytest.raises(TypeError, match="cost"):
+        record_outcome(tmp_path / "j.jsonl", "gen-1", status="succeeded", cost=cost)
+    assert not (tmp_path / "j.jsonl").exists()
+
+
+@pytest.mark.parametrize("cost", [Decimal("-0.01"), Decimal("NaN"), Decimal("Infinity")])
+def test_record_outcome_refuses_a_negative_or_non_finite_cost(
+    tmp_path: Path, cost: Decimal
+) -> None:
+    with pytest.raises(ValueError, match="cost"):
+        record_outcome(tmp_path / "j.jsonl", "gen-1", status="succeeded", cost=cost)
+    assert not (tmp_path / "j.jsonl").exists()
+
+
 @pytest.mark.parametrize(
     "price",
     ["", ',"price":0.4', ',"price":"abc"', ',"price":"-1"', ',"price":"NaN"', ',"price":null'],
@@ -842,9 +939,18 @@ def test_parse_ledger_reads_dash_cells_as_none() -> None:
 
 
 def test_parse_ledger_reads_the_real_ledger() -> None:
-    rows = parse_ledger(REAL_LEDGER.read_text("utf-8"))
+    text = REAL_LEDGER.read_text("utf-8")
+    rows = parse_ledger(text)
     assert rows, "docs/spend-ledger.md has no data rows"
     assert all(isinstance(row.cost, Decimal) for row in rows)
+    # The guard reads prose, then one table that runs to the end of the file.
+    assert text.rstrip().splitlines()[-1].startswith("|"), "the table must be last in the ledger"
+
+
+def test_the_real_ledger_tells_the_editor_the_table_stays_last() -> None:
+    intro = REAL_LEDGER.read_text("utf-8").split("| Date |")[0]
+    assert "must stay last" in intro
+    assert "nothing may follow" in intro
 
 
 def test_parse_ledger_of_an_empty_table_has_no_rows() -> None:
@@ -900,6 +1006,7 @@ def test_parse_ledger_rejects_a_row_before_the_header() -> None:
 
 
 LOST_PIPE_ROW = "2026-11-24 | $50 | fal | spike:big x | 1 | 60.00 | 60.40 / 50.00 |"
+NOT_A_ROW = r"is not a table row"
 
 
 def test_a_row_that_lost_its_leading_pipe_is_not_skipped_as_prose(tmp_path: Path) -> None:
@@ -907,7 +1014,7 @@ def test_a_row_that_lost_its_leading_pipe_is_not_skipped_as_prose(tmp_path: Path
     # total and leave gen-1 authorized against a 50.00 cap.
     ledger = tmp_path / "ledger.md"
     ledger.write_text(render(cap_approval(), call("gen-1", "0.40")) + LOST_PIPE_ROW + "\n")
-    with pytest.raises(SpendDenied, match=r"line 9: .*does not start with '\|'"):
+    with pytest.raises(SpendDenied, match=rf"line 9: .*{NOT_A_ROW}"):
         authorize(
             "gen-1",
             Decimal("0.40"),
@@ -922,14 +1029,14 @@ def test_a_row_that_lost_its_leading_pipe_is_not_skipped_as_prose(tmp_path: Path
 @pytest.mark.parametrize("gap", ["", "\n", "\nA note.\n\n"])
 def test_parse_ledger_denies_a_table_line_without_its_leading_pipe(gap: str) -> None:
     text = render(cap_approval(), call("gen-1", "0.40")) + gap + LOST_PIPE_ROW + "\n"
-    with pytest.raises(SpendDenied, match=r"does not start with '\|'"):
+    with pytest.raises(SpendDenied, match=NOT_A_ROW):
         parse_ledger(text)
 
 
 def test_parse_ledger_denies_a_lost_pipe_row_between_the_header_and_the_separator() -> None:
     lines = (PREAMBLE + HEADER).splitlines()
     text = "\n".join([*lines[:-1], LOST_PIPE_ROW, lines[-1]]) + "\n"
-    with pytest.raises(SpendDenied, match=r"line 6: .*does not start with '\|'"):
+    with pytest.raises(SpendDenied, match=r"line 6: .*separator"):
         parse_ledger(text)
 
 
@@ -952,17 +1059,42 @@ BARS = {
     "light vertical bars": "\u2758",
     "vertical line extension bars": "\u23d0",
 }
+# Bars the old denylist did not list: any bar is denied now, because the rule is an allowlist.
+UNLISTED_BARS = {
+    "U+2506": "\u2506",
+    "U+2507": "\u2507",
+    "U+254E": "\u254e",
+    "U+FE31": "\ufe31",
+    "U+01C0": "\u01c0",
+    "U+2016": "\u2016",
+    "U+FFE8": "\uffe8",
+    "U+23AA": "\u23aa",
+    "U+2759": "\u2759",
+    "U+275A": "\u275a",
+    "U+4E28": "\u4e28",
+    "U+3163": "\u3163",
+}
+SPACED = "  ".join(FIELDS)
 UNFRAMED_ROWS = {
     **{name: barred(bar) for name, bar in BARS.items()},
+    **{f"unlisted bar {name}": barred(bar) for name, bar in UNLISTED_BARS.items()},
     "tab separated": "\t".join(FIELDS),
     "tab separated, no date": "\t".join(["—", *FIELDS[2:]]),
-    "space separated": "  ".join(FIELDS),
+    "space separated": SPACED,
+    "space separated, date cell lost": "  ".join(FIELDS[1:]),
+    "bullet prefix": f"* {SPACED}",
+    "dash prefix": f"- {SPACED}",
+    "quote prefix": f"> {SPACED}",
+    "zero-width space before the date": f"\u200b{SPACED}",
+    "bullet before a framed row": f"* | {' | '.join(FIELDS)} |",
+    "quote before a framed row": f"> | {' | '.join(FIELDS)} |",
+    "zero-width space before a framed row": f"\u200b| {' | '.join(FIELDS)} |",
 }
 
 
 @pytest.mark.parametrize("row", UNFRAMED_ROWS.values(), ids=UNFRAMED_ROWS.keys())
 def test_parse_ledger_denies_a_row_in_another_shape_after_the_table_started(row: str) -> None:
-    with pytest.raises(SpendDenied, match=r"line 9: .*does not start with '\|'"):
+    with pytest.raises(SpendDenied, match=rf"line 9: .*{NOT_A_ROW}"):
         parse_ledger(render(cap_approval(), call("gen-1", "0.40")) + row + "\n")
 
 
@@ -970,7 +1102,7 @@ def test_parse_ledger_denies_a_row_in_another_shape_after_the_table_started(row:
 def test_a_row_in_another_shape_does_not_slip_past_the_cap(tmp_path: Path, row: str) -> None:
     ledger = tmp_path / "ledger.md"
     ledger.write_text(render(cap_approval(), call("gen-1", "0.40")) + row + "\n")
-    with pytest.raises(SpendDenied, match=r"line 9: .*does not start with '\|'"):
+    with pytest.raises(SpendDenied, match=rf"line 9: .*{NOT_A_ROW}"):
         authorize(
             "gen-1",
             Decimal("0.40"),
@@ -982,10 +1114,41 @@ def test_a_row_in_another_shape_does_not_slip_past_the_cap(tmp_path: Path, row: 
     assert not (tmp_path / "j.jsonl").exists()
 
 
-def test_parse_ledger_allows_pipe_free_prose_after_the_table() -> None:
-    notes = "\nAll amounts are in USD.\nA tab\there, but no amount.\nSee row 3 for details.\n"
-    rows = parse_ledger(render(cap_approval()) + notes)
-    assert len(rows) == 1
+@pytest.mark.parametrize(
+    "prose",
+    [
+        "All amounts are in USD.",
+        "Updated 2026-11-24",
+        "<!-- 2026-11-24 -->",
+        "Total = 12 / 50",
+        "A tab\there, but no amount.",
+        "    an indented note",
+        "## Notes",
+    ],
+)
+def test_parse_ledger_denies_prose_after_the_table(prose: str) -> None:
+    # The ledger is prose, then one table that runs to the end of the file, so any non-blank
+    # line after the header must be a table row.
+    with pytest.raises(SpendDenied, match=rf"line 9: .*{NOT_A_ROW}"):
+        parse_ledger(render(cap_approval(), call("gen-1", "0.40")) + prose + "\n")
+
+
+def test_parse_ledger_denies_prose_after_a_blank_line_after_the_table() -> None:
+    text = render(cap_approval()) + "\n\nNotes follow.\n"
+    with pytest.raises(SpendDenied, match=rf"line 10: .*{NOT_A_ROW}"):
+        parse_ledger(text)
+
+
+def test_parse_ledger_allows_blank_lines_after_and_between_rows() -> None:
+    text = render(cap_approval()) + "\n\n" + render(call("gen-1", "0.40")).split("\n")[-2] + "\n\n"
+    assert len(parse_ledger(text)) == 2
+
+
+def test_parse_ledger_denies_prose_between_the_header_and_the_separator() -> None:
+    lines = (PREAMBLE + HEADER).splitlines()
+    text = "\n".join([*lines[:-1], "A note.", lines[-1]]) + "\n"
+    with pytest.raises(SpendDenied, match=r"line 6: .*separator"):
+        parse_ledger(text)
 
 
 def test_parse_ledger_rejects_a_header_without_its_separator() -> None:
