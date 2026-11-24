@@ -10,6 +10,7 @@ fits:
 labor:
   hours: [1, 2]
   diy: intermediate
+  estimated: true
 prices:
   - amount: 400
     currency: USD

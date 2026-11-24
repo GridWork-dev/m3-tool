@@ -45,7 +45,8 @@ The schemas reject keys they don't list, so a typo like `brnad:` is an error ins
 - A part's `attributes.kind` matches its category: `wheel` and `hub-ring` go with `wheels`, `tire` with `tires`, `brake-kit` with `brakes`, `suspension` with `suspension`.
 - `inspectWhenBuying: true` needs a non-empty `howToCheck`.
 - A maintenance interval has `miles`, `months` or both.
-- A measured driver eye point has sources. An estimated one may have none. It is the one sourceless exception the schema names, and its `note` says it is an estimate. (A generic part has no sources of its own either, because it is a computed tier, not a claim.)
+- A measured driver eye point has sources. An estimated one may have none, and its `note` says it is an estimate. Labor estimates are the other sourceless exception the schema names (see "Labor estimates"). (A generic part has no sources of its own either, because it is a computed tier, not a claim, and so its labor is an estimate.)
+- A part's `labor` always says whether it is an estimate: `estimated` is `true` or `false`, written out, with no default. Labor with `estimated: false` needs at least one source on the part.
 - Required text (names, titles, sellers, publishers) must not be empty or only whitespace. The value is kept as written, not trimmed.
 - A `KnownIssue` with a `fix` also has a `cost`. Without a `fix` the `cost` is optional (see "Safety advice needs evidence").
 - Dimensions are keyed by bodies the generation lists, and there's at least one.
@@ -103,6 +104,14 @@ Every `Source` has a `title`, `publisher`, `tier` (1 to 3) and `accessed` date, 
 A source is shown as a citation. The page always renders its **publisher, title and accessed date as text**. Its `url` becomes a link only when the URL is `https` and its host is exactly one of `CITATION_HOSTS` in [`src/lib/link-policy.ts`](../../src/lib/link-policy.ts): `archive.org`, `web.archive.org`, `newsroom.bmwgroup.com`, `en.wikipedia.org` and `commons.wikimedia.org`. Call `isCitationLinkable(url)` to decide. Every other URL stays text, so a Tier 2 retailer is never linked, and a reader who wants the page searches for it. `pnpm check:links` accepts those five hosts, and nothing else beyond its own allowlist.
 
 The list is short on purpose: non-commercial references only. Adding a host is a policy change, with its own PR and a reason ([ADR 0009](../decisions/0009-citations-and-link-policy.md)). When a source is a retailer's page, `note` still says what it supports, and an archived copy on `archive.org` is the better thing to link when one exists.
+
+### Labor estimates
+
+Install hours for most parts can't be traced to a Tier 1 or Tier 2 source, but the build sheet needs a number. So `labor` may be an explicit estimate: `estimated: true`, no source needed, and the site labels the hours "estimated" wherever it shows them. This sits beside the estimated driver eye point as a named sourceless exception.
+
+- **`estimated: true`:** the hours need no source and don't count toward `verified`. A part whose sizes and fitment rest on a Tier 1 product page can be `verified: true` with estimated labor, because the rule reads the part's sources only. Say in a comment in the file what the estimate rests on.
+- **`estimated: false`:** the hours come from the part's `sources` (an install guide, a published labor time). The schema needs at least one source on the part, and the data verifier checks the hours against it. A generic part has no sources of its own, so its labor is always `estimated: true`.
+- Don't set `estimated: false` to avoid the label. The label tells the reader which hours are a guess.
 
 ## Source tiers
 

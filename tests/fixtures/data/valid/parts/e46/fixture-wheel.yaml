@@ -43,6 +43,7 @@ options:
 labor:
   hours: [0.5, 1]
   diy: easy
+  estimated: true
 model:
   standIn: fixture-style
   params:

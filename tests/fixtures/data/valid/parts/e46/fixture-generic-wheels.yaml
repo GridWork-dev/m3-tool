@@ -8,5 +8,6 @@ fits:
 labor:
   hours: [0.5, 1]
   diy: easy
+  estimated: true
 sources: []
 verified: false
