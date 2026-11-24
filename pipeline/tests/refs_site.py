@@ -17,14 +17,19 @@ class Site:
     def __init__(self) -> None:
         self.requests: list[SeenRequest] = []
         self.routes: dict[str, tuple[int, bytes, str, dict[str, str]]] = {}
+        self.fail_times: dict[str, int] = {}
+        self.fail_status: dict[str, int] = {}
         site = self
 
         class Handler(BaseHTTPRequestHandler):
             def do_GET(self) -> None:
+                prior_hits = site.hits(self.path)
                 site.requests.append(SeenRequest(self.path, self.headers.get("User-Agent", "")))
                 status, body, content_type, headers = site.routes.get(
                     self.path, (404, b"", "text/plain", {})
                 )
+                if site.fail_times.get(self.path, 0) > prior_hits:
+                    status, body = site.fail_status.get(self.path, 429), b""
                 self.send_response(status)
                 self.send_header("Content-Type", content_type)
                 self.send_header("Content-Length", str(len(body)))
@@ -61,6 +66,8 @@ class Site:
         body: bytes | str = b"",
         content_type: str = "text/html",
         headers: dict[str, str] | None = None,
+        fail_times: int = 0,
+        fail_status: int = 429,
     ) -> None:
         self.routes[path] = (
             status,
@@ -68,6 +75,8 @@ class Site:
             content_type,
             headers or {},
         )
+        self.fail_times[path] = fail_times
+        self.fail_status[path] = fail_status
 
     def hits(self, path: str) -> int:
         return sum(r.path == path for r in self.requests)

@@ -57,15 +57,38 @@ def test_disallowed_page_is_skipped_and_never_requested(
     assert site.hits("/private/page.html") == 0
 
 
-def test_403_page_is_logged_as_blocked_with_an_import_hint_and_retried_once(
+def test_403_page_is_logged_as_blocked_and_skipped_without_retry(
     site: Site,
     store: RefStore,
     clock: FakeClock,
     caplog: pytest.LogCaptureFixture,
 ) -> None:
     rep = run(site, store, [site.url("/blocked.html")], clock)
-    assert rep.blocked == [site.url("/blocked.html")] and site.hits("/blocked.html") == 2
+    assert rep.blocked == [site.url("/blocked.html")] and site.hits("/blocked.html") == 1
     assert "refs import" in caplog.text
+
+
+def test_plain_429_is_retried_once_as_rate_limit(
+    site: Site,
+    store: RefStore,
+    clock: FakeClock,
+) -> None:
+    site.add("/limited.html", body='<img src="/big.jpg">', fail_times=1)
+    rep = run(site, store, [site.url("/limited.html")], clock)
+    assert site.hits("/limited.html") == 2 and rep.blocked == [] and rep.images_added == 1
+
+
+def test_persistent_429_is_blocked_after_one_retry(
+    site: Site,
+    store: RefStore,
+    clock: FakeClock,
+) -> None:
+    site.add("/always-limited.html", status=429, body="too many requests")
+    rep = run(site, store, [site.url("/always-limited.html")], clock)
+    assert site.hits("/always-limited.html") == 2 and rep.blocked == [
+        site.url("/always-limited.html")
+    ]
+    assert store.records() == []
 
 
 def test_429_checkpoint_page_is_blocked_and_never_ingested(
@@ -75,7 +98,7 @@ def test_429_checkpoint_page_is_blocked_and_never_ingested(
 ) -> None:
     for path in ("/checkpoint.html", "/challenge.html"):
         rep = run(site, store, [site.url(path)], clock)
-        assert rep.blocked == [site.url(path)] and site.hits(path) == 2 and store.records() == []
+        assert rep.blocked == [site.url(path)] and site.hits(path) == 1 and store.records() == []
 
 
 def test_big_image_is_ingested_with_crawl_provenance_and_small_one_is_remembered(

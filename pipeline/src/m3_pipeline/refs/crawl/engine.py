@@ -7,7 +7,7 @@ from urllib.parse import urljoin, urlsplit
 
 import httpx
 
-from m3_pipeline.refs.crawl.blocked import is_blocked
+from m3_pipeline.refs.crawl.blocked import is_blocked, is_rate_limited
 from m3_pipeline.refs.crawl.extract import extract_image_urls
 from m3_pipeline.refs.crawl.robots import RobotsCache
 from m3_pipeline.refs.imaging import UnreadableImage, inspect_image
@@ -42,9 +42,19 @@ class CrawlReport:
     images_failed: int = 0
 
 
-def _blocked_page(page: PageResult) -> bool:
+def _title_head(page: PageResult) -> tuple[str, str]:
     title = re.search(r"<title\b[^>]*>(.*?)</title>", page.html, re.I | re.S)
-    return is_blocked(page.status, title[1] if title else "", page.html[:4096])
+    return title[1] if title else "", page.html[:4096]
+
+
+def _blocked_page(page: PageResult) -> bool:
+    title, head = _title_head(page)
+    return is_blocked(page.status, title, head)
+
+
+def _rate_limited(page: PageResult) -> bool:
+    title, head = _title_head(page)
+    return is_rate_limited(page.status, title, head)
 
 
 def _log_blocked(status: int, url: str) -> None:
@@ -111,7 +121,14 @@ def crawl_pages(
         report.pages_fetched += 1
         if page.final_url != url and not allowed(page.final_url):
             continue
+        # A hard block (403 or a challenge page) is logged and skipped on first
+        # detection, per docs/standards/legal.md: retrying past it would be
+        # getting past the block. Only plain rate limiting gets one polite retry.
         if _blocked_page(page):
+            if not _rate_limited(page):
+                report.blocked.append(url)
+                _log_blocked(page.status, url)
+                continue
             throttle.pause(2 * settings.delay_s)
             wait(url)
             page = fetcher.fetch(url)
