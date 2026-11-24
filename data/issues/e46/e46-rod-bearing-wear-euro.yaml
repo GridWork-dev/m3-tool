@@ -1,0 +1,68 @@
+# Connecting rod bearing wear on European cars. Every source below was opened on 2026-11-23.
+#
+# Markets: `markets: [euro]` (ruling R82). This is the twin of `e46-rod-bearing-wear`, whose fix and
+# `verified: true` rest entirely on BMW of North America bulletins, which are US documents, so that
+# entry is `[us]` only (data.md, ruling R61). Shown alone it would hide the S54's best-known problem
+# from European owners, so this entry carries what the evidence supports for them.
+#
+# Evidence for Europe: PistonHeads (a guide that concentrates on Euro-spec cars) says affected
+# early cars should have been repaired under warranty or had the engine replaced by BMW, and
+# Motorious reports a recall. Jalopnik, MotorBiscuit and ECS Tuning name no market for the
+# statements used here, so they are read as model-wide. No BMW document for European cars was
+# found: BMW's remedy, the build range and any limits for them are not sourced.
+#
+# No fix, on purpose. ECS Tuning ties its recommendation to 'BMW's technical service bulletin
+# update' without naming it, and the only BMW bulletins found (the one Jalopnik cites as 'SIB
+# 11-04-04', and its companion) are BMW North America documents for US cars. PistonHeads and
+# Motorious say a repair or a recall happened but give no scope and no remedy. So no Tier 1 or Tier
+# 2 source here is shown to support a fix for European cars, and the entry is unverified.
+#
+# Contested, and worded that way: the cause (Jalopnik 'improperly sized', ECS 'did not spec ...
+# correctly'), and whether a repaired car needs a repeat service (ECS, which sells a bearing kit,
+# says about every 100,000 miles). `frequency: common` rests on editorial wording ('Some early cars
+# suffered ...', 'all cars before 2003 will need the rod bearings done'). No source gives a rate.
+id: e46-rod-bearing-wear-euro
+generation: e46
+engine: S54B32
+markets: [euro]
+title: Connecting rod bearing wear (European market)
+symptoms:
+  - "None is named in the sources opened here. Motorious says that if the recall work was not carried out, 'engine failure could be the end of the game'."
+  - "On early cars the fault showed at low mileage. PistonHeads, writing of 'crank bearing failures' on early cars, says the fault 'seemed to rear its head at around 30,000 miles'."
+cause: "Sources word the cause differently. Jalopnik says the bearings 'were improperly sized at the factory, leading to premature catastrophic failures of the engines', and ECS Tuning says BMW 'did not spec the rod bearing sizes correctly, which causes premature wear and eventual failure'. This entry does not choose between them, and BMW's own account of the cause for European cars is not sourced. PistonHeads and Motorious say early cars were affected: PistonHeads says 'Some early cars suffered crank bearing failures', Motorious says cars built from 2001 to 2003 'may have been the subject of a recall for problems with big-end bearings', and MotorBiscuit says 'all cars before 2003 will need the rod bearings done'. Which European cars and build dates BMW covered is not sourced here."
+prevention: "Ask for proof that BMW repaired the bearings. PistonHeads says all of the affected early cars 'should have been repaired under warranty or had the engine replaced by BMW', and Motorious says to check whether the car was subject to the recall and, if so, that the work was carried out. The remedy, the build range and any limits for European cars are not sourced here, so do not assume the terms BMW North America set for US cars apply. PistonHeads and Motorious both call the original 1,200-mile oil service essential, so ask whether it was done. ECS Tuning, which sells a bearing kit, says a rod bearing service about every 100,000 miles is 'imperative' and ties that to BMW's bulletin update. No source here says whether a repaired European car needs more. This entry takes no side."
+frequency: common
+inspectWhenBuying: true
+howToCheck: "For a car built from 2001 to 2003, ask for BMW or dealer paperwork showing the bearings were repaired or the engine replaced, with its date and mileage. Ask whether the original 1,200-mile oil service was done."
+sources:
+  - title: "BMW M3 (E46) | PH Used Buying Guide"
+    publisher: PistonHeads
+    url: https://www.pistonheads.com/features/ph-buying-guides/bmw-m3-e46--ph-used-buying-guide/25931
+    tier: 2
+    accessed: 2026-11-23
+    note: "By PH Staff, 1 April 2021 (a UK guide that concentrates on Euro-spec cars: 'we'll concentrate on Euro-spec models in this guide'). Says 'Some early cars suffered crank bearing failures, but all of these affected cars should have been repaired under warranty or had the engine replaced by BMW. The fault seemed to rear its head at around 30,000 miles', and that the 1,200-mile running-in service 'included an oil change that has proved essential to the M3's long-term health'. It writes 'crank bearing failures'; this entry reads that as the rod bearing fault. It names no remedy, scope or limit."
+  - title: 2002-2007 BMW M3 E46 Buying Guide
+    publisher: Motorious
+    url: https://www.motorious.com/articles/highlights/2002-2007-bmw-m3-e46-buying-guide
+    tier: 2
+    accessed: 2026-11-23
+    note: "By Motorious Staff, 22 January 2019. The checklist on the page is labelled 'Your AutoClassics BMW M3 E46 inspection checklist', so the text appears to be syndicated, and it names no market. Says the 1,200-mile service 'was essential to remove the preparatory running-in oil' and that cars 'built from 2001-2003' 'may have been the subject of a recall for problems with big-end bearings. Check to see whether any models you are looking at was subject to that recall and, if so, ensure the work was carried out. If not, engine failure could be the end of the game.' It gives no scope and no remedy."
+  - title: "The Affordable Supercar: The Ultimate E46 M3 Buyer's Guide"
+    publisher: Jalopnik
+    url: https://jalopnik.com/the-affordable-supercar-the-ultimate-e46-m3-buyers-gui-1593133171
+    tier: 2
+    accessed: 2026-11-23
+    note: "By Freddy 'Tavarish' Hernandez, 19 June 2014 (the page says it is from APiDA Online, so it is an outside author's post), and it names no market. Says 'They were improperly sized at the factory, leading to premature catastrophic failures of the engines.' Its recall number, 'SIB 11-04-04', is a BMW North America bulletin, so Jalopnik's remarks about completing the recall are not used here for European cars."
+  - title: "Buyer's Guide: BMW E46 M3 (2000-2006)"
+    publisher: MotorBiscuit
+    url: https://www.motorbiscuit.com/buyers-guide-bmw-e46-m3-2000-2006
+    tier: 2
+    accessed: 2026-11-23
+    note: "By Chase Bierenkoven, 7 July 2021, and it names no market. Says 'all cars before 2003 will need the rod bearings done'. Used only for the early-car range and for `frequency`. The line is wider than BMW North America's US bulletin (cars built to 22 May 2003), and its $1,500 figure is not used (ruling R78): the page does not say who does the work or what is included."
+  - title: Most Common BMW E46 M3 Problems
+    publisher: ECS Tuning
+    url: https://blog.ecstuning.com/most-common-bmw-e46-m3-problems/
+    tier: 2
+    accessed: 2026-11-23
+    note: "Specialist retailer's tech article (Tier 2 under data.md); ECS sells the bearing kit it mentions ('our WPC Treated Rod Bearing Service Kit'), and the page names no market. By Craig Daugherty, 5 November 2020. Says 'BMW did not spec the rod bearing sizes correctly, which causes premature wear and eventual failure' and 'While they may last longer than the 100k mile interval outlined by BMW's technical service bulletin update, a 100k mile service is imperative to keep your S54 happy and healthy.' It is not used as a fix: it ties its advice to a BMW bulletin update that it does not name, and the only BMW bulletins found are for US cars."
+verified: false

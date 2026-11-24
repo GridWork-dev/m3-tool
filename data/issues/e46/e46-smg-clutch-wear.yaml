@@ -9,8 +9,8 @@
 # Markets: `markets` is left out because the evidence covers both. PistonHeads writes about Euro-spec
 # cars and Jalopnik for the US, and neither is a market-specific BMW document.
 #
-# Left `verified: false` on purpose (the verifier called it conservative, not wrong): the one piece
-# of advice, the software update, rests on PistonHeads alone, and each point has one publisher.
+# Left `verified: false` on purpose: PistonHeads and Jalopnik both say SMG clutches wear fast, but
+# the judder and the software update rest on PistonHeads alone, and there is no fix.
 #
 # `frequency: common` rests on editorial wording ('Clutches wear more quickly', 'affinity for eating
 # clutches'). No source gives a rate.

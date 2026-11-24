@@ -1,10 +1,11 @@
 # Connecting rod bearing wear on the S54. Every source below was opened on 2026-11-23.
 #
-# Markets: `markets` is left out because the evidence covers both. The two BMW bulletins are BMW of
-# North America documents, so the build ranges, the break-in limit, the DME reprogramming and the
-# warranty extension are US facts (data.md, ruling R61), and the text says so. For other markets
-# PistonHeads (a guide that concentrates on Euro-spec cars) says affected early cars were repaired
-# or had their engine replaced by BMW. Motorious also reports a recall.
+# Markets: `markets: [us]` (ruling R82). The fix and `verified: true` rest entirely on BMW of North
+# America bulletins, so the build ranges, the break-in limit, the DME reprogramming and the warranty
+# extension are US facts, and a one-market document supports that market only (data.md, ruling
+# R61). European cars have their own entry, `e46-rod-bearing-wear-euro`, which is unverified and
+# publishes no fix. The other publishers cited here name no market for what is used from them, so
+# they are read as model-wide statements, and PistonHeads writes about Euro-spec cars.
 #
 # Third-party copies (data.md, ruling R77). SI B 11 04 04 is Tier 1: the whole native PDF, a note
 # that names the host, its number and scope corroborated independently (Jalopnik cites 'SIB
@@ -37,16 +38,17 @@
 id: e46-rod-bearing-wear
 generation: e46
 engine: S54B32
-title: Connecting rod bearing wear
+markets: [us]
+title: Connecting rod bearing wear (US market)
 symptoms:
   - "BMW's bulletins name no warning sign. They describe bearings that overheat and wear early and end in total engine failure."
   - "On early cars the fault showed at low mileage. PistonHeads, writing of 'crank bearing failures' on early cars, says the fault 'seemed to rear its head at around 30,000 miles'."
 cause: "BMW's bulletin SI B 11 04 04 says the connecting rod bearings in M3s built from 12 February 2001 to 22 May 2003 'were not manufactured to BMW quality standards' and are susceptible to overheating and premature failure if the car is driven at higher engine speeds over an extended time. A separate bulletin, SI B 11 02 03, blames contamination of the lubrication system during assembly together with unfavorable oil pump tolerances in cars built from 1 October 2001 to 28 February 2002; that cause rests on a Tier 2 copy of the bulletin alone. Other sources word the cause differently: Jalopnik says the bearings were 'improperly sized at the factory', and ECS Tuning says BMW 'did not spec the rod bearing sizes correctly'. This entry does not choose between them. Cars built after 22 May 2003 are outside both bulletins. ECS Tuning recommends a rod bearing service on E46 M3s with no build limit, and the sources opened here do not say whether later cars are affected."
-fix: "BMW's service action replaces the connecting rod bearings and reprograms the engine control module (DME), per SI B 11 04 04. After the work the owner keeps to the break-in limits for the first 1,200 miles: no more than 5,500 rpm or 105 mph. Cars built 1 October 2001 to 28 February 2002 first had the oil pump and bearings replaced under SI B 11 02 03, and the later bulletin says they are also covered. Both are BMW of North America bulletins, so they cover US-market cars. BMW NA extended its warranty on internal oil-lubricated engine parts for model-year 2001 to 2003 S54 cars to 6 years or 100,000 miles, and that period has ended for every one of these cars. No cost is published: the one figure found does not say who does the work or what it includes."
-prevention: "Ask for proof that the service action was done on any US-market car built up to 22 May 2003. Jalopnik says any BMW shop should be able to give the registered owner that information free of charge. PistonHeads and Motorious both call the original 1,200-mile oil service essential, so ask whether it was done. BMW's bulletin says no further oil service is required after the service action's own break-in period. Contested: whether to replace the bearings again as preventive work. ECS Tuning, which sells a bearing kit, says a rod bearing service about every 100,000 miles is 'imperative' and attributes the 100,000-mile figure to BMW's bulletin update, but the BMW bulletin copies opened for this entry carry no such interval. Jalopnik says an early car with the work done 'should be regarded as just as good as the later models'. This entry takes no side."
+fix: "BMW's service action replaces the connecting rod bearings and reprograms the engine control module (DME), per SI B 11 04 04. After the work the owner keeps to the break-in limits for the first 1,200 miles: no more than 5,500 rpm or 105 mph. Cars built 1 October 2001 to 28 February 2002 first had the oil pump and bearings replaced under SI B 11 02 03, and the later bulletin says they are also covered. Both are BMW of North America bulletins, so they cover US-market cars. BMW NA extended its warranty on internal oil-lubricated engine parts for model-year 2001 to 2003 S54 cars to 6 years or 100,000 miles, and that period has ended for every one of these cars. No cost is published, because no source says who does the work or what a price would cover."
+prevention: "Ask for proof that the service action was done on any US-market car built up to 22 May 2003. Jalopnik says any BMW shop should be able to give the registered owner that information free of charge. PistonHeads and Motorious both call the original 1,200-mile oil service essential, so ask whether it was done. BMW's bulletin says 'Engine oil service is not required after the completion of engine break-in period'. This entry reads that as no break-in oil change after the service action, and does not read it as waiving regular oil service. Contested: whether to replace the bearings again as preventive work. ECS Tuning, which sells a bearing kit, says a rod bearing service about every 100,000 miles is 'imperative' and attributes the 100,000-mile figure to BMW's bulletin update, but the BMW bulletin copies opened for this entry carry no such interval. Jalopnik says an early car with the work done 'should be regarded as just as good as the later models'. This entry takes no side."
 frequency: common
 inspectWhenBuying: true
-howToCheck: "For a US car built up to 22 May 2003, look for the label BMW's bulletin has the dealer punch with code 422 and affix to the B pillar, next to any label from an earlier action. Then ask for dealer or shop paperwork showing the bearing replacement under SI B 11 04 04, with its date and mileage. A car built between October 2001 and February 2002 should also show the earlier oil pump and bearing work under SI B 11 02 03. Ask whether the original 1,200-mile oil service was done."
+howToCheck: "For a US car built up to 22 May 2003, look for the label BMW's bulletin has the dealer punch with code 422 and affix to the B pillar, next to any label from an earlier action. The bulletin has the label applied after the vehicle has been checked, and corrected if necessary, so a label shows the check was recorded, not by itself that the bearings were replaced. Then ask for dealer or shop paperwork showing the bearing replacement under SI B 11 04 04, with its date and mileage. A car built between October 2001 and February 2002 should also show the earlier oil pump and bearing work under SI B 11 02 03. Ask whether the original 1,200-mile oil service was done."
 sources:
   - title: "SI B 11 04 04: Service Action: E46 M3 S54 Connecting Rod Bearings Replacement (October 2004)"
     publisher: BMW of North America, LLC

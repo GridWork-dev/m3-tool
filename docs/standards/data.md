@@ -103,6 +103,7 @@ Every `Source` has a `title`, `publisher`, `tier` (1 to 3) and `accessed` date, 
   3. The document's number and scope are corroborated by an independent Tier 1 or Tier 2 source.
   4. The `url` is an existing archive.org snapshot, if one exists. Don't create snapshots. A copy on a vendor's server is neither linkable nor stable, so when there is no snapshot the note says so.
   A safety value that rests on a copy alone says so in the entry.
+- **A cost whose source doesn't say what it covers isn't published** (ruling R78; see "Costs that are absent").
 - **A generation's own `sources`** (at least one) cover its name, chassis, years, engines and bodies. Its dimensions, eye point and fitment carry their own.
 
 ### Citations
@@ -216,7 +217,7 @@ Leave `markets` out only when the evidence covers every market: either one sourc
 
 ### Costs that are absent
 
-`cost` is optional on a maintenance item and on a known issue. Leave it out when no Tier 1 or Tier 2 source gives a figure. The site then shows "no sourced cost", and never zero. Don't write `[0, 0]` for "unknown": nothing tells it from free. A `cost` that is given is still checked: USD, a sorted range, and for a maintenance item both `diy` and `shop`. Price collection is a separate lane (see "Prices"), so a figure from a retailer's product listing is not a sourced cost.
+`cost` is optional on a maintenance item and on a known issue. Leave it out when no Tier 1 or Tier 2 source gives a figure. A figure whose source doesn't say what it covers (shop, DIY, parts or labor) is not a sourced cost either (ruling R78): leave `cost` out even when the source is Tier 1 or Tier 2, and keep a cost only where a source states what it covers. The site then shows "no sourced cost", and never zero. Don't write `[0, 0]` for "unknown": nothing tells it from free. A `cost` that is given is still checked: USD, a sorted range, and for a maintenance item both `diy` and `shop`. Price collection is a separate lane (see "Prices"), so a figure from a retailer's product listing is not a sourced cost.
 
 ### Review
 
