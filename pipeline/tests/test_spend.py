@@ -618,6 +618,23 @@ def test_record_outcome_refuses_a_negative_or_non_finite_cost(
     assert not (tmp_path / "j.jsonl").exists()
 
 
+@pytest.mark.parametrize("cost", [Decimal("-0"), Decimal("-0.00")])
+def test_record_outcome_refuses_a_signed_zero_cost(tmp_path: Path, cost: Decimal) -> None:
+    # `Decimal("-0") < 0` is False, so a sign check on the value lets it through; it would be
+    # journaled as "-0", which the journal reader rejects, and every later call would be denied.
+    with pytest.raises(ValueError, match="cost"):
+        record_outcome(tmp_path / "j.jsonl", "gen-1", status="succeeded", cost=cost)
+    assert not (tmp_path / "j.jsonl").exists()
+
+
+def test_record_outcome_still_accepts_an_unsigned_zero_cost(tmp_path: Path) -> None:
+    journal = tmp_path / "j.jsonl"
+    record_outcome(journal, "gen-1", status="failed", cost=Decimal("0.00"))
+    (entry,) = journal_entries(journal)
+    assert entry["cost"] == "0.00"
+    attempt(tmp_path, cap_approval(), call("gen-2", "0.40"), tag="gen-2")  # the journal reads back
+
+
 @pytest.mark.parametrize(
     "price",
     ["", ',"price":0.4', ',"price":"abc"', ',"price":"-1"', ',"price":"NaN"', ',"price":null'],
@@ -628,6 +645,65 @@ def test_an_authorized_journal_entry_without_a_valid_price_denies_everything(
     (tmp_path / "j.jsonl").write_text('{"tag":"gen-0","status":"authorized"' + price + "}\n")
     with pytest.raises(SpendDenied, match=r"j\.jsonl line 1.*price"):
         attempt(tmp_path, cap_approval(), call("gen-1", "0.40"))
+
+
+AUTHORIZED_GEN_0 = '{"tag":"gen-0","status":"authorized","price":"0.40"}'
+
+
+@pytest.mark.parametrize("writer", ["authorize", "record_outcome"])
+def test_an_unterminated_last_journal_line_is_denied_or_repaired_not_glued_to_the_next_entry(
+    tmp_path: Path, writer: str
+) -> None:
+    # A crash or a short write left the last entry without its newline. Appending straight after
+    # it would glue two entries onto one line and corrupt both. The guard repairs: it ends the
+    # line first, so the old entry is still read and the new one is a line of its own.
+    journal = tmp_path / "j.jsonl"
+    journal.write_text(AUTHORIZED_GEN_0)  # no trailing newline
+    if writer == "authorize":
+        attempt(tmp_path, cap_approval(), call("gen-0", "0.40"), call("gen-1", "0.40"), tag="gen-1")
+    else:
+        record_outcome(journal, "gen-1", status="succeeded", cost=Decimal("0.40"))
+
+    assert journal.read_text().endswith("\n")
+    first, second = journal_entries(journal)  # each line parses on its own
+    assert first == {"tag": "gen-0", "status": "authorized", "price": "0.40"}
+    assert second["tag"] == "gen-1"
+    # The repaired journal still reads back, and gen-0 stays spent.
+    with pytest.raises(SpendDenied, match="already"):
+        attempt(tmp_path, cap_approval(), call("gen-0", "0.40"), call("gen-1", "0.40"), tag="gen-0")
+
+
+def test_an_unterminated_last_line_is_counted_before_the_guard_repairs_it(tmp_path: Path) -> None:
+    # The repair must not hide the entry it terminates: gen-0's 40.00 still counts against the cap.
+    journal = tmp_path / "j.jsonl"
+    journal.write_text(AUTHORIZED_GEN_0.replace('"0.40"', '"40.00"'))
+    rows = (cap_approval(), call("gen-1", "10.50"))
+    with pytest.raises(SpendDenied, match=r"would reach 50\.50 against the 50\.00 cap"):
+        attempt(tmp_path, *rows, tag="gen-1", price="10.50")
+
+
+def test_a_torn_unterminated_line_is_ended_before_an_outcome_lands_and_still_denies(
+    tmp_path: Path,
+) -> None:
+    # A line cut off mid-entry is not valid JSON: it is ended, so the outcome that follows is a
+    # line of its own, and `authorize` keeps denying until a human removes the torn line.
+    journal = tmp_path / "j.jsonl"
+    journal.write_text('{"tag":"gen-0","status":"auth')
+    record_outcome(journal, "gen-1", status="succeeded", cost=Decimal("0.40"))
+
+    lines = journal.read_text().splitlines()
+    assert lines[0] == '{"tag":"gen-0","status":"auth'
+    assert json.loads(lines[1])["tag"] == "gen-1"
+    with pytest.raises(SpendDenied, match=r"j\.jsonl line 1 is not valid JSON"):
+        attempt(tmp_path, cap_approval(), call("gen-2", "0.40"), tag="gen-2")
+
+
+def test_a_terminated_journal_gets_no_extra_blank_line(tmp_path: Path) -> None:
+    journal = tmp_path / "j.jsonl"
+    journal.write_text(AUTHORIZED_GEN_0 + "\n")
+    record_outcome(journal, "gen-0", status="succeeded", cost=Decimal("0.40"))
+    assert "\n\n" not in journal.read_text()
+    assert len(journal.read_text().splitlines()) == 2
 
 
 def test_ledger_is_read_at_call_time(tmp_path: Path) -> None:

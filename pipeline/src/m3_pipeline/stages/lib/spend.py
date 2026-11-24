@@ -34,7 +34,8 @@ so changing the environment can never make a spent tag spendable again. The auth
 journaled (and fsynced) before `authorize` returns, so a crash between authorizing and calling
 leaves the tag spent, never free. A journal append that fails midway can leave a torn last line;
 that denies every call until a human removes it, which is safe because the failed `authorize`
-returned no authorization.
+returned no authorization. A last line that lost only its newline (a crash or a short write) is
+read normally and counted; the next append ends it first, so two entries never share a line.
 
 Money is `Decimal` everywhere. A float cannot hold a cent, and its sums drift.
 """
@@ -384,10 +385,18 @@ def _append(journal: Path, entry: dict[str, object]) -> None:
     `os.write` may write fewer bytes than asked (a full disk), so it loops until every byte is
     written and raises `OSError` if the writer makes no progress. A caller never gets a success
     for a truncated entry.
+
+    If the journal's last byte is not a newline (an earlier append was cut short), the newline
+    goes first, in the same write as the entry. Without it the new entry would be glued to the
+    old one, corrupting both lines. Ending a torn line does not make it readable: `authorize`
+    still denies on a line that is not valid JSON.
     """
     data = (json.dumps(entry, default=_json_default) + "\n").encode("utf-8")
-    fd = os.open(journal, os.O_WRONLY | os.O_APPEND | os.O_CREAT, 0o600)
+    fd = os.open(journal, os.O_RDWR | os.O_APPEND | os.O_CREAT, 0o600)
     try:
+        size = os.fstat(fd).st_size
+        if size > 0 and os.pread(fd, 1, size - 1) != b"\n":
+            data = b"\n" + data
         written = 0
         while written < len(data):
             count = _write(fd, data[written:])
@@ -487,16 +496,18 @@ def record_outcome(journal: Path, tag: str, **fields: object) -> None:
     here and cannot be overridden by `fields`.
 
     `cost` is what the guard reads back: the call is then counted at the highest of its ledger
-    cost, its authorized price and this cost. It must be a finite, non-negative `Decimal` (or
-    `None` when unknown), so a float or a malformed amount never reaches the journal, where it
-    would deny every later call.
+    cost, its authorized price and this cost. It must be a finite, unsigned, non-negative
+    `Decimal` (or `None` when unknown), so a float or a malformed amount never reaches the
+    journal, where it would deny every later call. "Unsigned" matters: `Decimal("-0")` and
+    `Decimal("-0.00")` are not below zero, yet they are journaled as `-0` and `-0.00`, which the
+    journal reader rejects.
     """
     cost = fields.get("cost")
     if cost is not None:
         if not isinstance(cost, Decimal):
             raise TypeError(f"cost must be a Decimal or None, not {type(cost).__name__}")
-        if not cost.is_finite() or cost < 0:
-            raise ValueError(f"cost {cost} must be a finite, non-negative amount")
+        if not cost.is_finite() or cost < 0 or cost.is_signed():
+            raise ValueError(f"cost {cost} must be a finite, unsigned, non-negative amount")
     entry: dict[str, object] = {
         **fields,
         "tag": tag,
