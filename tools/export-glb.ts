@@ -6,6 +6,8 @@ import {
   type Document,
   getBounds,
   Logger,
+  type Mesh,
+  type mat4,
   type Node,
   NodeIO,
   type Scene,
@@ -13,6 +15,7 @@ import {
 import { ALL_EXTENSIONS, EXTMeshoptCompression } from '@gltf-transform/extensions'
 import {
   cloneDocument,
+  convertPrimitiveToTriangles,
   dedup,
   getGLPrimitiveCount,
   prune,
@@ -22,20 +25,23 @@ import {
   weld,
 } from '@gltf-transform/functions'
 import { MeshoptDecoder, MeshoptEncoder, MeshoptSimplifier } from 'meshoptimizer'
-import { ASSET_KINDS, type AssetKind } from '../src/lib/asset-contract.ts'
+import { ASSET_KINDS, type AssetKind, CONTRACTS } from '../src/lib/asset-contract.ts'
 
 const USAGE = `usage: node tools/export-glb.ts <in.glb> <out.glb> --kind <${ASSET_KINDS.join('|')}> [--markers <markers.json>]`
 
 // The proxy keeps about this many triangles, for the scorer to render and compare.
 const PROXY_TRIANGLES = 30_000
-// glTF primitive mode of a triangle list.
+// glTF primitive modes of a triangle list, a strip and a fan.
 const TRIANGLES = 4
+const TRIANGLE_STRIP = 5
+const TRIANGLE_FAN = 6
 // Proxy numbers are meters, written to the micrometer, so the JSON stays small.
 const MICROMETER = 1e6
 
 export interface ExportOptions {
-  // The kind the file is meant to be. Export runs the same steps for every kind, and
-  // `validate-asset` applies each kind's contract afterwards.
+  // The kind the file is meant to be. Export runs the same steps for every kind, and the kind
+  // picks the required names its structure check watches. `validate-asset` applies the rest of
+  // the contract afterwards.
   kind: AssetKind
   // Generator markers from the raw file. They are copied to `asset.extras.sourceAsset`. Absent
   // means there is nothing to carry, and the key is left out.
@@ -148,11 +154,18 @@ function worldGeometry(doc: Document): { vertices: number[][]; faces: number[][]
   return { vertices, faces }
 }
 
-// Decimates a copy of the document, so the real one keeps its full geometry. The error limit is
-// off (1 is the whole mesh radius): the target alone decides, and a curved car would otherwise
-// stop far above it.
+// Decimates a copy of the document, so the real one keeps its full geometry (and its strips and
+// fans: the copy turns them into triangle lists first, so they reach the proxy whether or not it
+// needs decimating). The error limit is off (1 is the whole mesh radius): the target alone
+// decides, and a curved car would otherwise stop far above it.
 async function decimatedGeometry(doc: Document, triangles: number) {
   const copy = cloneDocument(doc)
+  for (const mesh of copy.getRoot().listMeshes()) {
+    for (const primitive of mesh.listPrimitives()) {
+      const mode = primitive.getMode()
+      if (mode === TRIANGLE_STRIP || mode === TRIANGLE_FAN) convertPrimitiveToTriangles(primitive)
+    }
+  }
   if (triangles > PROXY_TRIANGLES) {
     await MeshoptSimplifier.ready
     await copy.transform(
@@ -160,6 +173,111 @@ async function decimatedGeometry(doc: Document, triangles: number) {
     )
   }
   return worldGeometry(copy)
+}
+
+// The parts of the contract that depend on the file's node structure, by name. `nodes` and
+// `anchors` are the required ones the scene has, `meshNodes` the required nodes that carry a mesh,
+// and `emptyAnchors` the anchors with no mesh on them or below them.
+export interface ContractStructure {
+  nodes: string[]
+  meshNodes: string[]
+  anchors: string[]
+  emptyAnchors: string[]
+}
+
+const hasMeshAtOrBelow = (node: Node): boolean =>
+  node.getMesh() !== null || node.listChildren().some(hasMeshAtOrBelow)
+
+export function contractStructure(scene: Scene, kind: AssetKind): ContractStructure {
+  const { requiredNodes, requiredAnchors } = CONTRACTS[kind]
+  const all = sceneNodes(scene)
+  const named = (name: string): Node[] => all.filter((node) => node.getName() === name)
+  const anchors = requiredAnchors.filter((name) => named(name).length > 0)
+  return {
+    nodes: requiredNodes.filter((name) => named(name).length > 0),
+    meshNodes: requiredNodes.filter((name) => named(name).some((node) => node.getMesh() !== null)),
+    anchors,
+    emptyAnchors: anchors.filter((name) => named(name).every((node) => !hasMeshAtOrBelow(node))),
+  }
+}
+
+// What an export lost: a required node that is gone, a required mesh node without its mesh, an
+// anchor that is gone, an anchor that got a mesh. A defect the input already had is not listed,
+// because the export did not cause it and `validate` reports it.
+export function structureProblems(before: ContractStructure, after: ContractStructure): string[] {
+  const lost = (was: string[], now: string[]): string[] => was.filter((name) => !now.includes(name))
+  return [
+    ...lost(before.nodes, after.nodes).map((name) => `${name} is gone`),
+    ...lost(before.meshNodes, after.meshNodes)
+      .filter((name) => after.nodes.includes(name))
+      .map((name) => `${name} lost its mesh`),
+    ...lost(before.anchors, after.anchors).map((name) => `${name} is gone`),
+    ...lost(before.emptyAnchors, after.emptyAnchors)
+      .filter((name) => after.anchors.includes(name))
+      .map((name) => `${name} is no longer an empty leaf`),
+  ]
+}
+
+// Column-major 4x4 product `a * b`, as glTF stores matrices.
+function multiply(a: readonly number[], b: readonly number[]): mat4 {
+  const out = new Array<number>(16).fill(0)
+  for (let column = 0; column < 4; column++) {
+    for (let row = 0; row < 4; row++) {
+      let sum = 0
+      for (let k = 0; k < 4; k++) sum += (a[k * 4 + row] ?? 0) * (b[column * 4 + k] ?? 0)
+      out[column * 4 + row] = sum
+    }
+  }
+  return out as mat4
+}
+
+// A node that draws a mesh and has children, as it is before quantize.
+interface MeshParent {
+  node: Node
+  mesh: Mesh
+  children: Node[]
+}
+
+function meshParents(doc: Document): MeshParent[] {
+  return doc
+    .getRoot()
+    .listNodes()
+    .flatMap((node) => {
+      const mesh = node.getMesh()
+      return mesh && node.listChildren().length > 0
+        ? [{ node, mesh, children: [...node.listChildren()] }]
+        : []
+    })
+}
+
+// quantize() scales a mesh through the matrix of the node that draws it. For a node with children
+// it moves the mesh to a new unnamed child instead, so the children are not scaled, which leaves
+// the named node (`trunk_lid` with an anchor under it) without its mesh, and a module swap hides
+// that node. This puts the mesh back and folds the correction into the node's matrix, and its
+// inverse into each original child's, so every child stays where it was.
+function restoreMeshParents(parents: MeshParent[]): void {
+  for (const { node, mesh, children } of parents) {
+    if (node.getMesh() !== null) continue
+    const carrier = node.listChildren().find((c) => !children.includes(c) && c.getMesh() === mesh)
+    if (!carrier) continue // the structure check reports the node
+    const m = carrier.getMatrix()
+    const scale = m[0]
+    // quantize's correction is a uniform scale and a translation; the inverse below assumes it.
+    const uniform = m[5] === scale && m[10] === scale && scale > 0
+    const linear = [1, 2, 4, 6, 8, 9].every((index) => m[index] === 0)
+    if (!(uniform && linear))
+      throw new Error(`quantize gave ${node.getName()} an unexpected matrix`)
+    // biome-ignore format: keeps the matrix as a 4 x 4 grid
+    const inverse: mat4 = [
+      1 / scale, 0, 0, 0,
+      0, 1 / scale, 0, 0,
+      0, 0, 1 / scale, 0,
+      -m[12] / scale, -m[13] / scale, -m[14] / scale, 1,
+    ]
+    node.setMesh(mesh).setMatrix(multiply(node.getMatrix(), m))
+    carrier.dispose()
+    for (const child of children) child.setMatrix(multiply(inverse, child.getMatrix()))
+  }
 }
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
@@ -175,6 +293,10 @@ const isRecord = (value: unknown): value is Record<string, unknown> =>
 //   Solid-color textures are kept too, because export doesn't edit textures.
 // - No `flatten` or `join`: both delete empty leaves unless told not to, and required names must
 //   stay unique.
+// - `quantize` moves the mesh of a node that has children onto a new unnamed child. A required
+//   node keeps its own mesh, so the mesh is put back and the children's matrices are corrected.
+// - The result is checked against the contract's node structure (`structureProblems`), and a loss
+//   fails the export.
 // - Textures stay as they come (WebP, or PNG where WebP is unsupported). KTX2 waits for Phase 1.
 export async function exportGlb(
   input: Uint8Array,
@@ -182,6 +304,7 @@ export async function exportGlb(
 ): Promise<{ glb: Uint8Array; proxy: ExportProxy }> {
   await Promise.all([MeshoptDecoder.ready, MeshoptEncoder.ready])
   const doc = await io.readBinary(input)
+  const before = contractStructure(sceneOf(doc), opts.kind)
   await doc.transform(
     weld(),
     dedup({ keepUniqueNames: true }),
@@ -201,7 +324,16 @@ export async function exportGlb(
   const nodePositions = namedPositions(scene)
   const { vertices, faces } = await decimatedGeometry(doc, triangles)
 
+  const parents = meshParents(doc)
   await doc.transform(reorder({ encoder: MeshoptEncoder }), quantize())
+  restoreMeshParents(parents)
+
+  // A file that no longer meets the contract's structure is not worth writing: the stage after
+  // this one would only find it out later, without saying which step broke it.
+  const problems = structureProblems(before, contractStructure(sceneOf(doc), opts.kind))
+  if (problems.length > 0) {
+    throw new Error(`the export would break the asset's structure: ${problems.join('; ')}`)
+  }
   doc
     .createExtension(EXTMeshoptCompression)
     .setRequired(true)

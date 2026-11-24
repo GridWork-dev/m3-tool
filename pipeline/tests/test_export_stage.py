@@ -376,3 +376,58 @@ def test_export_refuses_to_write_the_markers_file_inside_the_repo(
     assert not result.ok and "inside the repo" in result.messages[0]
     assert node.calls == []
     assert list((repo / "tmp").iterdir()) == []  # the temporary folder is gone, nothing left
+
+
+def _stale_validate_report(work_dir: Path) -> Path:
+    """The report an earlier `validate` run left next to an earlier export."""
+    path = _stage(work_dir, CAR, "export") / "e46-coupe-body.validate.json"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text('{"ok":true,"issues":[],"stats":{"triangles":120000,"bytes":1}}\n', "utf-8")
+    return path
+
+
+def test_a_new_export_removes_the_validate_report_of_the_old_one(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _cleaned(tmp_path)
+    stale = _stale_validate_report(tmp_path)
+    _install(monkeypatch, FakeNode())
+    result = export(CAR, _settings(tmp_path))
+    assert result.ok
+    assert not stale.exists()
+    assert result.outputs == [_out(tmp_path), _proxy(tmp_path)]  # the report is not an output
+
+
+def test_a_failed_export_leaves_no_validate_report_behind(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _cleaned(tmp_path)
+    stale = _stale_validate_report(tmp_path)
+    _install(monkeypatch, FakeNode(code=1, stderr="boom"))
+    assert not export(CAR, _settings(tmp_path)).ok
+    assert not stale.exists()
+
+
+def test_a_missing_cleaned_glb_leaves_no_validate_report_behind(tmp_path: Path) -> None:
+    stale = _stale_validate_report(tmp_path)
+    assert not export(CAR, _settings(tmp_path)).ok
+    assert not stale.exists()
+
+
+def test_the_validate_report_that_is_a_link_into_the_repo_is_not_followed(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    settings = Settings(repo_root=repo, work_dir=tmp_path / "work")
+    _cleaned(settings.work_dir)
+    target = repo / "report.json"
+    target.write_text("repo file", "utf-8")
+    report = _stage(settings.work_dir, CAR, "export") / "e46-coupe-body.validate.json"
+    report.parent.mkdir(parents=True)
+    report.symlink_to(target)
+    node = _install(monkeypatch, FakeNode())
+    result = export(CAR, settings)
+    assert not result.ok and "inside the repo" in result.messages[0]
+    assert node.calls == []
+    assert target.read_text("utf-8") == "repo file" and report.is_symlink()

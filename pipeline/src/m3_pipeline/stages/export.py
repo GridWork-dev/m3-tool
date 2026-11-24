@@ -4,6 +4,8 @@ glTF-Transform lives in TypeScript, so this stage shells out to `tools/export-gl
 welds, deduplicates, prunes (keeping the anchors) and meshopt-compresses the GLB, and writes
 `<id>.proxy.json` next to it for `score`. `<work_dir>/assets/<id>/cleanup/<id>.cleaned.glb` goes
 in, and `<work_dir>/assets/<id>/export/<id>.glb` comes out: the path the `validate` stage reads.
+It removes the GLB, proxy and `validate` report of an earlier export before it runs, so none of
+them can outlive the export they describe.
 
 The generator markers travel in the sidecar `cleanup/<id>.cleaned.json` that `cleanup` writes next
 to the fixed GLB. A car's is `{"candidate", "method", "markers"}` and an interior's is
@@ -50,18 +52,21 @@ def export(asset: AssetSpec, settings: Settings) -> StageResult:
         export_dir = stage_dir(settings, asset.id, "export")
         glb = export_dir / f"{asset.id}.glb"
         proxy = export_dir / f"{asset.id}.proxy.json"
+        report = export_dir / f"{asset.id}.validate.json"
         # Every file read and written here must stay out of the repo, links included. The two
         # guards take their arguments in opposite orders, so both are called with keywords.
         require_write_target_outside_repo(dest=glb, repo_root=settings.repo_root)
         require_write_target_outside_repo(dest=proxy, repo_root=settings.repo_root)
+        require_write_target_outside_repo(dest=report, repo_root=settings.repo_root)
         require_outside_repo(repo_root=settings.repo_root, path=cleaned)
         require_outside_repo(repo_root=settings.repo_root, path=sidecar)
     except ValueError as error:
         return StageResult(False, [str(error)], [])
 
     # Drop an export from an earlier run first, so a failure below can't leave a GLB that
-    # `validate` would check as if this run had made it.
-    for old in (glb, proxy):
+    # `validate` would check as if this run had made it. The `validate` report describes that old
+    # GLB, so it goes too: a reader would otherwise see its `ok` and stats next to a new export.
+    for old in (glb, proxy, report):
         try:
             old.unlink(missing_ok=True)
         except OSError as error:

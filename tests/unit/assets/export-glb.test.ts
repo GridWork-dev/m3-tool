@@ -4,13 +4,26 @@ import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { type Document, getBounds, Logger, NodeIO, type Scene } from '@gltf-transform/core'
+import {
+  Document,
+  getBounds,
+  Logger,
+  NodeIO,
+  type Primitive,
+  type Scene,
+} from '@gltf-transform/core'
 import { ALL_EXTENSIONS } from '@gltf-transform/extensions'
 import { MeshoptDecoder } from 'meshoptimizer'
 import { afterAll, beforeAll, describe, expect, test } from 'vitest'
 import { CONTRACTS } from '../../../src/lib/asset-contract.ts'
 import { validateGlb } from '../../../src/lib/asset-validate.ts'
-import { type ExportProxy, exportGlb, runExportGlb } from '../../../tools/export-glb.ts'
+import {
+  contractStructure,
+  type ExportProxy,
+  exportGlb,
+  runExportGlb,
+  structureProblems,
+} from '../../../tools/export-glb.ts'
 import { makeBaseCar, makePng, makeProduct, toGlb } from './fixtures.ts'
 
 const ROOT = fileURLToPath(new URL('../../..', import.meta.url))
@@ -259,6 +272,215 @@ describe('exportGlb', () => {
     expect(proxy.faces).toHaveLength(1_200)
     const { ok } = await validateGlb(glb, 'product')
     expect(ok).toBe(true)
+  })
+})
+
+// quantize() scales a mesh through its node's matrix, and for a node with children it moves the
+// mesh onto a new unnamed child instead, which would leave `trunk_lid` without a mesh.
+describe('a mesh node that has children', () => {
+  // `trunk_lid` and `roof` each carry an anchor as a child, and sit off the origin, so the
+  // children's local transforms have to change for them to stay where they were.
+  function carWithChildAnchors(): Document {
+    const doc = makeBaseCar()
+    const lid = nodeNamed(doc, 'trunk_lid')
+    const roof = nodeNamed(doc, 'roof')
+    const trunk = nodeNamed(doc, 'mount_trunk')
+    const interior = nodeNamed(doc, 'mount_interior')
+    if (!(lid && roof && trunk && interior)) throw new Error('the fixture car lost a node')
+    lid.setTranslation([0, 0.1, 0]).addChild(trunk.setTranslation([0, 0.9, 1.9]))
+    roof.setTranslation([0.05, 0, 0]).addChild(interior.setTranslation([-0.05, 0.8, 0]))
+    return doc
+  }
+
+  test('keeps its own mesh, its children and where they are, and passes validateGlb', async () => {
+    const source = carWithChildAnchors()
+    const { glb } = await exportGlb(await toGlb(carWithChildAnchors()), { kind: 'base-car' })
+    const out = await read(glb)
+
+    for (const [parent, child] of [
+      ['trunk_lid', 'mount_trunk'],
+      ['roof', 'mount_interior'],
+    ] as const) {
+      const node = nodeNamed(out, parent)
+      expect(node?.getMesh(), parent).not.toBeNull()
+      expect(nodeNamed(out, child)?.getParentNode()?.getName(), child).toBe(parent)
+    }
+    for (const name of ANCHORS) {
+      const expected = nodeNamed(source, name)?.getWorldTranslation() ?? []
+      const got = nodeNamed(out, name)?.getWorldTranslation() ?? []
+      for (let axis = 0; axis < 3; axis++) {
+        expect(got[axis], name).toBeCloseTo(expected[axis] ?? Number.NaN, 4)
+      }
+    }
+    // The mesh itself did not move: the same box, to a tenth of a millimeter.
+    for (const name of ['trunk_lid', 'roof']) {
+      const was = getBounds(nodeNamed(source, name) ?? sceneOf(source))
+      const now = getBounds(nodeNamed(out, name) ?? sceneOf(out))
+      for (let axis = 0; axis < 3; axis++) {
+        expect(now.min[axis], name).toBeCloseTo(was.min[axis] ?? Number.NaN, 3)
+        expect(now.max[axis], name).toBeCloseTo(was.max[axis] ?? Number.NaN, 3)
+      }
+    }
+    const { ok, issues } = await validateGlb(glb, 'base-car')
+    expect(issues.filter((issue) => issue.severity === 'error')).toEqual([])
+    expect(ok).toBe(true)
+  })
+
+  test('leaves no unnamed node behind', async () => {
+    const { glb } = await exportGlb(await toGlb(carWithChildAnchors()), { kind: 'base-car' })
+    const nodes = (await read(glb)).getRoot().listNodes()
+    expect(nodes.filter((node) => node.getName() === '')).toEqual([])
+  })
+
+  test('puts the children in the proxy where they are', async () => {
+    const { proxy } = await exportGlb(await toGlb(carWithChildAnchors()), { kind: 'base-car' })
+    expect(proxy.node_positions.mount_trunk).toEqual([0, 1, 1.9])
+    expect(proxy.node_positions.mount_interior).toEqual([0, 0.8, 0])
+  })
+})
+
+// The checks the export runs on its own result, so a broken structure fails the export instead of
+// the stage after it.
+describe('the structure check', () => {
+  const intact = () => contractStructure(sceneOf(makeBaseCar()), 'base-car')
+
+  test('finds nothing to report when the structure is as it was', () => {
+    expect(structureProblems(intact(), intact())).toEqual([])
+  })
+
+  test('names a module that lost its mesh, an anchor that is gone, and an anchor that got a mesh', () => {
+    const car = makeBaseCar()
+    const mesh = nodeNamed(car, 'body')?.getMesh() ?? null
+    nodeNamed(car, 'trunk_lid')?.setMesh(null)
+    nodeNamed(car, 'wheel_FL')?.dispose()
+    nodeNamed(car, 'mount_wing')?.setMesh(mesh)
+    expect(structureProblems(intact(), contractStructure(sceneOf(car), 'base-car'))).toEqual([
+      'trunk_lid lost its mesh',
+      'wheel_FL is gone',
+      'mount_wing is no longer an empty leaf',
+    ])
+  })
+
+  test('counts a mesh below an anchor as a mesh on it', () => {
+    const car = makeBaseCar()
+    const child = car.createNode('lid_copy').setMesh(nodeNamed(car, 'roof')?.getMesh() ?? null)
+    nodeNamed(car, 'mount_trunk')?.addChild(child)
+    expect(structureProblems(intact(), contractStructure(sceneOf(car), 'base-car'))).toEqual([
+      'mount_trunk is no longer an empty leaf',
+    ])
+  })
+
+  test('does not blame the export for a defect the input already had', () => {
+    const car = makeBaseCar()
+    nodeNamed(car, 'mount_wing')?.setMesh(nodeNamed(car, 'body')?.getMesh() ?? null)
+    nodeNamed(car, 'roof')?.setMesh(null)
+    const input = contractStructure(sceneOf(car), 'base-car')
+    expect(structureProblems(input, contractStructure(sceneOf(car), 'base-car'))).toEqual([])
+  })
+
+  test('has nothing to check for a product', () => {
+    const product = contractStructure(sceneOf(makeProduct()), 'product')
+    expect(product).toEqual({ nodes: [], meshNodes: [], anchors: [], emptyAnchors: [] })
+  })
+})
+
+// Triangle strips and fans stay in the exported GLB, so they have to reach the proxy too: the
+// triangle count includes them.
+describe('triangle strips and fans', () => {
+  type Mode = Parameters<Primitive['setMode']>[0]
+  const STRIP: Mode = 5
+  const FAN: Mode = 6
+
+  function singlePrimitive(mode: Mode, corners: number[][]): Document {
+    const doc = new Document()
+    doc.setLogger(new Logger(Logger.Verbosity.SILENT))
+    const buffer = doc.createBuffer()
+    const position = doc
+      .createAccessor()
+      .setType('VEC3')
+      .setArray(new Float32Array(corners.flat()))
+      .setBuffer(buffer)
+    const primitive = doc
+      .createPrimitive()
+      .setMode(mode)
+      .setAttribute('POSITION', position)
+      .setMaterial(doc.createMaterial('surface'))
+    const node = doc.createNode('piece').setMesh(doc.createMesh('piece').addPrimitive(primitive))
+    doc.createScene('scene').addChild(node)
+    return doc
+  }
+
+  const STRIP_CORNERS = [
+    [0, 0, 0],
+    [0.3, 0, 0],
+    [0, 0.3, 0],
+    [0.3, 0.3, 0],
+  ]
+  const FAN_CORNERS = [
+    [0, 0, 0],
+    [0.3, 0, 0],
+    [0.3, 0.3, 0],
+    [0, 0.3, 0],
+  ]
+
+  test.each([
+    ['a four-vertex strip', STRIP, STRIP_CORNERS],
+    ['a four-vertex fan', FAN, FAN_CORNERS],
+  ])('puts %s in the proxy as two faces', async (_label, mode, corners) => {
+    const { glb, proxy } = await exportGlb(await toGlb(singlePrimitive(mode, corners)), {
+      kind: 'product',
+    })
+    expect(proxy.triangles).toBe(2)
+    expect(proxy.faces).toHaveLength(2)
+    for (const face of proxy.faces) {
+      expect(new Set(face).size).toBe(3)
+      for (const index of face) expect(proxy.vertices[index]).toBeDefined()
+    }
+    // The two faces cover the whole square, in world space.
+    const used = proxy.faces.flat().map((index) => proxy.vertices[index] ?? [])
+    for (let axis = 0; axis < 3; axis++) {
+      const values = used.map((vertex) => vertex[axis] ?? Number.NaN)
+      expect(Math.min(...values)).toBeCloseTo(proxy.bbox_min[axis] ?? Number.NaN, 5)
+      expect(Math.max(...values)).toBeCloseTo(proxy.bbox_max[axis] ?? Number.NaN, 5)
+    }
+    // The exported GLB itself keeps the strip or fan.
+    const modes = (await read(glb))
+      .getRoot()
+      .listMeshes()
+      .flatMap((mesh) => mesh.listPrimitives().map((primitive) => primitive.getMode()))
+    expect(modes).toEqual([mode])
+  })
+
+  test('decimates a strip-built mesh like any other', async () => {
+    // 40 strips of 1,000 vertices each: 39,920 triangles, over the proxy's 30,000.
+    const doc = new Document()
+    doc.setLogger(new Logger(Logger.Verbosity.SILENT))
+    const buffer = doc.createBuffer()
+    const material = doc.createMaterial('surface')
+    const mesh = doc.createMesh('grid')
+    for (let strip = 0; strip < 40; strip++) {
+      const corners: number[] = []
+      for (let i = 0; i < 1_000; i++) {
+        corners.push((i >> 1) * 0.0005, (i % 2) * 0.0005, strip * 0.0005)
+      }
+      const position = doc
+        .createAccessor()
+        .setType('VEC3')
+        .setArray(new Float32Array(corners))
+        .setBuffer(buffer)
+      mesh.addPrimitive(
+        doc
+          .createPrimitive()
+          .setMode(STRIP)
+          .setAttribute('POSITION', position)
+          .setMaterial(material),
+      )
+    }
+    doc.createScene('scene').addChild(doc.createNode('grid').setMesh(mesh))
+    const { proxy } = await exportGlb(await toGlb(doc), { kind: 'product' })
+    expect(proxy.triangles).toBe(39_920)
+    expect(proxy.faces.length).toBeGreaterThan(0)
+    expect(proxy.faces.length).toBeLessThanOrEqual(31_000)
   })
 })
 
