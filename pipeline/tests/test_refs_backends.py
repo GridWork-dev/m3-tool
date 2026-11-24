@@ -1,4 +1,6 @@
 import json
+import subprocess
+import sys
 from collections.abc import Generator
 from contextlib import contextmanager
 from pathlib import Path
@@ -12,7 +14,6 @@ from refs_site import site as site
 from typer.testing import CliRunner
 
 import m3_pipeline.refs.crawl as crawl_pkg
-import m3_pipeline.refs.crawl.fetchers as fetchers
 from m3_pipeline.cli import app
 from m3_pipeline.refs.crawl.browserbase import (
     browserbase_session_payload,
@@ -96,7 +97,7 @@ def test_release_session_is_called_even_when_the_crawl_raises(
     def fake_playwright() -> Generator[Any]:
         yield SimpleNamespace(chromium=SimpleNamespace(connect_over_cdp=connect_over_cdp))
 
-    monkeypatch.setattr(fetchers, "sync_playwright", fake_playwright)
+    monkeypatch.setattr("playwright.sync_api.sync_playwright", fake_playwright)
     with (
         httpx.Client(transport=httpx.MockTransport(respond)) as http,
         pytest.raises(RuntimeError, match="crawl failed"),
@@ -140,6 +141,17 @@ def test_no_evasion_code_is_present() -> None:
         )
         if t in text
     ]
+
+
+def test_importing_the_cli_loads_no_heavy_dependencies() -> None:
+    code = (
+        "import sys, m3_pipeline.cli; "
+        "print(','.join(sorted(m for m in "
+        "('playwright', 'PIL', 'imagehash', 'numpy', 'scipy', 'boto3', 'rembg') "
+        "if m in sys.modules)))"
+    )
+    out = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True)
+    assert out.returncode == 0 and out.stdout.strip() == ""
 
 
 def test_crawl_cli_without_urls_exits_2(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:

@@ -1,12 +1,16 @@
+from __future__ import annotations
+
 from collections.abc import Callable, Generator, Mapping
 from contextlib import AbstractContextManager, contextmanager
-from typing import Literal, Protocol, cast
+from typing import TYPE_CHECKING, Literal, Protocol, cast
 
 import httpx
-from playwright.sync_api import Page, Route, sync_playwright
 
 from m3_pipeline.refs.crawl.browserbase import create_session, redact, release_session
 from m3_pipeline.refs.crawl.engine import PageFetcher, PageResult
+
+if TYPE_CHECKING:
+    from playwright.sync_api import Page, Route
 
 
 class _CDPSession(Protocol):
@@ -77,6 +81,8 @@ def _open_fetcher(
     http: httpx.Client,
     allowed: Callable[[str], bool] | None,
 ) -> Generator[PageFetcher]:
+    from playwright.sync_api import sync_playwright
+
     if backend == "local":
         with sync_playwright() as playwright:
             browser = playwright.chromium.launch(headless=True)

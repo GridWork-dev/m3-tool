@@ -2,9 +2,6 @@
 from dataclasses import dataclass
 from io import BytesIO
 
-import imagehash
-from PIL import Image, ImageOps
-
 
 @dataclass(frozen=True)
 class ImageInfo:
@@ -19,6 +16,9 @@ class UnreadableImage(Exception):
 
 
 def inspect_image(data: bytes) -> ImageInfo:
+    import imagehash
+    from PIL import Image, ImageOps
+
     try:
         with Image.open(BytesIO(data)) as original:
             fmt = original.format
