@@ -68,3 +68,20 @@ test('the CLI exits 2 when dist has no HTML files, so an empty build cannot pass
   expect(stdout).toBe('')
   expect(stderr).toContain('no .html files')
 })
+
+test('checkLinks accepts a link to each citation host, and still flags a retailer', async () => {
+  await write(
+    'index.html',
+    [
+      '<a href="https://archive.org/details/x">a</a>',
+      '<a href="https://web.archive.org/web/2026/https://example.org/">w</a>',
+      '<a href="https://newsroom.bmwgroup.com/emea/x">b</a>',
+      '<a href="https://en.wikipedia.org/wiki/BMW_M3">e</a>',
+      '<a href="https://commons.wikimedia.org/wiki/File:X.jpg">c</a>',
+      '<a href="https://www.hubcaphaven.com/p/3015/x.html">retailer</a>',
+    ].join(''),
+  )
+  expect(await checkLinks(dist)).toEqual([
+    { file: 'index.html', href: 'https://www.hubcaphaven.com/p/3015/x.html' },
+  ])
+})
