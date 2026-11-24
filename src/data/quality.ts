@@ -9,7 +9,11 @@ import type {
   Source,
   Variant,
 } from './schemas.ts'
-import { Generation as GenerationSchema, Variant as VariantSchema } from './schemas.ts'
+import {
+  Generation as GenerationSchema,
+  isNoScheduleTrigger,
+  Variant as VariantSchema,
+} from './schemas.ts'
 import { hasTier1Or2Source, meetsVerificationRule } from './sources.ts'
 import { unresolvedReason } from './unverified.ts'
 
@@ -24,6 +28,7 @@ export type QualityCode =
   | 'requires-conflicts-overlap'
   | 'verified-without-tier'
   | 'safety-advice-without-evidence'
+  | 'no-schedule-without-tier1'
   | 'multiple-generic-in-category'
   | 'variant-body-not-in-generation'
   | 'variant-years-outside-generation'
@@ -222,12 +227,27 @@ export function checkDataSet(set: DataSet, options: CheckOptions = {}): QualityI
       )
     }
   }
+  // A maintenance item that says there is no scheduled service (`lifetime-fill`, `condition-based`)
+  // is the strongest negative advice the data can hold: it tells an owner not to change something.
+  // It needs a Tier 1 source, whatever its `verified` flag says, because one retailer's article
+  // must not be able to publish it (ADR 0016). The coolant is the live example: BMW's US booklet
+  // says lifetime fill, and shops recommend an overhaul. The trigger set is shared with the schema.
+  for (const { file, data } of set.maintenance) {
+    const noSchedule = (data.interval.triggers ?? []).filter(isNoScheduleTrigger)
+    if (noSchedule.length > 0 && !data.sources.some((source) => source.tier === 1)) {
+      add(
+        file,
+        'no-schedule-without-tier1',
+        `maintenance item "${data.id}" says ${noSchedule.join(' and ')} but has no Tier 1 source; advice that nothing needs changing needs a Tier 1 source, and a retailer or a forum alone is not enough`,
+      )
+    }
+  }
   for (const { file, data } of set.issues) {
     if (data.fix !== undefined && !hasTier1Or2Source(data.sources)) {
       add(
         file,
         'safety-advice-without-evidence',
-        `known issue "${data.id}" publishes a fix but has no Tier 1 or Tier 2 source; add one, or remove the fix and its cost`,
+        `known issue "${data.id}" publishes a fix but has no Tier 1 or Tier 2 source; add one, or remove the fix`,
       )
     }
   }

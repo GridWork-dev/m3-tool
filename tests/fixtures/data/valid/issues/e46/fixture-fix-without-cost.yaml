@@ -1,0 +1,19 @@
+# FIXTURE DATA. Invented values for tests; not a real known issue.
+# A fix backed by a Tier 2 source and no cost, because no source gives one. The fix is published
+# and the site shows "no sourced cost" (ADR 0016).
+id: fixture-fix-without-cost
+generation: e46
+engine: FIXTURE-ENGINE
+title: Fixture fix without a cost
+symptoms:
+  - A fixture whine.
+cause: A fixture cause.
+fix: A fixture fix.
+frequency: rare
+inspectWhenBuying: false
+sources:
+  - title: Fixture tech article
+    publisher: Fixture Shop
+    tier: 2
+    accessed: 2026-11-23
+verified: false

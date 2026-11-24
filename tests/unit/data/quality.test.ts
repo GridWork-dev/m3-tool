@@ -316,6 +316,95 @@ describe('safety evidence (spec 7.6)', () => {
     expect(issues[0]?.message).toMatch(/fix/)
   })
 
+  test('a fix with no cost still needs a Tier 1 or Tier 2 source, and the message does not ask for a cost', () => {
+    const set = fresh()
+    const noCost = find(set.issues, 'fixture-fix-without-cost').data
+    expect(noCost.fix).toBeDefined()
+    expect(noCost.cost).toBeUndefined()
+    expect(codes(set)).toEqual([])
+    noCost.sources = [source(3)]
+    const issues = checkDataSet(set)
+    expect(issues.map((issue) => issue.code)).toEqual(['safety-advice-without-evidence'])
+    expect(issues[0]?.file).toBe('issues/e46/fixture-fix-without-cost.yaml')
+    expect(issues[0]?.message).toMatch(/remove the fix$/)
+    expect(issues[0]?.message).not.toMatch(/its cost/)
+  })
+
+  test('a maintenance item with a trigger and no cost needs a Tier 1 or Tier 2 source like any other', () => {
+    const set = fresh()
+    const item = find(set.maintenance, 'fixture-inspection-service').data
+    expect(item.cost).toBeUndefined()
+    expect(codes(set)).toEqual([])
+    item.verified = false
+    item.sources = [source(3)]
+    const issues = checkDataSet(set)
+    expect(issues.map((issue) => issue.code)).toEqual(['safety-advice-without-evidence'])
+    expect(issues[0]?.file).toBe('maintenance/e46/fixture-inspection-service.yaml')
+  })
+
+  test('a lifetime-fill or condition-based item needs a Tier 1 source, whatever verified says', () => {
+    const set = fresh()
+    const fluid = find(set.maintenance, 'fixture-lifetime-fluid').data
+    expect(fluid.interval.triggers).toEqual(['lifetime-fill'])
+    expect(fluid.sources.map((s) => s.tier)).toEqual([1])
+    expect(codes(set)).toEqual([])
+    // Two independent Tier 2 sources meet the verification rule and the item-level gate, and
+    // still do not carry a claim that there is no scheduled service.
+    fluid.verified = true
+    fluid.sources = [source(2, 'Shop A'), source(2, 'Shop B')]
+    const tier2 = checkDataSet(set)
+    expect(tier2.map((issue) => issue.code)).toEqual(['no-schedule-without-tier1'])
+    expect(tier2[0]?.file).toBe('maintenance/e46/fixture-lifetime-fluid.yaml')
+    expect(tier2[0]?.message).toContain('fixture-lifetime-fluid')
+    expect(tier2[0]?.message).toMatch(/Tier 1/)
+    expect(tier2[0]?.message).toContain('lifetime-fill')
+    // Unverified makes no difference: the rule does not read the flag.
+    fluid.verified = false
+    expect(codes(set)).toEqual(['no-schedule-without-tier1'])
+    // Tier 1 next to weaker sources is enough.
+    fluid.sources = [source(3, 'Forum'), source(1, 'Maker'), source(2, 'Shop A')]
+    expect(codes(set)).toEqual([])
+  })
+
+  test('condition-based needs a Tier 1 source too, and a Tier 3 only item fails both rules', () => {
+    const set = fresh()
+    const fluid = find(set.maintenance, 'fixture-lifetime-fluid').data
+    fluid.interval = { triggers: ['condition-based'] }
+    expect(codes(set)).toEqual([])
+    fluid.verified = false
+    fluid.sources = [source(2, 'Shop A')]
+    const tier2 = checkDataSet(set)
+    expect(tier2.map((issue) => issue.code)).toEqual(['no-schedule-without-tier1'])
+    expect(tier2[0]?.message).toContain('condition-based')
+    fluid.sources = [source(3, 'Forum')]
+    expect(codes(set).sort()).toEqual([
+      'no-schedule-without-tier1',
+      'safety-advice-without-evidence',
+    ])
+  })
+
+  test('the Tier 1 rule applies to those two triggers only', () => {
+    const set = fresh()
+    const item = find(set.maintenance, 'fixture-inspection-service').data
+    expect(item.interval.triggers).toEqual(['break-in', 'inspection-ii'])
+    item.verified = false
+    item.sources = [source(2, 'Shop A')]
+    expect(codes(set)).toEqual([])
+    for (const triggers of [
+      ['break-in'],
+      ['oil-service'],
+      ['inspection-i'],
+      ['inspection-ii'],
+      ['oil-service', 'inspection-i'],
+    ] as const) {
+      item.interval = { triggers: [...triggers] }
+      expect(codes(set), triggers.join()).toEqual([])
+    }
+    // An item with numbers and no trigger is not a no-schedule claim.
+    item.interval = { months: 24 }
+    expect(codes(set)).toEqual([])
+  })
+
   test('an issue with a fix and a Tier 2 or Tier 1 source passes', () => {
     const set = fresh()
     guide(set).sources = [source(2)]

@@ -217,13 +217,15 @@ YAML under `data/`, one entry per file, validated by the Zod schemas in `src/dat
 - Its price is calculated: the minimum low and maximum high across that category's current real-product ranges. So it needs no seller of its own.
 
 **`maintenance item`**
-- Generation, engine, interval (miles and/or months), parts and fluids, cost range for DIY and shop.
+- Generation, engine, the markets its sources cover (`us`, `euro`, or every market when left out), interval, parts and fluids, and an optional cost range for DIY and shop. (amended 2026-11-23)
+- The interval is `miles`, `months`, `triggers`, or a mix. `triggers` is a non-empty list of `break-in`, `oil-service`, `inspection-i`, `inspection-ii`, `lifetime-fill` and `condition-based`, because one service can be due at two of them. They are what BMW ties the service to when it gives no number, and the site shows them instead of a made-up mileage. `lifetime-fill` and `condition-based` stand alone, an item due at both inspections lists `inspection-i` only, and a number sits beside a single trigger only. (amended 2026-11-23)
+- With no sourced cost the site shows "no sourced cost", never zero. (amended 2026-11-23)
 - `inspectWhenBuying` plus `howToCheck`.
 - `sources[]` (at least one of Tier 1 or Tier 2, section 7.6) and `verified`. (amended 2026-11-23)
 
 **`known issue`**
-- Generation, engine, symptoms, cause, prevention.
-- `fix` is optional, and `cost` (a range) goes with it: a fix needs a cost, and a Tier 1 or Tier 2 source (section 7.6). An issue known only from forum reports leaves out `fix`, and its `cost` is then optional. (amended 2026-11-23)
+- Generation, engine, the markets its sources cover (as on a maintenance item), symptoms, cause, prevention. (amended 2026-11-23)
+- `fix` is optional, and so is `cost` (a range). A fix needs a Tier 1 or Tier 2 source (section 7.6) but no cost: with none, the site shows "no sourced cost". An issue known only from forum reports leaves out `fix`. (amended 2026-11-23)
 - How common: `rare`, `common` or `very common`.
 - `inspectWhenBuying` plus `howToCheck`.
 - `sources[]` and `verified`.
@@ -290,7 +292,8 @@ YAML under `data/`, one entry per file, validated by the Zod schemas in `src/dat
 **Safety advice needs evidence** (amended 2026-11-23)
 - Safety advice never rests on a forum post alone, whether or not the entry is marked `verified`.
 - A maintenance item needs at least one Tier 1 or Tier 2 source.
-- A known issue's `fix` is optional. A fix needs at least one Tier 1 or Tier 2 source, and a cost. Without a fix the issue publishes symptoms, cause and how common it is, and Tier 3 is enough for those. The cost is then optional.
+- A known issue's `fix` is optional. A fix needs at least one Tier 1 or Tier 2 source. Without a fix the issue publishes symptoms, cause and how common it is, and Tier 3 is enough for those. The cost is optional either way. (amended 2026-11-23)
+- A maintenance item that says there is no scheduled service (`lifetime-fill` or `condition-based`) needs a Tier 1 source, whatever its `verified` flag says. `check-data` reports it as `no-schedule-without-tier1`. (amended 2026-11-23)
 - `check-data` reports a violation as `safety-advice-without-evidence`.
 
 **Citations** (amended 2026-11-23)

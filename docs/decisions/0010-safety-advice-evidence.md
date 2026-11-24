@@ -2,6 +2,7 @@
 
 - **Status:** Accepted 2026-11-23
 - **Date:** 2026-11-23
+- **Amended by:** [0016](0016-optional-costs-interval-triggers-and-markets.md): a fix no longer needs a `cost`
 
 ## Context
 

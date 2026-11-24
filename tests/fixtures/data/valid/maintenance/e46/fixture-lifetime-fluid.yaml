@@ -1,0 +1,20 @@
+# FIXTURE DATA. Invented values for tests; not a real service interval.
+# A fluid the source calls a lifetime fill. The interval is that trigger alone: no miles, no months,
+# and `markets` is left out, so it speaks for every market. A lifetime-fill claim needs a Tier 1
+# source (`no-schedule-without-tier1`), and this one has it.
+id: fixture-lifetime-fluid
+generation: e46
+engine: FIXTURE-ENGINE
+title: Fixture lifetime fluid
+interval:
+  triggers: [lifetime-fill]
+parts: []
+fluids: [fixture coolant]
+inspectWhenBuying: false
+sources:
+  - title: Fixture service booklet
+    publisher: Fixture Co
+    tier: 1
+    accessed: 2026-11-23
+verified: true
+notes: A fixture note. A shorter interval some shops recommend would go here, labelled as theirs, with its own source.
