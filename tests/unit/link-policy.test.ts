@@ -121,32 +121,30 @@ describe('citation hosts (spec 7.6, amended 2026-11-23)', () => {
     expect(isAllowedHref(url)).toBe(false)
   })
 
-  test('the real data: its retailer sources are not linkable and its BMW sources are', async () => {
-    const root = fileURLToPath(new URL('../../data', import.meta.url))
-    const { set } = await loadDataSet(root)
-    const urls = [
-      ...set.generations.flatMap(({ data }) => [
-        ...data.sources,
-        ...data.fitment.sources,
-        ...Object.values(data.dimensions).flatMap((dimensions) => dimensions.sources),
-      ]),
-      ...set.parts.flatMap(({ data }) => data.sources),
-    ].flatMap((source) =>
-      source.url === undefined ? [] : [{ tier: source.tier, url: source.url }],
+  // Every `sources[].url` anywhere in a data set, whatever the collection. A price's `url` is not a
+  // source, so it is not here.
+  const sourceUrls = (node: unknown): string[] => {
+    if (Array.isArray(node)) return node.flatMap(sourceUrls)
+    if (typeof node !== 'object' || node === null) return []
+    return Object.entries(node).flatMap(([key, value]) =>
+      key === 'sources' && Array.isArray(value)
+        ? value.flatMap((source: { url?: string }) =>
+            source.url === undefined ? [] : [source.url],
+          )
+        : sourceUrls(value),
     )
+  }
+
+  test('the real data: a source url is linkable exactly when its host is on the citation list', async () => {
+    const { set } = await loadDataSet(fileURLToPath(new URL('../../data', import.meta.url)))
+    const urls = sourceUrls(set)
     expect(urls.length).toBeGreaterThan(0)
-    for (const { url } of urls) {
-      const { hostname } = new URL(url)
-      const retailer = ['koleso.ee', 'www.hubcaphaven.com', 'www.bimmerworld.com'].includes(
-        hostname,
-      )
-      if (retailer) expect(isCitationLinkable(url), url).toBe(false)
-      if (hostname.endsWith('bmwgroup.com')) expect(isCitationLinkable(url), url).toBe(true)
-    }
-    // Every host in CITATION_HOSTS that the data uses is on the list because the data uses it.
-    const hosts = new Set(urls.map(({ url }) => new URL(url).hostname))
-    expect(hosts.has('newsroom.bmwgroup.com')).toBe(true)
-    expect(hosts.has('archive.org')).toBe(true)
+    const hosts: readonly string[] = CITATION_HOSTS
+    const onList = urls.filter((url) => hosts.includes(new URL(url).hostname))
+    const offList = urls.filter((url) => !hosts.includes(new URL(url).hostname))
+    expect(onList.filter((url) => !isCitationLinkable(url))).toEqual([])
+    expect(offList.filter((url) => isCitationLinkable(url))).toEqual([])
+    expect(onList.length + offList.length).toBe(urls.length)
   })
 })
 

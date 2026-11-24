@@ -611,14 +611,18 @@ describe('frames and structure (R36)', () => {
       expect(errs(check(doc, 'base-car'))).toEqual(['duplicate-name'])
     })
 
-    test('a second anchor is an error, whether or not the copy has a mesh', () => {
+    test.each([
+      ['without a mesh', false],
+      ['with a mesh', true],
+    ])('a second wheel_FL anchor %s is a duplicate, and only a duplicate', (_label, withMesh) => {
       const doc = makeBaseCar()
-      nodeNamed(doc, 'car').addChild(
-        doc.createNode('wheel_FL').setTranslation([-0.75, 0.32, -1.3655]),
-      )
+      const copy = doc.createNode('wheel_FL').setTranslation([-0.75, 0.32, -1.3655])
+      if (withMesh) copy.setMesh(smallestMesh(doc))
+      nodeNamed(doc, 'car').addChild(copy)
       const issues = check(doc, 'base-car')
       expect(errs(issues)).toEqual(['duplicate-name'])
       expect(issues[0]?.message).toContain('wheel_FL')
+      expect(issues[0]?.message).toContain('2')
     })
 
     test('a duplicate nested deep in the scene is found, and three copies are counted', () => {
