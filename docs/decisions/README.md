@@ -10,8 +10,12 @@ Architecture decision records (ADRs): one short page for each choice that a late
 | [0004](0004-car-bodies-from-photos.md) | Car bodies generated from curated photos and gated by the Phase 0 spike, with licensed models as a fallback offered to the user |
 | [0005](0005-asset-contract.md) | The 3D asset contract: one frame, four kinds, swappable body modules |
 | [0006](0006-pipeline-python-validator-typescript.md) | Pipeline in Python with uv, asset validator in TypeScript |
-| [0007](0007-agent-roles-and-review-gates.md) | Agent roles and model routing, review gates, zero required approvals, the model bake-off |
+| [0007](0007-agent-roles-and-review-gates.md) | Agent roles and model routing, review gates, zero required approvals (the bake-off part is superseded by 0013) |
 | [0008](0008-no-commerce-no-logos.md) | No commerce, no store links, no logos |
+| [0009](0009-citations-and-link-policy.md) | Citations render as text and link only to a short list of non-commercial hosts, and `check:links` parses HTML with parse5 |
+| [0010](0010-safety-advice-evidence.md) | Safety advice needs a Tier 1 or Tier 2 source: a maintenance item always, a known issue's optional fix when present |
+| [0012](0012-asset-frames-structure-and-lods.md) | The ground check through the wheel anchors, frames per kind, unique names, empty-leaf anchors, validation stats and LOD files |
+| [0013](0013-model-choice-without-bake-off.md) | No model bake-off: research chooses the models, and OpenAI image generation runs on the subscription first |
 
 ## Format
 
@@ -37,4 +41,4 @@ Name the file `NNNN-short-slug.md`, with the next number. Numbers are never reus
 - **Keep private details out.** These pages are public: no host names, local paths, account IDs, personal emails, token values or the name of the key-management token.
 - **Don't edit an accepted ADR to change the decision.** Write a new ADR, and mark the old one `Superseded by NNNN` in its status line. Fixing a typo or adding a link is fine.
 - **Write an ADR when a choice has a rejected alternative a reviewer would propose again.** Pure implementation detail belongs in the code and the standards.
-- **The spike result is the next ADR.** Phase 0's go/no-go spike and model bake-off end with a report and an ADR that records the outcome.
+- **The spike result is the next ADR.** Phase 0's go/no-go spike ends with a report and an ADR that records the outcome. The model bake-off was dropped ([0013](0013-model-choice-without-bake-off.md)).

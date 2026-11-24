@@ -1,6 +1,6 @@
 # 0008. No commerce, no store links, no logos
 
-- **Status:** Accepted 2026-11-23
+- **Status:** Accepted 2026-11-23. The link allowlist is extended for citations by [0009](0009-citations-and-link-policy.md).
 - **Date:** 2026-11-23
 
 ## Context

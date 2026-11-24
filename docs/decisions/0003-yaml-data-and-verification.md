@@ -1,6 +1,6 @@
 # 0003. YAML data, Zod schemas and the verification rule
 
-- **Status:** Accepted 2026-11-23
+- **Status:** Accepted 2026-11-23. Extended by [0010](0010-safety-advice-evidence.md), which adds the evidence rule for safety advice.
 - **Date:** 2026-11-23
 
 ## Context
