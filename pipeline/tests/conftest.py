@@ -3,6 +3,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, cast
 
 import pytest
+from playwright.sync_api import sync_playwright
 
 from m3_pipeline.config import Settings
 
@@ -34,3 +35,15 @@ def store(settings: Settings) -> RefStore:
     from m3_pipeline.refs.store import RefStore
 
     return RefStore(settings)
+
+
+def pytest_collection_modifyitems(items: list[pytest.Item]) -> None:
+    if not any(item.get_closest_marker("browser") for item in items):
+        return
+    with sync_playwright() as playwright:
+        installed = Path(playwright.chromium.executable_path).exists()
+    if not installed:
+        skip = pytest.mark.skip(reason="chromium not installed: uv run playwright install chromium")
+        for item in items:
+            if item.get_closest_marker("browser"):
+                item.add_marker(skip)

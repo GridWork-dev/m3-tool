@@ -10,6 +10,7 @@ dependencies = [
     "pillow==13.0.0",
     "imagehash==4.3.2",
     "httpx==0.28.1",
+    "playwright==1.65.2",
 ]
 
 [project.scripts]

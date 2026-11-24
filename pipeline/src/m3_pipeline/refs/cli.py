@@ -1,12 +1,15 @@
-from dataclasses import asdict
+import os
+from dataclasses import asdict, replace
 from pathlib import Path
-from typing import Annotated
+from typing import Annotated, Literal
 
 import httpx
 import typer
 
 from m3_pipeline.config import load_settings
 from m3_pipeline.refs.commons import CommonsClient
+from m3_pipeline.refs.crawl.engine import crawl_pages
+from m3_pipeline.refs.crawl.fetchers import MissingCredentials, open_fetcher
 from m3_pipeline.refs.importer import import_directory
 from m3_pipeline.refs.sources import SubjectSources, load_sources
 from m3_pipeline.refs.store import RefStore
@@ -84,3 +87,66 @@ def import_photos(
     typer.echo(f"added={report.added} known={report.known} skipped={len(report.skipped)}")
     for path, reason in report.skipped:
         typer.echo(f"skipped {path}: {reason}")
+
+
+@refs_app.command()
+def crawl(
+    subject: Annotated[str, typer.Option("--subject")],
+    url: Annotated[list[str] | None, typer.Option("--url")] = None,
+    backend: Annotated[Literal["local", "browserbase"], typer.Option()] = "local",
+    max_pages: Annotated[int | None, typer.Option(min=1)] = None,
+    delay: Annotated[float | None, typer.Option(min=0)] = None,
+) -> None:
+    """Visit only configured or explicitly supplied seed URLs."""
+    try:
+        parse_subject(subject)
+    except ValueError as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(2) from None
+    settings = load_settings()
+    sources = load_sources(settings.repo_root / "pipeline/refs-sources.toml")
+    urls = url or sources.subjects.get(subject, SubjectSources()).crawl_urls
+    if not urls:
+        typer.echo("no crawl URLs in pipeline/refs-sources.toml; supply --url", err=True)
+        raise typer.Exit(2)
+    crawl_settings = replace(
+        sources.crawl,
+        max_pages=max_pages if max_pages is not None else sources.crawl.max_pages,
+        delay_s=delay if delay is not None else sources.crawl.delay_s,
+    )
+    try:
+        with (
+            httpx.Client(
+                headers={"User-Agent": sources.user_agent},
+                timeout=30,
+                follow_redirects=True,
+            ) as http,
+            open_fetcher(
+                backend,
+                user_agent=sources.user_agent,
+                env=os.environ,
+                http=http,
+            ) as fetcher,
+        ):
+            report = crawl_pages(
+                subject,
+                urls,
+                settings=crawl_settings,
+                user_agent=sources.user_agent,
+                fetcher=fetcher,
+                http=http,
+                store=RefStore(settings),
+                throttle=Throttle(crawl_settings.delay_s),
+            )
+    except MissingCredentials as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(1) from None
+    for key, value in asdict(report).items():
+        if key in {"blocked", "disallowed"}:
+            typer.echo(f"{key}={len(value)}")
+            for entry in value:
+                typer.echo(f"{key}: {entry}")
+        else:
+            typer.echo(f"{key}={value}")
+    if backend == "browserbase":
+        typer.echo("browserbase sessions used: 1")
