@@ -4,6 +4,7 @@
 import { cp, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import type { z } from 'astro/zod'
 import { beforeAll, describe, expect, test } from 'vitest'
 import { loadDataSet } from '../../../src/data/load.ts'
 import { checkDataSet, type DataSet } from '../../../src/data/quality.ts'
@@ -191,6 +192,119 @@ describe('an element is addressed by its id or code, never by its position', () 
     expect(issues.map((issue) => issue.code)).toEqual(['unverified-path-missing'])
     expect(issues[0]?.message).toContain('more than one')
   })
+})
+
+describe('the field that names a list element only holds characters a path can carry', () => {
+  // A path segment is letters, digits, "-" and "_". A code the schema accepted but a path could
+  // not spell would leave its element impossible to mark, so the schema refuses it.
+  test.each([
+    ['a dot', 'A.08'],
+    ['a space', 'C 22'],
+    ['a slash', '300/1'],
+    ['a bracket', 'A[1]'],
+    ['a colon', 'A:1'],
+    ['a non-ASCII letter', 'Ä1'],
+    ['nothing', ''],
+    ['only spaces', '   '],
+  ])('a paint code with %s is refused', (_label, code) => {
+    const result = Variant.safeParse(edit(variant(), 'paints.0.code', code))
+    expect(result.success).toBe(false)
+    expect(issuePaths(result)).toContain('paints.0.code')
+  })
+
+  test.each([
+    ['a dot', 'S54.B32'],
+    ['a space', 'S54 B32'],
+    ['a slash', 'S54/B32'],
+    ['nothing', ''],
+    ['only spaces', '   '],
+  ])('an engine code with %s is refused', (_label, code) => {
+    const result = Generation.safeParse(edit(generation(), 'engines.0.code', code))
+    expect(result.success).toBe(false)
+    expect(issuePaths(result)).toContain('engines.0.code')
+  })
+
+  test('the message says which characters a code may hold', () => {
+    const result = Variant.safeParse(edit(variant(), 'paints.0.code', 'A.08'))
+    const messages = (result.error?.issues ?? []).map((issue) => issue.message).join(' ')
+    expect(messages).toContain('letters, digits')
+  })
+
+  test.each(['A08', '475', '300', 'a-b', 'X_1', 'FX1'])(
+    'a paint code of %s passes the schema and can be marked',
+    (code) => {
+      expect(Variant.safeParse(edit(variant(), 'paints.0.code', code)).success).toBe(true)
+      const set = fresh()
+      const entry = find(set.variants, 'e46-us-coupe').data
+      const paint = entry.paints[0]
+      if (!paint) throw new Error('fixture paint missing')
+      paint.code = code
+      entry.unverified = [`paints.${code}.code`, `paints.${code}`]
+      expect(checkDataSet(set)).toEqual([])
+    },
+  )
+
+  test.each(['S54B32', 'FIXTURE-ENGINE', 'm_52'])(
+    'an engine code of %s passes the schema and can be marked',
+    (code) => {
+      expect(Generation.safeParse(edit(generation(), 'engines.0.code', code)).success).toBe(true)
+      const set = fresh()
+      const entry = find(set.generations, 'e46').data
+      const engine = entry.engines[0]
+      if (!engine) throw new Error('fixture engine missing')
+      // Maintenance items and issues name the engine by its code, so they follow the rename.
+      for (const { data } of [...set.maintenance, ...set.issues]) {
+        if (data.engine === engine.code) data.engine = code
+      }
+      engine.code = code
+      entry.unverified = [`engines.${code}.displacementCc`, `engines.${code}`]
+      expect(checkDataSet(set)).toEqual([])
+    },
+  )
+
+  // Finds every list in a schema whose elements are named by `id` or `code`, the way the path
+  // grammar names them, and the schema of that key field. A new keyed list with a loose key
+  // (text instead of an id or a path-safe code) fails here, whatever its name.
+  const keyedLists = (schema: z.ZodType, where = ''): [string, z.ZodType][] => {
+    const def = schema.def as unknown as Record<string, unknown> & { type: string }
+    const found: [string, z.ZodType][] = []
+    if (def.type === 'object') {
+      for (const [key, child] of Object.entries(def.shape as Record<string, z.ZodType>)) {
+        found.push(...keyedLists(child, where ? `${where}.${key}` : key))
+      }
+    } else if (def.type === 'array') {
+      const element = def.element as z.ZodType
+      const shape = (element.def as unknown as { type: string; shape?: Record<string, z.ZodType> })
+        .shape
+      const field = shape && ('id' in shape ? 'id' : 'code' in shape ? 'code' : undefined)
+      const key = field && shape?.[field]
+      if (field && key) found.push([`${where}.${field}`, key])
+      found.push(...keyedLists(element, where))
+    } else if (def.type === 'record') {
+      found.push(...keyedLists(def.valueType as z.ZodType, where))
+    } else if (def.type === 'tuple') {
+      for (const item of def.items as z.ZodType[]) found.push(...keyedLists(item, where))
+    } else if ('innerType' in def) {
+      found.push(...keyedLists(def.innerType as z.ZodType, where))
+    }
+    return found
+  }
+
+  test.each([
+    ['Variant', Variant, ['packages.id', 'paints.code', 'factoryWheels.id', 'interiors.id']],
+    ['Generation', Generation, ['engines.code']],
+  ] as const)(
+    'every list in %s that a path names by key is known, and its key is path-safe',
+    (_name, schema, expected) => {
+      const lists = keyedLists(schema)
+      expect(lists.map(([where]) => where).sort()).toEqual([...expected].sort())
+      for (const [where, key] of lists) {
+        for (const bad of ['a.b', 'a b', 'a/b', '', ' ']) {
+          expect(key.safeParse(bad).success, `${where} accepts "${bad}"`).toBe(false)
+        }
+      }
+    },
+  )
 })
 
 describe('a path that does not resolve', () => {
