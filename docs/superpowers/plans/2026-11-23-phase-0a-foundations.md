@@ -822,8 +822,8 @@ These values are starting points. Each one must be confirmed against a cited sou
 | `engines` | `S54B32`, 3246 cc, 6 cylinders | Tier 1 |
 | `bodies` | `[coupe, convertible]` | Tier 1 |
 | `dimensions.coupe` (mm) | length 4492, width 1780, height 1372, wheelbase 2731, front track 1508, rear track 1525 | Tier 1 (BMW technical data or press kit) |
-| `fitment` front | `5x120`, center bore 72.6, stock 18×8 ET47, `225/45ZR18`, `envelopes: []` | Tier 1 or 2 |
-| `fitment` rear | `5x120`, center bore 72.6, stock 18×9 ET26, `255/40ZR18`, `envelopes: []` | Tier 1 or 2 |
+| `fitment` front | `5x120`, center bore 72.56 (amended 2026-11-23), stock 18×8 ET47, `225/45ZR18`, `envelopes: []` | Tier 1 or 2 |
+| `fitment` rear | `5x120`, center bore 72.56 (amended 2026-11-23), stock 18×9 ET26, `255/40ZR18`, `envelopes: []` | Tier 1 or 2 |
 | `driverEyePoint` | x −370, y 1100, z 0; `basis: estimated` | None |
 
 The eye point's `note` reads: `Placeholder estimate. The 3D lane replaces it with a value measured from the interior asset.`

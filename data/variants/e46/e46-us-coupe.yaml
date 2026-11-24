@@ -1,11 +1,75 @@
-# BMW M3 (E46) coupe, US market. Every value below was checked against the sources cited
-# here on 2026-11-23. paints and interiors are empty on purpose: no Tier 1 or Tier 2 source
-# opened gives paint codes with a swatch colour or the upholstery colours. Power and weight
-# have no field on a variant, so the sources' notes carry them (US rating 333 hp, 262 lb-ft).
-# SMG reached the US in the 2002 model year; transmissions covers 2001 to 2006 as a whole.
-# Unverified under data.md's rule (no Tier 1, fewer than two Tier 2 publishers): the widths
-# and offsets of standard-18, the width and offset of the optional-19 front, and the offset
-# of the Competition Package front. The package has no years field: its dates are in the
+# BMW M3 (E46) coupe, US market. Every value below was checked against the sources cited here on
+# 2026-11-23. Power and weight have no field on a variant, so the sources' notes carry them (US
+# rating 333 hp, 262 lb-ft). SMG reached the US in the 2002 model year; transmissions covers
+# 2001 to 2006 as a whole.
+# Model-wide statements (docs/standards/data.md, ruling R61): a model-wide statement in a Tier 1
+# source, or in two Tier 2 sources from different publishers, covers every variant it does not
+# explicitly exclude, and a document for one market covers that market only. Every file in this
+# directory is read that way. Here that covers the optional-19 wheel and the tire sizes (the
+# owner's manual's tire table, Tier 1, lists 'the M3').
+# Paints. BMW's own documents name Imola Red, Carbon Black Metallic and Interlagos Blue Metallic
+# for the US M3s (2006 press kit) and Laguna Seca Blue and Phoenix Yellow Metallic (2000
+# release), and give no code. The seven other names (Alpine White III, Jet Black, Titanium
+# Silver Metallic, Steel Grey Metallic, Topaz Blue Metallic, Mystic Blue Metallic, Oxford Green
+# Metallic) and every code come from AutomotiveTouchup (Tier 3: a vehicle-keyed colour lookup)
+# and agree with BIMMERtips and the BMW M Registry (Tier 3, which share one table). The registry
+# is also the only source that says, by BMW model code, which paints the US coupe (BL93) offered
+# and when. Name variants: the registry calls 405 'Imola Red II' and 430 'Oxford Green II
+# metallic', and BIMMERtips calls 668 'Black II', 405 'Imola Red II' and 430 'Oxford Green II
+# Metallic'; the names used here are BMW's own US wording where a BMW document gives one and
+# AutomotiveTouchup's otherwise. The schema has no years field on a paint, so the months are
+# here: Alpine White III 300 09/2000 to 08/2006; Jet Black 668 09/2000 to 08/2006; Imola Red 405
+# 09/2000 to 08/2006; Laguna Seca Blue 448 09/2000 to 08/2004; Carbon Black Metallic 416 09/2000
+# to 08/2006; Titanium Silver Metallic 354 09/2000 to 08/2006; Steel Grey Metallic 400 09/2000
+# to 02/2003; Silver Grey Metallic A08 03/2003 to 08/2006; Topaz Blue Metallic 364 09/2000 to
+# 02/2003; Mystic Blue Metallic A07 02/2003 to 08/2006; Interlagos Blue Metallic A30 12/2004 to
+# 05/2006; Oxford Green Metallic 430 09/2000 to 08/2004; Phoenix Yellow Metallic 445 09/2000 to
+# 02/2005. Interlagos Blue Metallic came with the Competition Package only (BMW NA's 2006 kit,
+# Tier 1).
+# Cross-checks: the registry's colours for the 2006 model year come to eight, five of them
+# metallic, the count BMW NA's 2006 kit gives, and Auto123's 2004 spec page (Tier 3, Canada)
+# lists the ten colours the registry has for 2004. Doubt: the registry's 2002 palette (ten
+# colours) has no Tier 1 or Tier 2 confirmation.
+# finish follows the paint's name: 'Metallic' in it means metallic. For Carbon Black Metallic,
+# Silver Grey Metallic, Interlagos Blue Metallic, Phoenix Yellow Metallic that is BMW's own name
+# (Tier 1). The metallic finishes of Titanium Silver Metallic, Steel Grey Metallic, Topaz Blue
+# Metallic, Mystic Blue Metallic, Oxford Green Metallic follow names no BMW document gives (Tier
+# 3). Alpine White III, Jet Black, Imola Red, Laguna Seca Blue are recorded as solid only
+# because 'Metallic' is missing from the name: no source says solid (BIMMERtips counts four
+# solids and ten metallics without naming them). No paint is recorded as pearl.
+# baseColor is a render value, not a fact about the car, so it has no source (data.md). Each
+# value is a flat sRGB mid-tone picked by eye from the paint's name and, where BMW gives one,
+# its words (Interlagos Blue Metallic: 'a deep blue metallic, slightly darker than the former Le
+# Mans Blue'). No photo or swatch was sampled, there is no flake or clearcoat in it, and the 3D
+# lane may retune it.
+# Interiors. BMW NA's 2006 kit (Tier 1) gives the Anthracite M Cloth/Nappa leather and the
+# Alcantara/Nappa leather combination for the coupe, and says Nappa leather came in 'a choice of
+# four colors' without naming them. The names Black, Grey, Imola Red and Cinnamon are the
+# registry's regular US leather colours (Tier 3), and agree with Cars.com's lookup. The
+# registry's other two, Laguna Seca Blue and Kiwi, were 'Priority 1 only' for the US (special
+# order) and rest on the registry and Auto123 alone, so they are left out. The Alcantara
+# combination's colours (Anthracite Alcantara, Black leather) are the registry's. The kit's
+# description and features table list 'M Cloth/Nappa' and only its pricing sheet lists the
+# 'Alcantara/Leather Combination', with the same terms (no charge, not available on the
+# convertible), so for 2006 they may be one option under two names; the registry has the Impulse
+# cloth ending 08/2005 and the Alcantara 'Priority 1 until 09/2005' for the US. Two are
+# recorded, with no years.
+# Unverified under data.md's rule (no Tier 1, fewer than two Tier 2 publishers): the offsets of
+# standard-18 and the offsets of the optional-19 front and rear; the Competition Package front
+# offset, and
+# its rear offset, which is inferred as well (BimmerWorld alone calls part 36112282999 the ZCP
+# rear, and BMW's UK parts page shows only that a 9.5Jx19 ET27 wheel fits the M3); the 'Style
+# 163M' label (BimmerWorld alone; BMW's kit says only 'M Cross Spoke'); every paint code (Tier 3
+# only); the seven paint names no BMW document gives (Alpine White III, Jet Black, Titanium
+# Silver Metallic, Steel Grey Metallic, Topaz Blue Metallic, Mystic Blue Metallic, Oxford Green
+# Metallic, Tier 3 only); the solid finishes of Alpine White III, Jet Black, Imola Red, Laguna
+# Seca Blue (inferred from 'Metallic' missing in the name; no source says solid); the metallic
+# finishes of Titanium Silver Metallic, Steel Grey Metallic, Topaz Blue Metallic, Mystic Blue
+# Metallic, Oxford Green Metallic (they follow Tier 3 names); the availability of the eight
+# paints BMW does not name for the US M3s (the registry, Tier 3, alone) and the months of all
+# thirteen (the registry alone), with the doubt about 2002 above; the four leather names and the
+# Alcantara combination's colours (Tier 3 only), and whether that combination and the M
+# Cloth/Nappa leather are two options. The package has no years field: its dates are in the
 # summary only.
 id: e46-us-coupe
 generation: e46
@@ -17,11 +81,63 @@ years: [2001, 2006]
 packages:
   - id: zcp
     name: "Competition Package (ZCP)"
-    summary: "US option from 2005 (BMW Canada's release says the package was available from December 2004). Per BMW North America it started with the CSL's 19-inch wheels, larger brakes with cross-drilled rotors, a 14.5:1 steering rack (15.4:1 standard), an Alcantara-wrapped steering wheel and M Track Mode for DSC, and it carried the exclusive Interlagos Blue paint. Wheels are listed under factoryWheels as competition-19-style-163m."
+    summary: "US option from 2005 (BMW Canada's release says the package was available from December 2004). Per BMW North America it started with the CSL's 19-inch wheels, larger brakes with cross-drilled rotors, a 14.5:1 steering rack (15.4:1 standard), an Alcantara-wrapped steering wheel and M Track Mode for DSC, and it carried the exclusive Interlagos Blue paint (listed under paints; BMW NA says it was available only on the coupe with this package). Wheels are listed under factoryWheels as competition-19-style-163m."
   - id: sunroof
     name: "Glass sunroof"
     summary: "Optional electric glass sunroof, listed as optional equipment in the US owner's manual. No roof module asset is assigned to it yet."
-paints: []
+paints:
+  - code: "300"
+    name: "Alpine White III"
+    finish: solid
+    baseColor: "#f3f3f1"
+  - code: "668"
+    name: "Jet Black"
+    finish: solid
+    baseColor: "#0f0f11"
+  - code: "405"
+    name: "Imola Red"
+    finish: solid
+    baseColor: "#c41e1a"
+  - code: "448"
+    name: "Laguna Seca Blue"
+    finish: solid
+    baseColor: "#2b5fb4"
+  - code: "416"
+    name: "Carbon Black Metallic"
+    finish: metallic
+    baseColor: "#1b1c20"
+  - code: "354"
+    name: "Titanium Silver Metallic"
+    finish: metallic
+    baseColor: "#a9adb2"
+  - code: "400"
+    name: "Steel Grey Metallic"
+    finish: metallic
+    baseColor: "#5f656c"
+  - code: "A08"
+    name: "Silver Grey Metallic"
+    finish: metallic
+    baseColor: "#8c9197"
+  - code: "364"
+    name: "Topaz Blue Metallic"
+    finish: metallic
+    baseColor: "#4a7ab0"
+  - code: "A07"
+    name: "Mystic Blue Metallic"
+    finish: metallic
+    baseColor: "#23386b"
+  - code: "A30"
+    name: "Interlagos Blue Metallic"
+    finish: metallic
+    baseColor: "#183a86"
+  - code: "430"
+    name: "Oxford Green Metallic"
+    finish: metallic
+    baseColor: "#2a4a3b"
+  - code: "445"
+    name: "Phoenix Yellow Metallic"
+    finish: metallic
+    baseColor: "#f0c419"
 factoryWheels:
   - id: standard-18
     name: "18-inch Double Spoke (Style 67)"
@@ -59,7 +175,31 @@ factoryWheels:
       widthIn: 9.5
       offsetMm: 27
       tire: 255/35ZR19
-interiors: []
+interiors:
+  - id: m-cloth-nappa-anthracite
+    name: "M Cloth / Nappa leather"
+    color: "Anthracite"
+    material: mixed
+  - id: alcantara-nappa-combination
+    name: "Alcantara / Nappa leather combination"
+    color: "Anthracite Alcantara centre, Black Nappa leather sides"
+    material: mixed
+  - id: nappa-black
+    name: "Nappa leather, Black"
+    color: "Black"
+    material: leather
+  - id: nappa-grey
+    name: "Nappa leather, Grey"
+    color: "Grey"
+    material: leather
+  - id: nappa-imola-red
+    name: "Nappa leather, Imola Red"
+    color: "Imola Red"
+    material: leather
+  - id: nappa-cinnamon
+    name: "Nappa leather, Cinnamon"
+    color: "Cinnamon"
+    material: leather
 render:
   baseAsset: e46-coupe-body
   interiorAsset: e46-coupe-interior
@@ -80,15 +220,15 @@ sources:
   - title: "THE ALL-NEW BMW M3 CONVERTIBLE MAKES ITS NORTH AMERICAN DEBUT AT THE 2008 NEW YORK INTERNATIONAL AUTO SHOW"
     publisher: "BMW Group"
     url: https://newsroom.bmwgroup.com/americas/the-all-new-bmw-m3-convertible-makes-its-north-american-debut-at-the-2008-new-york-international-auto-show
-    tier: 1
+    tier: 2
     accessed: 2026-11-23
-    note: "BMW of North America press release, 19 March 2008, about the 2008 M3 convertible; the sentence used here is a history aside inside a contemporaneous release, so it is rated Tier 1 like BMW's other releases. Says 'The most-recent version, available from 2001-2006 as either a coupe or convertible, again was offered with six-cylinder power, this time providing 333 hp from its 3.2 liters. This vehicle was BMW's first use of SMG (Sequential Manual Gearbox) for the U.S. market.' Tier 1 source for the US 2001 to 2006 run of the coupe, the 333 hp US rating and the SMG's US debut; it gives no month or model year for either."
+    note: "BMW of North America press release, 19 March 2008, about the 2008 M3 convertible; the sentence used here is a history aside inside a later release about another model, which data.md's Tier 1 (technical documents, product pages) does not cover, so it is rated Tier 2 like the other BMW-published retrospectives. Says 'The most-recent version, available from 2001-2006 as either a coupe or convertible, again was offered with six-cylinder power, this time providing 333 hp from its 3.2 liters. This vehicle was BMW's first use of SMG (Sequential Manual Gearbox) for the U.S. market.' Tier 2 source for the US 2001 to 2006 run of the coupe, the 333 hp US rating and the SMG's US debut; it gives no month or model year for either. Cars.com (Tier 2) and BMW Twenty Years (Tier 1) are the other sources for the run."
   - title: "2002 BMW M3: What's New"
     publisher: "Cars.com"
     url: https://www.cars.com/articles/2002-bmw-m3-whats-new-1420687120026
     tier: 2
     accessed: 2026-11-23
-    note: "Rated Tier 2: staffed editorial content from a marketplace (data.md); its listings and fitment lookups would be Tier 3. Cars.com Editors (reporter Jim Flammang), posted 3/27/02. Says 'The high-performance BMW M3 coupe and convertible went on sale in spring 2001', the second source for the 2001 start, and 'Both M3 models have 18-inch tires for the front and rear and cast-alloy wheels'. Says 'Later in the 2002 model year, a sequentially shifting manual transmission will become available': the source for the US SMG year note."
+    note: "Rated Tier 2: staffed editorial content from a marketplace (data.md); its listings and fitment lookups would be Tier 3. Cars.com Editors (reporter Jim Flammang), posted 3/27/02. Says 'The high-performance BMW M3 coupe and convertible went on sale in spring 2001', the second source for the 2001 start, and 'Both M3 models have 18-inch tires for the front and rear and cast-alloy wheels'. Says 'Later in the 2002 model year, a sequentially shifting manual transmission will become available': the source for the US SMG year note. It also says 'Both the coupe and convertible seat four occupants on black M cloth and Nappa leather upholstery', which disagrees with BMW NA's 2006 kit (the M Cloth/Nappa leather is Anthracite, a coupe option, not offered on the convertible); the kit is used and this sentence is not."
   - title: "International presskit: Twenty Years of the BMW M3"
     publisher: "BMW Group"
     url: https://newsroom.bmwgroup.com/emea/international-presskit--twenty-years-of-the-bmw-m3
@@ -112,25 +252,25 @@ sources:
     url: https://newsroom.bmwgroup.com/americas/en-ca/new-competition-package-for-the-bmw-m3-coupe-attractive-equipment-for-the-exceptionally-sportsminded-driver/
     tier: 1
     accessed: 2026-11-23
-    note: "BMW Canada, 16 November 2004. Describes the Competition Package for the M3 Coupé, available from December 2004: 19-inch wheels in the CSL's styling with 225/40 R 19 on 8Jx19 at the front and 255/35 R 19 on 9.5x19 at the rear, a 14.5:1 steering ratio, M Track mode, front discs enlarged by 20 mm to 345 mm, Alcantara on the steering wheel, handbrake lever and (with the Sequential M transmission) shift knob, and Interlagos Blue available only with the package. It describes the Canadian coupe; it is used here for the wheel widths and tire sizes, which the US account does not give. BMW writes 'R 19'; the 'ZR' in the data comes from the owner's manual's 19-inch tire row for the same size."
+    note: "BMW Canada, 16 November 2004. Describes the Competition Package for the M3 Coupé, available from December 2004: 19-inch wheels in the CSL's styling with 225/40 R 19 on 8Jx19 at the front and 255/35 R 19 on 9.5x19 at the rear, a 14.5:1 steering ratio, M Track mode, front discs enlarged by 20 mm to 345 mm, Alcantara on the steering wheel, handbrake lever and (with the Sequential M transmission) shift knob, and Interlagos Blue available only with the package. It describes the Canadian coupe; it is used here for the wheel widths and tire sizes, which the 50th-anniversary chapter does not give (BMW NA's 2006 kit, Tier 1, gives the same widths and tire sizes for the US coupe). BMW writes 'R 19'; the 'ZR' in the data comes from the owner's manual's 19-inch tire row for the same size."
   - title: "Genuine BMW E46 M3 ZCP Style 163M 19x8 ET47 Front Wheel"
     publisher: "BimmerWorld"
     url: https://www.bimmerworld.com/BMW-Parts/Genuine-BMW-E46-M3-M-cross-spoke-163-Wheel-8x19-36112282895.html
     tier: 2
     accessed: 2026-11-23
-    note: "US specialist shop's listing: 'the original BMW wheel as used on the E46 M3 Competition Package (ZCP)', 19x8, ET47, part 36112282895, style 163M. Source for the ZCP front wheel's offset; with Koleso.ee (Tier 3) it is all there is for ET47, so the front offset is unverified under data.md's rule."
+    note: "US specialist shop's listing: 'the original BMW wheel as used on the E46 M3 Competition Package (ZCP)', 19x8, ET47, part 36112282895, style 163M. Source for the ZCP front wheel's offset; with Koleso.ee (Tier 3) it is all there is for ET47, so the front offset is unverified under data.md's rule. The 'Style 163M' label rests on BimmerWorld's listings alone (one Tier 2 publisher; BMW NA's kit says only 'M Cross Spoke'), so the label is unverified too."
   - title: "Genuine BMW E46 M3 ZCP/CSL Style 163M 19x9.5 ET27 Rear Wheel"
     publisher: "BimmerWorld"
     url: https://www.bimmerworld.com/Wheels-Tires/Wheels/Genuine-BMW-E46-M3-M-cross-spoke-163-Wheel-95x19-36112282999.html
     tier: 2
     accessed: 2026-11-23
-    note: "US specialist shop's listing: 'the original BMW wheel as used on the E46 M3 Competition Package (ZCP) and CSL', 19x9.5, ET27, part 36112282999, style 163M. Source for the ZCP rear wheel's offset, which BMW's own UK parts listing confirms."
+    note: "US specialist shop's listing: 'the original BMW wheel as used on the E46 M3 Competition Package (ZCP) and CSL', 19x9.5, ET27, part 36112282999, style 163M. Source for the ZCP rear wheel's offset. BMW's own UK parts listing shows that a 9.5Jx19 ET27 wheel with this part number fits the M3, but only this listing calls part 36112282999 the ZCP rear, so the rear offset is inferred through BimmerWorld and unverified under data.md's rule, like the front's."
   - title: "Genuine 19\" Wheel Rim Light Alloy 19 Inch 9.5Jx19 ET:27 36 11 2 282 999"
     publisher: "BMW Group (BMW Shop UK)"
     url: https://shop.bmw.co.uk/product/genuine-19-wheel-rim-light-alloy-19-inch-9-5jx19-et-27-36-11-2-282-999
     tier: 1
     accessed: 2026-11-23
-    note: "BMW's own UK parts shop (a manufacturer product page). A 9.5Jx19 ET:27 light-alloy wheel, part 36112282999, whose compatibility table lists E46 M3 coupes (BL91 1999-07 to 2006-05, BL92 2000-03 to 2006-05), E46 M3 convertibles (BR91 2000-04 to 2006-08, BR92 2000-10 to 2006-08) and the M3 CSL (BL95, BL96), all ECE. The page gives no front or rear position; that this part is the rear of the CSL-style pair comes from BimmerWorld (Tier 2), which calls part 36112282999 the ZCP/CSL rear. So it is Tier 1 for a 9.5Jx19 ET27 wheel that fits these bodies, including the convertible, and Tier 2 for its position and its use on the Competition Package and the CSL. The production codes start before BMW's debut dates (the convertible's in 2000, BMW says spring 2001), so they are not used for start years; the coupe's May 2006 and the convertible's August 2006 ends agree with the 2006 end."
+    note: "BMW's own UK parts shop (a manufacturer product page). A 9.5Jx19 ET:27 light-alloy wheel, part 36112282999, whose compatibility table lists E46 M3 coupes (BL91 1999-07 to 2006-05, BL92 2000-03 to 2006-05), E46 M3 convertibles (BR91 2000-04 to 2006-08, BR92 2000-10 to 2006-08) and the M3 CSL (BL95, BL96), all ECE. The page gives no front or rear position; that this part is the rear of the CSL-style pair comes from BimmerWorld (Tier 2), which calls part 36112282999 the ZCP/CSL rear. So it is Tier 1 for a 9.5Jx19 ET27 wheel that fits these bodies, including the convertible, and Tier 2 for its position and its use on the Competition Package and the CSL. It does not speak for the optional 19-inch wheel: BMW NA's 2006 kit calls that wheel the 'M Double Spoke forged & polished (design #67M)', not the M Cross Spoke that BimmerWorld ties to this part number, so the optional wheel's rear offset (and, for the European cars, its rear width) is unverified. The production codes start before BMW's debut dates (the convertible's in 2000, BMW says spring 2001), so they are not used for start years; the coupe's May 2006 and the convertible's August 2006 ends agree with the 2006 end."
   - title: "BMW M3 E46 [2000 .. 2006] wheel fitment, 3.2i (S54B32)"
     publisher: "Koleso.ee (Astela OÜ)"
     url: https://koleso.ee/en/valuveljed/bmw/m3/263/e46-2000-2006/544
@@ -142,7 +282,7 @@ sources:
     url: https://www.hubcaphaven.com/p/3015/aly59367-bmw-m3-wheel-hyper-silver-36112229950.html
     tier: 2
     accessed: 2026-11-23
-    note: "Retailer listing under OE part number 36112229950: style '10 Double Spoke (option code: Style 67)', 18x8, 5 lugs, 120 mm, offset 47 mm, fits the BMW M3 2001-2006 as a front wheel. Source for the 18-inch wheel's style name and, with the rear listing, its widths and offsets. This is the only Tier 2 publisher for the 18-inch widths and offsets, so those are unverified under data.md's rule."
+    note: "Retailer listing under OE part number 36112229950: style '10 Double Spoke (option code: Style 67)', 18x8, 5 lugs, 120 mm, offset 47 mm, fits the BMW M3 2001-2006 as a front wheel. Source for the 18-inch wheel's style name and, with the rear listing, its widths and offsets. This is the only Tier 2 publisher for the 18-inch offsets, so those are unverified under data.md's rule; the widths are also in BMW NA's 2006 kit (Tier 1), which calls the design 'M Double Spoke (design #67M)', and supports the 'Style 67' label."
   - title: "ALY59368/59607 BMW M3 Wheel/Rim Hyper Silver #36112229960"
     publisher: "Hubcap Haven"
     url: https://www.hubcaphaven.com/p/1705/aly59368-59607-bmw-m3-wheel-hyper-silver-36112229960.html
@@ -154,10 +294,70 @@ sources:
     url: https://www.bimmerworld.com/About-Us/Wheel-Info-Tech/
     tier: 2
     accessed: 2026-11-23
-    note: "Specialist shop's tech page. Its E46 M3 row lists 19x8.0 ET47 front and 19x9.5 ET27 rear as stock, and gives no 18-inch stock size (its Track A and Track B columns list 18x9.5 ET35 and 18x10.0 ET25, but as aftermarket recommendations). It agrees with the 19-inch widths and offsets used here. It calls the 19-inch pair stock, while BMW's CSL press kit calls the 19-inch wheels an option on the M3 (the 18-inch wheel is the standard fitment), so the pair is recorded as the optional wheel. The optional wheel's 8J ET47 front rests on this shop alone at Tier 2 and is unverified under data.md's rule; the 9.5J ET27 rear also matches BMW's own parts listing for the same size."
+    note: "Specialist shop's tech page. Its E46 M3 row lists 19x8.0 ET47 front and 19x9.5 ET27 rear as stock, and gives no 18-inch stock size (its Track A and Track B columns list 18x9.5 ET35 and 18x10.0 ET25, but as aftermarket recommendations). It agrees with the 19-inch widths and offsets used here. It calls the 19-inch pair stock, while BMW's CSL press kit calls the 19-inch wheels an option on the M3 (the 18-inch wheel is the standard fitment), so the pair is recorded as the optional wheel. The optional wheel's ET47 front offset rests on this shop alone at Tier 2 and is unverified under data.md's rule (BMW NA's 2006 kit, Tier 1, gives the 8.0 and 9.5 widths); its 9.5J ET27 rear offset rests on this shop alone at Tier 2 as well, because BMW's UK parts listing is for part 36112282999, a different design (see that listing's note)."
   - title: "BMW M3 CSL press kit (3/2003), Press Kit for BMW M3 CSL at the Geneva Motor Show 2003"
     publisher: "BMW Group"
     url: https://newsroom.bmwgroup.com/americas/press-kit-for-bmw-m3-csl-at-the-geneva-motor-show-2003
     tier: 1
     accessed: 2026-11-23
     note: "BMW's M3 CSL press kit (3/2003, PDF 'AG030228 M3 CSL Press Kit_GB_finalversion.pdf' linked from this page). Calls the 19-inch wheels 'available as an option on the M3' and describes them as forged ('the forged 19-inch wheels featured on the standard M3'), which is why the 19-inch pair is listed as an option and the 18-inch wheel as the standard fitment. For the CSL itself see e46-csl-coupe."
+  - title: "PRESS KIT: 2006 BMW M3 (description, highlights, options and features, pricing)"
+    publisher: "BMW Group"
+    url: https://newsroom.bmwgroup.com/americas/press-kit-2006-bmw-m3
+    tier: 1
+    accessed: 2026-11-23
+    note: "BMW of North America press kit for the 2006 model year, release dated 15 December 2005: five Word documents (description, highlights, options and features, specifications, and prices as of 1 September 2005), US models only, read from the page's download links. Features table: 'BMW M exterior paint selection' standard and 'Metallic paint' optional on the coupe and the convertible. The Sequential Manual Gearbox is optional on both. 'M Double Spoke (design #67M)' 18 x 8.0 front and 18 x 9.0 rear is standard, the 19-inch M Double Spoke 19 x 8.0 and 19 x 9.5 optional on both bodies, and the 'M Cross Spoke' 19 x 8.0 and 19 x 9.5 comes with the Competition Package (coupe only); tires 225/45ZR-18 and 255/40ZR-18, 225/40ZR-19 and 255/35ZR-19. Description: 'a choice of eight exterior colors, five of them metallic'; 'Special M colors: Imola Red, Carbon Black Metallic; also Interlagos Blue Metallic, available only on Coupe with Competition Package' ('a deep blue metallic, slightly darker than the former Le Mans Blue'); Nappa leather standard in both models 'in a choice of four colors' (not named); 'M Cloth/Nappa leather' a no-extra-cost coupe option, 'available in Anthracite only' and formerly standard; the pricing sheet lists 'Alcantara/Leather Combination Upholstery (Alcantara center with Nappa Leather on the sides)' at no charge on the coupe and not available on the convertible. The Competition Package 'became available for the Coupe in the '05 model year'. The description and features table list the M Cloth/Nappa leather and only the pricing sheet lists the Alcantara/Leather Combination, with the same terms (no charge, not available on the convertible), so for 2006 they may be one option under two names. It names no other paint, no leather colour and no paint code."
+  - title: "The new M3 convertible - BMW M performance plus open-air pleasure"
+    publisher: "BMW Group"
+    url: https://newsroom.bmwgroup.com/americas/the-new-m3-convertible---bmw-m-performance-plus-open-air-pleasure
+    tier: 1
+    accessed: 2026-11-23
+    note: "BMW of North America release, 22 November 2000. In its section on the 2001 Z3 M coupe and roadster it says 'Two new colors - Laguna Seca Blue and Phoenix Yellow Metallic - are shared with the M3 models'. Source for those two names on the US M3s (coupe and convertible, a model-wide statement under R61). It gives no code and no months."
+  - title: "2005 BMW M3 Competition Package Preview"
+    publisher: "Auto123"
+    url: https://www.auto123.com/en/news/2005-bmw-m3-competition-package-preview/28397/?page=4
+    tier: 2
+    accessed: 2026-11-23
+    note: "Staffed editorial, by Khatir Soltani, 9 February 2005. Says that on the outside 'buyers have the option of the entire M3 color pallet' and that Interlagos Blue metallic is 'a new exclusive color'. It names no other colour and does not say which market it describes (the package 'will be available to buyers around the globe, including the U.S.'). A model-wide statement that the coupe's existing palette stayed available alongside Interlagos Blue Metallic."
+  - title: "Choose your Automotive paint color for your 2002 BMW M3"
+    publisher: "AutomotiveTouchup"
+    url: https://automotivetouchup.com/touch-up-paint/bmw/2002/m3
+    tier: 3
+    accessed: 2026-11-23
+    note: "Rated Tier 3: a vehicle-keyed colour lookup (a list of code and name pairs for one model year, with no product and no price on the page), not a specialist retailer's tech article or one of its own product listings, the same reasoning as for Koleso.ee's fitment lookup. It pairs codes with names: 300 Alpine White III, 354 Titanium Silver Metallic, 364 Topasblau Metallic (German form; the English 'Topaz Blue' is Tier 3 only), 400 Steel Gray Metallic, 405 Imola Red, 416 Carbon Black Metallic, 430 Oxford Green Metallic, 445 Phoenix Yellow Metallic, 448 Laguna Seca Blue, 475 Black Sapphire Metallic, 668 Jet Black. The page also lists colours the E46 M3 never had (Avus Blue Metallic and Techno Violet Metallic, for example), so it says nothing about which colours the M3 offered. With the two other Tier 3 tables it is all there is for the codes and for seven of the names (Alpine White III, Jet Black, Titanium Silver, Steel Grey, Topaz Blue, Mystic Blue, Oxford Green), so those are unverified under data.md's rule."
+  - title: "AutomotiveTouchup catalogs the largest paint color selection for your 2005 BMW M3"
+    publisher: "AutomotiveTouchup"
+    url: https://www.automotivetouchup.com/touch-up-paint/bmw/2005/m3
+    tier: 3
+    accessed: 2026-11-23
+    note: "Rated Tier 3, like the retailer's 2002 page. It adds A07 Mystic Blue Metallic, A08 Silbergrau Metallic (German form) and A30 Interlagos Blue Metallic, and repeats 300, 354, 405, 416, 430, 445, 448, 475 and 668. Like the 2002 page it lists colours the M3 did not offer (Aurum Metallic and Smeraldo Metallic, for example), so it gives name and code pairs only."
+  - title: "BMW M Registry - FAQ E46 M3"
+    publisher: "BMW M Registry"
+    url: https://bmwmregistry.com/model_faq.php?id=19
+    tier: 3
+    accessed: 2026-11-23
+    note: "Rated Tier 3: the FAQ page of an owners' registry, with no author and no BMW citation. Its charts list 'all regularly available' E46 M3 paints with their code, the BMW model codes that had them and the months: BL91 and BL92 (European coupe, left and right-hand drive), BL93 (North American coupe), BR91 and BR92 (European convertible), BR93 (North American convertible) and BL95 and BL96 (CSL). The European and CSL model codes agree with the compatibility table on BMW's UK parts listing (Tier 1, ECE cars only). It says Interlagos Blue Metallic (A30) was 'ZCP only' on BL91 and BL93 and 'CS only' on BL92 (12/2004 to 05/2006), and the CSL's colours were 'limited to Silver Grey metallic (A08) and Black Sapphire metallic (475)'. It also lists a Fern Green metallic (386) for the BL91 only, 09/2000 to 01/2001, which no other source lists and which is not recorded. It names 405 'Imola Red II', 668 'Jet Black' and 430 'Oxford Green II metallic'. For the US coupe the chart's rows are BL93; its upholstery chart lists Nappa leather in Black, Grey, Imola Red and Cinnamon for the BL93 and BR93, and Laguna Seca Blue and Kiwi as 'U.S: Priority 1 only'."
+  - title: "BMW E46 M3 paint codes, color options"
+    publisher: "BIMMERtips.com"
+    url: https://bimmertips.com/bmw-e46-m3-paint-codes-color-options/
+    tier: 3
+    accessed: 2026-11-23
+    note: "Rated Tier 3: an enthusiast site (by 'bimmertips', 4 July 2016). Its table matches the BMW M Registry chart on the codes and months of the paints both list, so the two are not independent, but it is not the same list: it has no Fern Green (386), shows Black Sapphire Metallic (475) only in its table of special editions (the CSL), names 668 'Black II', 405 'Imola Red II' and 430 'Oxford Green II Metallic' (the registry has 'Jet Black', 'Imola Red II' and 'Oxford Green II metallic'), and says 'BMW offered 14 color options in total for the E46 M3, 4 being solid and 10 being metallic' against a main table of 13 rows (the split of four and ten holds only with Black Sapphire added). The page also carries unrelated spam text, which was ignored."
+  - title: "Interior Upholstery Options, BMW E46 M3"
+    publisher: "BIMMERtips.com"
+    url: https://bimmertips.com/?p=7929
+    tier: 3
+    accessed: 2026-11-23
+    note: "Rated Tier 3: an enthusiast site. Its table lists Nappa leather in Black (N5SW), Grey (N5TT), Imola Red (N5IM), Cinnamon (N5ZM), Laguna Seca Blue (N5LS) and Kiwi (N5OV) for 09/2000 to 08/2006 on the coupe and convertible, 'Anthracite M Texture Alcantara & Black Nappa leather' (F2AT) and 'Anthracite Impulse cloth & Black Nappa leather' (G8AT) on the coupe. Its text says 'the USA market only received leather options', which disagrees with its own table and with BMW NA's 2006 kit (the M Cloth/Nappa leather was formerly standard on the US coupe), so that sentence is not used. The page also carries unrelated spam text, which was ignored."
+  - title: "2004 BMW M3"
+    publisher: "Auto123"
+    url: https://www.auto123.com/en/new-cars/technical-specs/bmw/m3/2004/coupe/base/
+    tier: 3
+    accessed: 2026-11-23
+    note: "Rated Tier 3: a spec sheet, not editorial. It is the Canadian site's page for the 2004 M3 coupe, so it describes the Canadian car, which the North American BL93 specification matches only by inference. It lists ten exterior colours (Alpine White, Carbon Black Metallic, Imola Red, Jet Black, Laguna Seca Blue, Mystic Blue Metallic, Oxford Green Metallic, Phoenix Yellow Metallic, Silver Grey Metallic, Titanium Silver Metallic), the same ten the registry has for 2004, and interior colours Anthracite, Black, Cinnamon ('Cinammon' on the page), Grey, Imola Red, Kiwi and Laguna Seca Blue. Used as a cross-check of the registry's 2004 palette."
+  - title: "2003 BMW M3 M3 specs & colors"
+    publisher: "Cars.com"
+    url: https://www.cars.com/research/bmw-m3-2003/specs/102517/
+    tier: 3
+    accessed: 2026-11-23
+    note: "Rated Tier 3: a research lookup, not editorial (data.md). Its interior colours for the 2003 M3 are Black, Gray, Cinnamon and Imola Red, with no split between the coupe and the convertible. The same page lists a long exterior list that includes colours of other models, which is not used. The four interior colours agree with BMW NA's count of four Nappa leather colours (2006 kit) and with the registry's regular US colours."

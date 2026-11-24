@@ -45,7 +45,7 @@ The schemas reject keys they don't list, so a typo like `brnad:` is an error ins
 - A part's `attributes.kind` matches its category: `wheel` and `hub-ring` go with `wheels`, `tire` with `tires`, `brake-kit` with `brakes`, `suspension` with `suspension`.
 - `inspectWhenBuying: true` needs a non-empty `howToCheck`.
 - A maintenance interval has `miles`, `months` or both.
-- A measured driver eye point has sources. An estimated one may have none, and its `note` says it is an estimate. Labor estimates are the other sourceless exception the schema names (see "Labor estimates"). (A generic part has no sources of its own either, because it is a computed tier, not a claim, and so its labor is an estimate.)
+- A measured driver eye point has sources. An estimated one may have none, and its `note` says it is an estimate. Labor estimates are another sourceless exception the schema names (see "Labor estimates"), and a paint's display colour (`baseColor`) is a third: it is a render value, not a fact about the car, so it needs no source, and the variant file's comment says how each value was picked (a paint's code, name and the markets and variants that offered it are facts and still need sources). (A generic part has no sources of its own either, because it is a computed tier, not a claim, and so its labor is an estimate.)
 - A part's `labor` always says whether it is an estimate: `estimated` is `true` or `false`, written out, with no default. Labor with `estimated: false` needs at least one source on the part.
 - Required text (names, titles, sellers, publishers) must not be empty or only whitespace. The value is kept as written, not trimmed.
 - A `KnownIssue` with a `fix` also has a `cost`. Without a `fix` the `cost` is optional (see "Safety advice needs evidence").
@@ -132,6 +132,8 @@ Tier 3 alone is enough for symptoms and "how common". The entry stays `verified:
 `verified` means the same thing everywhere it appears. A part with `verified: true` needs the same one Tier 1 source or two independent Tier 2 sources, and a manufacturer product page counts as Tier 1. `check-data` reports a verified part, maintenance item or issue that falls short as `verified-without-tier`.
 
 "Independent" means different publishers. `check-data` compares publisher names after trimming, collapsing spaces and ignoring case, so `Shop A` and ` shop  a ` are one publisher, and two articles from it count once.
+
+A model-wide statement in a Tier 1 source, or in two Tier 2 sources from different publishers, covers every variant it does not explicitly exclude, and a document for one market covers that market only.
 
 ### Safety advice needs evidence
 
