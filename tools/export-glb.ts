@@ -211,7 +211,6 @@ async function decimatedGeometry(doc: Document, simplifier: ProxySimplifier) {
       for (const semantic of primitive.listSemantics()) {
         if (semantic !== 'POSITION') primitive.setAttribute(semantic, null)
       }
-      for (const target of primitive.listTargets()) primitive.removeTarget(target)
     }
   }
   await copy.transform(weld())
@@ -320,6 +319,23 @@ function rejectAnimations(doc: Document): void {
   )
 }
 
+// The export does not support morph targets either (ruling R72). The proxy is cut from the
+// positions in the file, and a target with a weight that is not zero draws the mesh somewhere else
+// than those positions say, so the proxy would describe a different shape than the GLB renders
+// and nothing would flag it. Neither the contract nor the pipeline's cars use targets, so any
+// input with one is refused, naming each mesh that carries them.
+function rejectMorphTargets(doc: Document): void {
+  const names = doc
+    .getRoot()
+    .listMeshes()
+    .filter((mesh) => mesh.listPrimitives().some((primitive) => primitive.listTargets().length > 0))
+    .map((mesh) => mesh.getName() || '(unnamed mesh)')
+  if (names.length === 0) return
+  throw new Error(
+    `input has morph targets on ${names.length} mesh(es); the export does not support morph targets (meshes: ${names.join(', ')})`,
+  )
+}
+
 // quantize() scales a mesh through the matrix of the node that draws it. For a node with children
 // it moves the mesh to a new unnamed child instead, so the children are not scaled, which leaves
 // the named node (`trunk_lid` with an anchor under it) without its mesh, and a module swap hides
@@ -375,6 +391,7 @@ export async function exportGlb(
   await Promise.all([MeshoptDecoder.ready, MeshoptEncoder.ready])
   const doc = await io.readBinary(input)
   rejectAnimations(doc)
+  rejectMorphTargets(doc)
   const before = contractStructure(sceneOf(doc), opts.kind)
   await doc.transform(
     weld(),

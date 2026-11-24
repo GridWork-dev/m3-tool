@@ -150,15 +150,41 @@ function animatedCar(label: (typeof ANIMATED_CARS)[number][0]): Document {
   return doc
 }
 
-// A car whose `trunk_lid` mesh has a primitive with no triangles. `weld` drops a primitive with
-// nothing to draw, and then the mesh, so the export would lose a required mesh with no animation
-// involved (a cleanup that removed everything from a module could produce this).
+// A car whose `trunk_lid` mesh has a primitive with an empty index accessor. That is invalid glTF
+// (an accessor needs at least one element), and a Blender export cannot produce it. It is here
+// only to drive the structure check's throw: `weld` drops a primitive with nothing to draw, and
+// then the mesh, so the export loses a required mesh without any animation being involved.
 function carWithEmptyTrunkLid(): Document {
   const doc = makeBaseCar({ triangles: 2_000 })
   const indices = nodeNamed(doc, 'trunk_lid')?.getMesh()?.listPrimitives()[0]?.getIndices()
   if (!indices) throw new Error('the fixture car lost its trunk lid mesh')
   indices.setArray(new Uint32Array(0))
   return doc
+}
+
+// Gives the mesh called `meshName` a morph target that moves every vertex 0.5 m along X, with
+// `weight` as its default weight: the exported model draws shifted by `weight` x 0.5 m, with no
+// animation involved.
+function addMorphTarget(doc: Document, meshName: string, weight: number): void {
+  const mesh = doc
+    .getRoot()
+    .listMeshes()
+    .find((candidate) => candidate.getName() === meshName)
+  const primitive = mesh?.listPrimitives()[0]
+  const buffer = doc.getRoot().listBuffers()[0]
+  if (!(mesh && primitive && buffer)) throw new Error(`the fixture has no mesh ${meshName}`)
+  const count = primitive.getAttribute('POSITION')?.getCount() ?? 0
+  const shift = new Float32Array(count * 3)
+  for (let vertex = 0; vertex < count; vertex++) shift[vertex * 3] = 0.5
+  primitive.addTarget(
+    doc
+      .createPrimitiveTarget()
+      .setAttribute(
+        'POSITION',
+        doc.createAccessor().setType('VEC3').setArray(shift).setBuffer(buffer),
+      ),
+  )
+  mesh.setWeights([weight])
 }
 
 const ANCHORS = CONTRACTS['base-car'].requiredAnchors
@@ -707,11 +733,75 @@ describe('an input with an animation', () => {
     )
   })
 
+  test('still refuses an animation that has no channels, and says so without a node list', async () => {
+    const doc = makeBaseCar({ triangles: 2_000 })
+    doc.createAnimation('empty')
+    await expect(exportGlb(await toGlb(doc), { kind: 'base-car' })).rejects.toMatchObject({
+      message: 'input has 1 animation(s); the export does not support animated assets',
+    })
+  })
+
+  test('still refuses an animation whose channel has no target node', async () => {
+    const doc = makeBaseCar({ triangles: 2_000 })
+    const buffer = doc.getRoot().listBuffers()[0]
+    if (!buffer) throw new Error('the fixture car has no buffer')
+    const accessor = (type: 'SCALAR' | 'VEC3', values: number[]) =>
+      doc.createAccessor().setType(type).setArray(new Float32Array(values)).setBuffer(buffer)
+    const sampler = doc
+      .createAnimationSampler()
+      .setInput(accessor('SCALAR', [0, 1]))
+      .setOutput(accessor('VEC3', [0, 0, 0, 0, 0.1, 0]))
+    const channel = doc
+      .createAnimationChannel()
+      .setTargetNode(null)
+      .setTargetPath('translation')
+      .setSampler(sampler)
+    doc.createAnimation('loose').addSampler(sampler).addChannel(channel)
+    await expect(exportGlb(await toGlb(doc), { kind: 'base-car' })).rejects.toMatchObject({
+      message: 'input has 1 animation(s); the export does not support animated assets',
+    })
+  })
+
   test('accepts the same car without the animation', async () => {
     const doc = animatedCar('an animated leaf module')
     for (const animation of doc.getRoot().listAnimations()) animation.dispose()
     const { glb } = await exportGlb(await toGlb(doc), { kind: 'base-car' })
     expect(nodeNamed(await read(glb), 'trunk_lid')?.getMesh()).not.toBeNull()
+  })
+})
+
+// The proxy is cut from the geometry without its morph targets, so a mesh whose default weights
+// are not zero would be drawn shifted in the GLB and unshifted in the proxy: `score` would compare
+// the wrong shape and validation would still pass. The export refuses any input with a morph
+// target (ruling R72), on the same reasoning as animation: neither the contract nor the pipeline's
+// cars use them.
+describe('an input with morph targets', () => {
+  test.each([
+    ['nonzero', 1],
+    ['zero', 0],
+  ])(
+    'refuses a product whose target moves it 0.5 m, at %s weights, naming the mesh',
+    async (_label, weight) => {
+      const doc = makeProduct()
+      addMorphTarget(doc, 'product-0', weight)
+      await expect(exportGlb(await toGlb(doc), { kind: 'product' })).rejects.toThrow(
+        'input has morph targets on 1 mesh(es); the export does not support morph targets (meshes: product-0)',
+      )
+    },
+  )
+
+  test('names every mesh that has targets', async () => {
+    const doc = makeBaseCar({ triangles: 2_000 })
+    addMorphTarget(doc, 'trunk_lid', 1)
+    addMorphTarget(doc, 'roof', 0)
+    await expect(exportGlb(await toGlb(doc), { kind: 'base-car' })).rejects.toThrow(
+      'input has morph targets on 2 mesh(es); the export does not support morph targets (meshes: trunk_lid, roof)',
+    )
+  })
+
+  test('still exports the same product without the target', async () => {
+    const { proxy } = await exportGlb(await toGlb(makeProduct()), { kind: 'product' })
+    expect(proxy.triangles).toBe(1_200)
   })
 })
 
@@ -939,6 +1029,22 @@ describe('runExportGlb', () => {
     )
     expect(spawnSync('test', ['-e', out]).status).not.toBe(0)
     expect(spawnSync('test', ['-e', join(dir, `${slug}-out.proxy.json`)]).status).not.toBe(0)
+  })
+
+  test('exits 1 and writes nothing for a product with a morph target', async () => {
+    const doc = makeProduct()
+    addMorphTarget(doc, 'product-0', 1)
+    const morphed = join(dir, 'morphed.glb')
+    await writeFile(morphed, await toGlb(doc))
+    const out = join(dir, 'morphed-out.glb')
+    const result = await runExportGlb([morphed, out, '--kind', 'product'])
+    expect(result.exitCode).toBe(1)
+    expect(result.stdout).toEqual([])
+    expect(result.stderr.join('\n')).toContain(
+      'input has morph targets on 1 mesh(es); the export does not support morph targets (meshes: product-0)',
+    )
+    expect(spawnSync('test', ['-e', out]).status).not.toBe(0)
+    expect(spawnSync('test', ['-e', join(dir, 'morphed-out.proxy.json')]).status).not.toBe(0)
   })
 
   test('exits 1 and writes nothing when the proxy cannot be brought within its budget', async () => {
