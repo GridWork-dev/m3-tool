@@ -1,7 +1,14 @@
+from dataclasses import asdict
+from typing import Annotated
+
+import httpx
 import typer
 
 from m3_pipeline.config import load_settings
+from m3_pipeline.refs.commons import CommonsClient
+from m3_pipeline.refs.sources import SubjectSources, load_sources
 from m3_pipeline.refs.store import RefStore
+from m3_pipeline.refs.throttle import Throttle
 
 refs_app = typer.Typer(help="Reference photo collection and curation")
 
@@ -17,3 +24,35 @@ def stats() -> None:
             f"{subject} images={len(records)} new={counts['new']} "
             f"labeled={counts['labeled']} duplicate={counts['duplicate']}"
         )
+
+
+@refs_app.command()
+def commons(
+    subject: Annotated[str, typer.Option("--subject")],
+    limit: Annotated[int | None, typer.Option(min=1)] = None,
+) -> None:
+    """Collect configured Commons categories and searches."""
+    settings = load_settings()
+    sources = load_sources(settings.repo_root / "pipeline/refs-sources.toml")
+    configured = sources.subjects.get(subject, SubjectSources())
+    if not configured.commons_categories and not configured.search_terms:
+        typer.echo("no categories or search terms in pipeline/refs-sources.toml", err=True)
+        raise typer.Exit(2)
+    with httpx.Client(
+        headers={"User-Agent": sources.user_agent},
+        timeout=30,
+        follow_redirects=True,
+    ) as http:
+        report = CommonsClient(
+            http,
+            RefStore(settings),
+            sources=sources,
+            throttle=Throttle(sources.commons.min_interval_s),
+        ).collect(
+            subject,
+            configured.commons_categories,
+            search_terms=configured.search_terms,
+            limit=limit,
+        )
+    for key, value in asdict(report).items():
+        typer.echo(f"{key}={value}")
