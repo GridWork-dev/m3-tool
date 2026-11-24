@@ -1,0 +1,57 @@
+# Cooling system wear on the S54 car: water pump and radiator. Every source below was opened on
+# 2026-11-23.
+#
+# Market: the BMW booklet is a BMW of North America document, so its coolant statement speaks for
+# US-market cars only (data.md, ruling R61). The other sources are editorial guides or a retailer
+# page.
+#
+# Contested, and worded that way in `prevention`: whether the coolant and cooling parts need an
+# interval. BMW's US booklet calls the coolant a lifetime fill, while BimmerWorld (a retailer
+# product page, Tier 3) says its overhaul kit is typically needed at 80,000 to 100,000 miles.
+# No overhaul interval is published here.
+#
+# Unverified on purpose: only MotorBiscuit gives a fix (a radiator, with a price), and ECS Tuning
+# names the water pump as a failure without naming a repair. The cost is MotorBiscuit's radiator
+# figure (2021), and it does not cover a water pump.
+id: e46-cooling-system-failure
+generation: e46
+engine: S54B32
+title: Cooling system wear (water pump and radiator)
+symptoms:
+  - "The coolant temperature climbs in stop-and-go traffic, which ECS Tuning says can point to a failing water pump."
+  - "Overheating: MotorBiscuit says 'these cars can overheat'."
+cause: "ECS Tuning lists a failing water pump among the E46 M3's common problems. MotorBiscuit says the cars can overheat and advises going through the cooling system, naming the radiator. BimmerWorld, a retailer, says wear in the water pump bearings and plastic fatigue in the radiator tanks are why its overhaul kit is typically needed at 80,000 to 100,000 miles; that is a product page, so it is Tier 3 and not evidence of an interval. None of the sources gives a failure rate."
+fix: "Replace a failing radiator or water pump. MotorBiscuit (2021) puts a new radiator at about $500 to $1,000 and gives no figure for the water pump. Only MotorBiscuit names a repair, so this fix is unverified."
+prevention: "Contested: whether the cooling system needs a scheduled overhaul. BMW's US 2004 service booklet says 'The engine coolant has a lifetime rating and does not need to be changed.' BimmerWorld, a retailer, says its overhaul kit is typically needed at 80,000 to 100,000 miles. This entry gives no overhaul interval and takes no side. Ask what has already been replaced and when."
+cost:
+  currency: USD
+  shop: [500, 1000]
+frequency: common
+inspectWhenBuying: true
+howToCheck: "Sit in traffic or idle on the test drive and watch the coolant temperature gauge for creep. Ask whether the radiator and water pump have been replaced, and when."
+sources:
+  - title: The ECS Tuning BMW E46 M3 Buyer's Guide
+    publisher: ECS Tuning
+    url: https://blog.ecstuning.com/the-ecs-tuning-bmw-e46-m3-buyers-guide/
+    tier: 2
+    accessed: 2026-11-23
+    note: "Specialist retailer's tech article (Tier 2 under data.md). By Craig Daugherty, 6 November 2020. Says to get the car 'stuck in traffic. See if the temperature creeps up. That could indicate a failing water pump, one of the E46 M3's common problems.'"
+  - title: "Buyer's Guide: BMW E46 M3 (2000-2006)"
+    publisher: MotorBiscuit
+    url: https://www.motorbiscuit.com/buyers-guide-bmw-e46-m3-2000-2006
+    tier: 2
+    accessed: 2026-11-23
+    note: "By Chase Bierenkoven, 7 July 2021. Says 'consider going through the cooling system, as these cars can overheat. A new radiator can run around $500-$1,000.'"
+  - title: "Service and Warranty Information, 2004 E46 M3 (SD 92-255, printed 9/03)"
+    publisher: BMW of North America, LLC
+    url: https://archive.org/download/manualzilla-id-7066322/7066322.pdf
+    tier: 1
+    accessed: 2026-11-23
+    note: "BMW NA booklet for the 2004 US M3, a copy hosted on archive.org (a Manualzilla scan). 'Maintenance System' (booklet pp. 2-3): 'The engine coolant has a lifetime rating and does not need to be changed.' Used only for that statement, which speaks for US-market cars."
+  - title: Cooling System Overhaul Kit, OEM - E46 M3
+    publisher: BimmerWorld
+    url: https://www.bimmerworld.com/Cooling/Cooling-System-Overhaul-Kit-OEM-E46-M3.html
+    tier: 3
+    accessed: 2026-11-23
+    note: "Retailer product page (a listing, so Tier 3). Says the overhaul 'typically needs to be performed at 80-100,000 miles with stock parts due to normal wear and tear of water pump bearings and plastic fatigue on the radiator tanks.' Recorded as a retailer's view, not as an interval. No price is recorded."
+verified: false

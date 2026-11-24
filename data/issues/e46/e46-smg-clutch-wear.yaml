@@ -1,0 +1,33 @@
+# Early clutch wear and judder on SMG cars. Applies to cars with the SMG gearbox only. Every source
+# below was opened on 2026-11-23.
+#
+# Unverified on purpose: two Tier 2 sources describe different parts of it (PistonHeads the faster
+# wear and the judder, Jalopnik hard launches), and each point rests on one publisher. There is
+# no fix and no cost: PistonHeads mentions a BMW software update but gives no cost or bulletin.
+#
+# Market: PistonHeads writes about Euro-spec cars, Jalopnik for the US. Neither is a BMW document.
+id: e46-smg-clutch-wear
+generation: e46
+title: SMG clutch wear and judder
+symptoms:
+  - "Judder as the clutch takes up drive in the lower gears, which PistonHeads calls 'a clear sign it will need replacing'."
+  - "Clutches wear more quickly in SMG cars, which PistonHeads ties to town driving and Jalopnik to hard launches."
+cause: "PistonHeads says clutches wear more quickly in SMG cars, particularly ones that spend more time in town. Jalopnik points to the SMG's 'affinity for eating clutches on hard launches'. Neither source gives a failure rate or a mileage."
+prevention: "Ask whether BMW's software update to reduce clutch judder was applied: PistonHeads says it 'should have been added to any SMG M3'. Ask when the clutch was last replaced."
+frequency: common
+inspectWhenBuying: true
+howToCheck: "On an SMG car, pull away in first and second gear and feel for judder as the clutch takes up drive. Ask for clutch replacement records and whether the software update was applied."
+sources:
+  - title: "BMW M3 (E46) | PH Used Buying Guide"
+    publisher: PistonHeads
+    url: https://www.pistonheads.com/features/ph-buying-guides/bmw-m3-e46--ph-used-buying-guide/25931
+    tier: 2
+    accessed: 2026-11-23
+    note: "By PH Staff, 1 April 2021 (a UK guide that concentrates on Euro-spec cars). Says 'Clutches wear more quickly in SMG-equipped M3s, particularly those that spend more time in town. Judder from the clutch as drive is taken up in the lower gears is a clear sign it will need replacing. However, BMW also offers a software update that should have been added to any SMG M3 to reduce clutch judder.'"
+  - title: "The Affordable Supercar: The Ultimate E46 M3 Buyer's Guide"
+    publisher: Jalopnik
+    url: https://jalopnik.com/the-affordable-supercar-the-ultimate-e46-m3-buyers-gui-1593133171
+    tier: 2
+    accessed: 2026-11-23
+    note: "By Freddy 'Tavarish' Hernandez, 19 June 2014 (the page says it is from APiDA Online). Says of the SMG 'its affinity for eating clutches on hard launches and its inability to keep the SMG pump working for a prolonged time make it something to skip completely.'"
+verified: false
