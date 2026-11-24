@@ -10,7 +10,7 @@ Every entry keeps its license, author and page URL, for provenance. Nothing here
 """
 
 import json
-from collections.abc import Mapping
+from collections.abc import Collection, Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
 from typing import cast
@@ -98,6 +98,33 @@ def load_viewset(work_dir: Path, subject: str) -> SpikeViewSet:
         for name in components_raw
     }
     return SpikeViewSet(subject, _str(doc, "kind", path, ""), views, components)
+
+
+def require_generator_inputs(
+    refs: Sequence[ViewRef], *, reviewed_ids: Collection[str], redacted_ids: Collection[str]
+) -> None:
+    """The people-and-plates gate before any image reaches a generator vendor.
+
+    Raises ViewSetError naming every ref id that is not in `reviewed_ids`, or has no entry in
+    the redaction cache (`redacted_ids` is the cache's keys: an empty box list still counts as
+    an entry, an absent key means "not reviewed yet"). An id is named once however many entries
+    use it. Licenses play no part: which photos may reach a generator is not decided here.
+    """
+    reasons: dict[str, list[str]] = {}
+    for ref in refs:
+        if ref.image_id in reasons:
+            continue
+        found: list[str] = []
+        if ref.image_id not in reviewed_ids:
+            found.append("not reviewed for people and plates")
+        if ref.image_id not in redacted_ids:
+            found.append("no redaction cache entry")
+        reasons[ref.image_id] = found
+    offenders = [
+        f"{image_id} ({', '.join(found)})" for image_id, found in sorted(reasons.items()) if found
+    ]
+    if offenders:
+        raise ViewSetError("images not cleared for a generator: " + "; ".join(offenders))
 
 
 def _ref(entry: object, path: Path, work_dir: Path, where: str) -> ViewRef:

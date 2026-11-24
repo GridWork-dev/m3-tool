@@ -4,7 +4,12 @@ from typing import Any
 
 import pytest
 
-from m3_pipeline.stages.lib.viewset_io import ViewSetError, load_viewset
+from m3_pipeline.stages.lib.viewset_io import (
+    ViewRef,
+    ViewSetError,
+    load_viewset,
+    require_generator_inputs,
+)
 
 
 def _id(n: int) -> str:
@@ -31,6 +36,23 @@ def _entry(view: str, n: int, **overrides: Any) -> dict[str, Any]:
     }
     entry.update(overrides)
     return entry
+
+
+def _ref(n: int, license_short: str = "CC BY 4.0") -> ViewRef:
+    return ViewRef(
+        view="front",
+        image_id=_id(n),
+        image_path=Path(f"/w/{n}.jpg"),
+        cutout_path=None,
+        mirrored=False,
+        license_short=license_short,
+        license_url=None,
+        author=None,
+        page_url=None,
+        drive_side="lhd",
+        seat=None,
+        contains_text_risk=False,
+    )
 
 
 def _write(work_dir: Path, subject: str, **fields: Any) -> Path:
@@ -201,3 +223,50 @@ def test_load_viewset_rejects_a_file_for_another_subject(tmp_path: Path) -> None
     path.rename(path.with_name("e46-coupe.json"))
     with pytest.raises(ViewSetError, match=r"e46-coupe-interior"):
         load_viewset(tmp_path, "e46-coupe")
+
+
+def test_require_generator_inputs_passes_when_every_image_is_reviewed_and_cached() -> None:
+    refs = [_ref(1), _ref(2)]
+    ids = {_id(1), _id(2)}
+    require_generator_inputs(refs, reviewed_ids=ids, redacted_ids=ids)
+    require_generator_inputs([], reviewed_ids=set(), redacted_ids=set())
+
+
+def test_require_generator_inputs_names_every_unreviewed_or_unredacted_image() -> None:
+    a, b, c = _ref(1), _ref(2), _ref(3)  # a: reviewed and cached; b: not reviewed; c: not cached
+    with pytest.raises(ViewSetError) as info:
+        require_generator_inputs(
+            [a, b, c], reviewed_ids={a.image_id, c.image_id}, redacted_ids={a.image_id, b.image_id}
+        )
+    message = str(info.value)
+    assert b.image_id in message and c.image_id in message and a.image_id not in message
+    # The message says which gate each image failed, so the fix is obvious.
+    assert f"{b.image_id} (not reviewed for people and plates)" in message
+    assert f"{c.image_id} (no redaction cache entry)" in message
+
+
+def test_require_generator_inputs_names_an_image_that_fails_both_gates_once() -> None:
+    ref = _ref(7)
+    with pytest.raises(ViewSetError) as info:
+        require_generator_inputs([ref, ref], reviewed_ids=set(), redacted_ids=set())
+    message = str(info.value)
+    assert message.count(ref.image_id) == 1
+    assert "not reviewed" in message and "no redaction cache entry" in message
+
+
+def test_require_generator_inputs_treats_a_reviewed_image_with_no_boxes_as_cached() -> None:
+    # The cache maps image id to a (possibly empty) box list; `redacted_ids` is its keys, so an
+    # image reviewed with no boxes passes, and only an absent key means "not reviewed yet".
+    ref = _ref(4)
+    require_generator_inputs([ref], reviewed_ids={ref.image_id}, redacted_ids={ref.image_id})
+
+
+def test_require_generator_inputs_ignores_the_license() -> None:
+    refs = [_ref(1, "CC BY-SA 4.0"), _ref(2, "unknown")]
+    ids = {_id(1), _id(2)}
+    require_generator_inputs(refs, reviewed_ids=ids, redacted_ids=ids)
+    with pytest.raises(ViewSetError) as info:
+        require_generator_inputs(refs, reviewed_ids={_id(1)}, redacted_ids=ids)
+    # Only the unreviewed image is named, and its license plays no part in the message.
+    assert _id(2) in str(info.value) and _id(1) not in str(info.value)
+    assert "unknown" not in str(info.value) and "BY-SA" not in str(info.value)
