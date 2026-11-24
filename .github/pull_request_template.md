@@ -8,7 +8,7 @@
 - App + data (`src/`, `data/`)
 - 3D (`pipeline/`, `src/lib/asset-*`, the asset manifest)
 - Infra, CI or docs
-- Contract change (`src/data/schemas.ts`, `src/lib/asset-contract.ts`, `docs/standards/3d-assets.md`). Add the `contract` label.
+- Contract change (`src/data/schemas.ts`, `src/data/unverified.ts`, `src/lib/asset-contract.ts`, `docs/standards/3d-assets.md`). Add the `contract` label.
 
 ## Checks
 

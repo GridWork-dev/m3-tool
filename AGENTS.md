@@ -69,7 +69,7 @@ Phase 1 adds `src/configurator/`, `tests/visual/` and `pipeline/blender/`.
 - Follow the standards: [code](docs/standards/code.md), [testing](docs/standards/testing.md), [data](docs/standards/data.md), [3D assets](docs/standards/3d-assets.md), [legal](docs/standards/legal.md).
 
 **Contracts**
-- `src/data/schemas.ts`, `src/lib/asset-contract.ts` and `docs/standards/3d-assets.md` change only in a dedicated PR labeled `contract`, which both lanes rebase onto. Two lanes build against them, so a quiet edit breaks the other lane.
+- `src/data/schemas.ts`, `src/data/unverified.ts` (the path grammar of the `unverified` field), `src/lib/asset-contract.ts` and `docs/standards/3d-assets.md` change only in a dedicated PR labeled `contract`, which both lanes rebase onto. Two lanes build against them, so a quiet edit breaks the other lane.
 
 **Money and secrets**
 - Paid API calls need a session-approved cap and a row in `docs/spend-ledger.md` before the call. The user approves a cap each session, so a past approval covers nothing.

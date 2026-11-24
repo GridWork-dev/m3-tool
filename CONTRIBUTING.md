@@ -29,7 +29,7 @@ Then check that your setup works with `pnpm check`.
 - **No BMW marks.** No roundel, M logo or badges in the UI, models or textures.
 - **Cite and date every data value.** Use sources you opened, with the tier and the date you read them. A `verified: true` entry needs one Tier 1 source or two independent Tier 2 sources. Forum posts alone verify nothing. See the [data standard](docs/standards/data.md).
 - **No reference photos in the repo.** See the [legal standard](docs/standards/legal.md).
-- **Contracts change in their own PR.** `src/data/schemas.ts`, `src/lib/asset-contract.ts` and `docs/standards/3d-assets.md` carry the `contract` label.
+- **Contracts change in their own PR.** `src/data/schemas.ts`, `src/data/unverified.ts`, `src/lib/asset-contract.ts` and `docs/standards/3d-assets.md` carry the `contract` label.
 - **No secrets, ever.** They live in `~/.config/secrets.env` and GitHub Actions secrets, named with the `M3_` prefix. Don't commit a value, an account ID or a `.env` file.
 - **Paid API calls need a cap and a ledger row first.** See [docs/spend-ledger.md](docs/spend-ledger.md).
 - **Run TypeScript through `pnpm typecheck`.** Never a bare `tsc`.

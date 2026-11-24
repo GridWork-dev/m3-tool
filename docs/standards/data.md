@@ -145,9 +145,9 @@ unverified:
   - factoryWheels.optional-19.rear.offsetMm
 ```
 
-A path says that the value it names, and everything under it, is below the rule. Leave the field out when nothing is. Pages that show a variant or a generation read the field, not the comments, and mark each covered value "unverified" next to the value, the way a part carries the badge. A value is covered when its own path is listed, or the path of an object or element above it.
+A path says that the value it names, and everything under it, is below the rule. Leave the field out when nothing is. Pages that render these fields show a per-value "unverified" marker, taken from this field and not from the comments. A value is covered, and gets the marker, when its own path is listed, or the path of an object or element above it.
 
-**Path grammar.** A path is dot-separated keys, from the top of the file down to one value.
+**Path grammar.** A path is dot-separated keys, from the top of the file down to one value. A key is letters, digits, `-` and `_`. Ids already fit, and the schema holds paint and engine codes to the same set, so every element can be named.
 
 - **Fields and record keys** are written as in the file: `fitment.front.stock.offsetMm`, `dimensions.coupe.lengthMm`, `render.modules.trunk_lid`.
 - **A list element is named by its `id`, or by its `code`** (paints and engines), never by its position, so reordering a list can't move a mark: `factoryWheels.optional-19.front.offsetMm`, `paints.A08.code`.
@@ -235,5 +235,5 @@ It prints one `<file>: <code>: <message>` line per problem, exits 1 if there are
 | `fits-list-empty` | A part's `fits.bodies` or `fits.transmissions` is `[]`, which fits nothing | List at least one, or leave the field out to fit all |
 | `unknown-engine` | A maintenance item or issue names an `engine` that isn't one of its generation's engine codes | Fix the code, or leave `engine` out for every engine |
 | `future-date` | A source's `accessed` or a price's `checked` is more than a day after today (UTC) | Fix the date |
-| `unverified-path-missing` | A path in `unverified` doesn't point at a value: no such field, key or element, an element named by position, a position on a list with no key, a position past the end of a fixed-length list, or a path below a plain value | Fix the path; the message says where it stops |
+| `unverified-path-missing` | A path in `unverified` doesn't point at a value: no such field, key or element; an optional field that isn't set in the file; an element named by position; a position or an element under a list with no key; a key under a fixed-length list; a position past its end; a path below a plain value; an element key shared by two elements (the path is ambiguous); or the `unverified` field itself | Fix the path; the message says where it stops |
 | `unverified-path-duplicate` | The same path is listed twice in `unverified` | Remove the repeat |
