@@ -239,7 +239,7 @@ BMW changed the E46 coolant schedule mid-run. BMW NA SI B17 01 07 gives "Every 4
 | `e46-coolant-2001-2003` | `[us]` | `[2001, 2003]` | `months: 48`, with the date-of-production wording in `notes` |
 | `e46-coolant-2004` | `[us]` | `[2004, 2004]` | `triggers: [lifetime-fill]` |
 
-The copy of the bulletin is Tier 2 (see the R77 tests in the items' source notes), so it cannot carry `lifetime-fill`, which needs a Tier 1 source. Only the 2004 US booklet (Tier 1) gives the lifetime rating, so the lifetime item covers 2004 alone. Model years 2005 and 2006 have no coolant entry: that is a gap, and the site shows it as no sourced schedule, not as no schedule.
+The copy of the bulletin is Tier 2 (see the R77 tests in the items' source notes), so it cannot carry `lifetime-fill`, which needs a Tier 1 source. Only the 2004 US booklet (Tier 1) gives the lifetime rating, so the lifetime item covers 2004 alone. Model years 2005 and 2006 have no coolant entry: that is a gap.
 
 The schema can't see which model years a source covers, so the data verifier and the `safety` spot-check look at `modelYears` against the sources. It does enforce the shape: two whole years from 1985 to 2035, with `from` not after `to`.
 
