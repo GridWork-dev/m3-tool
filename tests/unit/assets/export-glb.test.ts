@@ -89,33 +89,75 @@ function worldVertexKeys(doc: Document): Set<string> {
 
 const sha256 = (bytes: Uint8Array): string => createHash('sha256').update(bytes).digest('hex')
 
-// A car whose `trunk_lid` is animated, with an empty child node if asked. quantize() moves the
-// mesh of an animated node onto an unnamed child too. Without children the export has no way to
-// put it back, so the export loses a required mesh. With one it would put the mesh back, but into
-// a transform the animation overwrites.
-function carWithAnimatedTrunkLid(withChild = false): Document {
+// Cars with an animation, one for each way the export used to mishandle one (or came close to):
+// the animated node is a mesh parent (`trunk_lid` with a child), a child of a mesh parent
+// (`mount_trunk` under `trunk_lid`), a leaf module (`trunk_lid` alone), or a mesh parent whose
+// morph weights are animated. The export refuses all of them, because it does not support
+// animation (ruling R70).
+const ANIMATED_CARS = [
+  ['an animated mesh parent', 'trunk_lid'],
+  ['an animated child of a mesh parent', 'mount_trunk'],
+  ['an animated leaf module', 'trunk_lid'],
+  ['a weights channel on a mesh parent', 'trunk_lid'],
+] as const
+
+function animatedCar(label: (typeof ANIMATED_CARS)[number][0]): Document {
   const doc = makeBaseCar({ triangles: 2_000 })
   const lid = nodeNamed(doc, 'trunk_lid')
+  const mount = nodeNamed(doc, 'mount_trunk')
   const buffer = doc.getRoot().listBuffers()[0]
-  if (!(lid && buffer)) throw new Error('the fixture car lost its trunk lid')
-  const times = doc
-    .createAccessor()
-    .setType('SCALAR')
-    .setArray(new Float32Array([0, 1]))
-    .setBuffer(buffer)
-  const values = doc
-    .createAccessor()
-    .setType('VEC3')
-    .setArray(new Float32Array([0, 0, 0, 0, 0.1, 0]))
-    .setBuffer(buffer)
-  const sampler = doc.createAnimationSampler().setInput(times).setOutput(values)
-  const channel = doc
-    .createAnimationChannel()
-    .setTargetNode(lid)
-    .setTargetPath('translation')
-    .setSampler(sampler)
-  doc.createAnimation('open').addSampler(sampler).addChannel(channel)
-  if (withChild) lid.addChild(doc.createNode('lid_hinge'))
+  if (!(lid && mount && buffer)) throw new Error('the fixture car lost a node')
+  const accessor = (type: 'SCALAR' | 'VEC3', values: number[]) =>
+    doc.createAccessor().setType(type).setArray(new Float32Array(values)).setBuffer(buffer)
+  const animate = (
+    node: typeof lid,
+    path: 'translation' | 'weights',
+    output: ReturnType<typeof accessor>,
+  ) => {
+    const sampler = doc
+      .createAnimationSampler()
+      .setInput(accessor('SCALAR', [0, 1]))
+      .setOutput(output)
+    const channel = doc
+      .createAnimationChannel()
+      .setTargetNode(node)
+      .setTargetPath(path)
+      .setSampler(sampler)
+    doc.createAnimation('open').addSampler(sampler).addChannel(channel)
+  }
+  const move = () => accessor('VEC3', [0, 0, 0, 0, 0.1, 0])
+
+  if (label === 'an animated mesh parent') {
+    lid.addChild(doc.createNode('lid_hinge'))
+    animate(lid, 'translation', move())
+  } else if (label === 'an animated child of a mesh parent') {
+    lid.addChild(mount.setTranslation([0, 0.9, 1.9]))
+    animate(mount, 'translation', move())
+  } else if (label === 'an animated leaf module') {
+    animate(lid, 'translation', move())
+  } else {
+    const mesh = lid.getMesh()
+    const primitive = mesh?.listPrimitives()[0]
+    const count = primitive?.getAttribute('POSITION')?.getCount() ?? 0
+    const target = doc
+      .createPrimitiveTarget()
+      .setAttribute('POSITION', accessor('VEC3', new Array<number>(count * 3).fill(0)))
+    primitive?.addTarget(target)
+    mesh?.setWeights([0])
+    lid.addChild(doc.createNode('lid_hinge'))
+    animate(lid, 'weights', accessor('SCALAR', [0, 1]))
+  }
+  return doc
+}
+
+// A car whose `trunk_lid` mesh has a primitive with no triangles. `weld` drops a primitive with
+// nothing to draw, and then the mesh, so the export would lose a required mesh with no animation
+// involved (a cleanup that removed everything from a module could produce this).
+function carWithEmptyTrunkLid(): Document {
+  const doc = makeBaseCar({ triangles: 2_000 })
+  const indices = nodeNamed(doc, 'trunk_lid')?.getMesh()?.listPrimitives()[0]?.getIndices()
+  if (!indices) throw new Error('the fixture car lost its trunk lid mesh')
+  indices.setArray(new Uint32Array(0))
   return doc
 }
 
@@ -307,7 +349,7 @@ describe('exportGlb', () => {
   })
 
   test('fails, and writes nothing, when it would lose a required mesh', async () => {
-    const input = await toGlb(carWithAnimatedTrunkLid())
+    const input = await toGlb(carWithEmptyTrunkLid())
     await expect(exportGlb(input, { kind: 'base-car' })).rejects.toThrow(
       "the export would break the asset's structure: trunk_lid lost its mesh",
     )
@@ -610,17 +652,66 @@ describe('a mesh node that has children', () => {
     }
   })
 
-  test('refuses an animated node, because its animation would overwrite the correction', async () => {
-    const input = await toGlb(carWithAnimatedTrunkLid(true))
-    await expect(exportGlb(input, { kind: 'base-car' })).rejects.toThrow(
-      /trunk_lid has children and an animated translation, rotation or scale/,
-    )
-  })
-
   test('puts the children in the proxy where they are', async () => {
     const { proxy } = await exportGlb(await toGlb(carWithChildAnchors()), { kind: 'base-car' })
     expect(proxy.node_positions.mount_trunk).toEqual([0, 1, 1.9])
     expect(proxy.node_positions.mount_interior).toEqual([0, 0.8, 0])
+  })
+})
+
+// Quantizing a mesh moves its transform, and restoring a mesh node's mesh after it does the same,
+// and an animation overwrites a node's transform. Rather than work out each way those collide, the
+// export refuses any input with an animation (ruling R70). Neither the contract nor the pipeline's
+// cars have one.
+describe('an input with an animation', () => {
+  test.each(ANIMATED_CARS)('refuses %s, naming the animated node', async (label, node) => {
+    const input = await toGlb(animatedCar(label))
+    await expect(exportGlb(input, { kind: 'base-car' })).rejects.toThrow(
+      `input has 1 animation(s); the export does not support animated assets (animated: ${node})`,
+    )
+  })
+
+  test('says how many animations there are and which nodes they move', async () => {
+    const doc = animatedCar('an animated leaf module')
+    const moving = nodeNamed(doc, 'roof')
+    const buffer = doc.getRoot().listBuffers()[0]
+    if (!(moving && buffer)) throw new Error('the fixture car lost a node')
+    const sampler = doc
+      .createAnimationSampler()
+      .setInput(
+        doc
+          .createAccessor()
+          .setType('SCALAR')
+          .setArray(new Float32Array([0, 1]))
+          .setBuffer(buffer),
+      )
+      .setOutput(
+        doc
+          .createAccessor()
+          .setType('VEC3')
+          .setArray(new Float32Array([0, 0, 0, 0, 0.1, 0]))
+          .setBuffer(buffer),
+      )
+    doc
+      .createAnimation('spin')
+      .addSampler(sampler)
+      .addChannel(
+        doc
+          .createAnimationChannel()
+          .setTargetNode(moving)
+          .setTargetPath('translation')
+          .setSampler(sampler),
+      )
+    await expect(exportGlb(await toGlb(doc), { kind: 'base-car' })).rejects.toThrow(
+      'input has 2 animation(s); the export does not support animated assets (animated: trunk_lid, roof)',
+    )
+  })
+
+  test('accepts the same car without the animation', async () => {
+    const doc = animatedCar('an animated leaf module')
+    for (const animation of doc.getRoot().listAnimations()) animation.dispose()
+    const { glb } = await exportGlb(await toGlb(doc), { kind: 'base-car' })
+    expect(nodeNamed(await read(glb), 'trunk_lid')?.getMesh()).not.toBeNull()
   })
 })
 
@@ -824,29 +915,30 @@ describe('runExportGlb', () => {
   })
 
   test('exits 1, naming the node, and writes nothing when it would lose a required mesh', async () => {
-    const animated = join(dir, 'animated.glb')
-    await writeFile(animated, await toGlb(carWithAnimatedTrunkLid()))
-    const out = join(dir, 'animated-out.glb')
-    const result = await runExportGlb([animated, out, '--kind', 'base-car'])
+    const emptied = join(dir, 'empty-lid.glb')
+    await writeFile(emptied, await toGlb(carWithEmptyTrunkLid()))
+    const out = join(dir, 'empty-lid-out.glb')
+    const result = await runExportGlb([emptied, out, '--kind', 'base-car'])
     expect(result.exitCode).toBe(1)
     expect(result.stdout).toEqual([])
     expect(result.stderr.join('\n')).toContain('trunk_lid lost its mesh')
     expect(spawnSync('test', ['-e', out]).status).not.toBe(0)
-    expect(spawnSync('test', ['-e', join(dir, 'animated-out.proxy.json')]).status).not.toBe(0)
+    expect(spawnSync('test', ['-e', join(dir, 'empty-lid-out.proxy.json')]).status).not.toBe(0)
   })
 
-  test('exits 1, naming the node, for an animated node that has children', async () => {
-    const animated = join(dir, 'animated-parent.glb')
-    await writeFile(animated, await toGlb(carWithAnimatedTrunkLid(true)))
-    const out = join(dir, 'animated-parent-out.glb')
+  test.each(ANIMATED_CARS)('exits 1 and writes nothing for %s', async (label, node) => {
+    const slug = label.replaceAll(' ', '-')
+    const animated = join(dir, `${slug}.glb`)
+    await writeFile(animated, await toGlb(animatedCar(label)))
+    const out = join(dir, `${slug}-out.glb`)
     const result = await runExportGlb([animated, out, '--kind', 'base-car'])
     expect(result.exitCode).toBe(1)
     expect(result.stdout).toEqual([])
-    expect(result.stderr.join('\n')).toContain('trunk_lid has children and an animated')
-    expect(spawnSync('test', ['-e', out]).status).not.toBe(0)
-    expect(spawnSync('test', ['-e', join(dir, 'animated-parent-out.proxy.json')]).status).not.toBe(
-      0,
+    expect(result.stderr.join('\n')).toContain(
+      `input has 1 animation(s); the export does not support animated assets (animated: ${node})`,
     )
+    expect(spawnSync('test', ['-e', out]).status).not.toBe(0)
+    expect(spawnSync('test', ['-e', join(dir, `${slug}-out.proxy.json`)]).status).not.toBe(0)
   })
 
   test('exits 1 and writes nothing when the proxy cannot be brought within its budget', async () => {

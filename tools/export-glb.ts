@@ -3,7 +3,6 @@ import { mkdir, readFile, writeFile } from 'node:fs/promises'
 import { dirname } from 'node:path'
 import { parseArgs } from 'node:util'
 import {
-  AnimationChannel,
   type Document,
   getBounds,
   Logger,
@@ -299,25 +298,26 @@ function meshParents(doc: Document): MeshParent[] {
     })
 }
 
-// A node with children and a translation, rotation or scale animation can't be restored: its
-// static matrix would carry quantize's correction, and the animation overwrites that matrix, so
-// playing it would move or distort the mesh. Export refuses it, naming the node.
-function rejectAnimatedMeshParents(parents: MeshParent[]): void {
-  const transformPaths = ['translation', 'rotation', 'scale']
-  for (const { node } of parents) {
-    const animated = node
-      .listParents()
-      .some(
-        (parent) =>
-          parent instanceof AnimationChannel &&
-          transformPaths.includes(parent.getTargetPath() ?? ''),
-      )
-    if (animated) {
-      throw new Error(
-        `${node.getName() || '(unnamed node)'} has children and an animated translation, rotation or scale, which the export cannot keep: quantizing its mesh changes the node's transform, and the animation would overwrite that change`,
-      )
+// The export does not support animation (ruling R70). Quantizing a mesh rewrites its node's
+// transform, and restoring a mesh node's mesh does it again, while an animation overwrites a
+// node's transform, moves or distorts what hangs under it, or points a weights channel at a mesh
+// that moved. Each way those collide needed its own case, and neither the contract nor the
+// pipeline's cars have an animation, so any input with one is refused, naming the nodes it moves.
+// If Phase 1 needs an animated part, `restoreMeshParents` needs an animation-aware version first.
+function rejectAnimations(doc: Document): void {
+  const animations = doc.getRoot().listAnimations()
+  if (animations.length === 0) return
+  const targets = new Set<string>()
+  for (const animation of animations) {
+    for (const channel of animation.listChannels()) {
+      const node = channel.getTargetNode()
+      if (node) targets.add(node.getName() || '(unnamed node)')
     }
   }
+  const moved = targets.size > 0 ? ` (animated: ${[...targets].join(', ')})` : ''
+  throw new Error(
+    `input has ${animations.length} animation(s); the export does not support animated assets${moved}`,
+  )
 }
 
 // quantize() scales a mesh through the matrix of the node that draws it. For a node with children
@@ -374,6 +374,7 @@ export async function exportGlb(
 ): Promise<{ glb: Uint8Array; proxy: ExportProxy }> {
   await Promise.all([MeshoptDecoder.ready, MeshoptEncoder.ready])
   const doc = await io.readBinary(input)
+  rejectAnimations(doc)
   const before = contractStructure(sceneOf(doc), opts.kind)
   await doc.transform(
     weld(),
@@ -382,7 +383,6 @@ export async function exportGlb(
   )
 
   const parents = meshParents(doc)
-  rejectAnimatedMeshParents(parents)
 
   const asset = doc.getRoot().getAsset()
   asset.extras = {
