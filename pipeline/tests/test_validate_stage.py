@@ -159,11 +159,73 @@ def test_a_report_that_cannot_be_written_fails_cleanly(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     _export(tmp_path)
-    _report_path(tmp_path).mkdir()  # a directory where the file goes, so writing it fails
     _stub_validator(monkeypatch, 0, json.dumps({"ok": True, "issues": []}))
+
+    def refuse(self: Path, *args: object, **kwargs: object) -> int:
+        raise PermissionError("read-only")
+
+    monkeypatch.setattr(Path, "write_text", refuse)
     r = validate(ASSET, Settings(repo_root=REPO, work_dir=tmp_path))
     assert not r.ok and r.outputs == []
     assert "could not write" in r.messages[0] and "e46-coupe-body.validate.json" in r.messages[0]
+
+
+def _stale_report(work_dir: Path) -> Path:
+    """An old report next to an export, as a previous successful run leaves it."""
+    path = _report_path(work_dir)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text('{"ok":true,"issues":[],"stats":{"triangles":120000,"bytes":1}}\n', "utf-8")
+    return path
+
+
+def test_a_stale_report_is_removed_when_the_export_is_missing(tmp_path: Path) -> None:
+    stale = _stale_report(tmp_path)
+    r = validate(ASSET, Settings(repo_root=REPO, work_dir=tmp_path))
+    assert not r.ok and r.outputs == []
+    assert not stale.exists()
+
+
+def test_a_stale_report_is_removed_when_the_validator_gives_no_report(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _export(tmp_path)
+    stale = _stale_report(tmp_path)
+    _stub_validator(monkeypatch, 2, "not json", "boom")
+    r = validate(ASSET, Settings(repo_root=REPO, work_dir=tmp_path))
+    assert not r.ok and r.outputs == []
+    assert not stale.exists()
+
+
+def test_a_stale_report_is_removed_when_node_is_missing(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _export(tmp_path)
+    stale = _stale_report(tmp_path)
+
+    def fake(cmd: list[str]) -> subprocess.CompletedProcess[str]:
+        raise FileNotFoundError("node")
+
+    monkeypatch.setattr(validate_mod, "_run", fake)
+    assert not validate(ASSET, Settings(repo_root=REPO, work_dir=tmp_path)).ok
+    assert not stale.exists()
+
+
+def test_a_stale_report_never_survives_a_new_run(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _export(tmp_path)
+    _stale_report(tmp_path)
+    _stub_validator(monkeypatch, 1, json.dumps({"ok": False, "issues": [], "stats": STATS}))
+    r = validate(ASSET, Settings(repo_root=REPO, work_dir=tmp_path))
+    assert r.outputs == [_report_path(tmp_path)]
+    assert json.loads(_report_path(tmp_path).read_text(encoding="utf-8"))["ok"] is False
+
+
+def test_a_stale_report_that_cannot_be_removed_fails_cleanly(tmp_path: Path) -> None:
+    _report_path(tmp_path).mkdir(parents=True)  # a directory where the file goes, so unlink fails
+    r = validate(ASSET, Settings(repo_root=REPO, work_dir=tmp_path))
+    assert not r.ok and r.outputs == []
+    assert "could not remove" in r.messages[0] and "e46-coupe-body.validate.json" in r.messages[0]
 
 
 def test_the_stage_result_type_is_unchanged() -> None:
