@@ -102,6 +102,7 @@ Every `Source` has a `title`, `publisher`, `tier` (1 to 3) and `accessed` date, 
   2. The `note` names the host and says what is missing.
   3. The document's number and scope are corroborated by an independent Tier 1 or Tier 2 source.
   4. The `url` is an existing archive.org snapshot, if one exists. Don't create snapshots. A copy on a vendor's server is neither linkable nor stable, so when there is no snapshot the note says so.
+  Test 3 is also met when all of these hold (ruling R84): the copy is the issuer's own native file (live text, not a scan or a retype); it carries the issuer's own identification line and document number; the number fits the issuer's numbering sequence, as the issuer's other documents show; and an independent Tier 1 document confirms its scope (what it is, and which market and model it covers). The `note` states each of these. The other tests stay as they are.
   A safety value that rests on a copy alone says so in the entry.
 - **A cost is published only under the label its source states** (ruling R78; see "Costs that are absent").
 - **A generation's own `sources`** (at least one) cover its name, chassis, years, engines and bodies. Its dimensions, eye point and fitment carry their own.

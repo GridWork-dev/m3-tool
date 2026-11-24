@@ -11,15 +11,13 @@
 # 2005 US checklist as reproduced in ST050 (the M3 column of 'BMW Spark Plug Replacement, required
 # at intervals of ______,000 mi.' says 60). That is a different model year from the booklet, it is a
 # Tier 2 copy, and no other source states it, so under the rules for a number (one Tier 1 source, or
-# two independent Tier 2 sources) it doesn't count and stays in `notes`. data.md says not to carry
-# one document's number across to another.
+# two independent Tier 2 sources) it doesn't count: it stays in `notes`, unverified. data.md says
+# not to carry one document's number across to another.
 #
-# Tiers (ruling R77): the owner's manual copy is Tier 1; the booklet copy is Tier 2, because no
-# independent source states its number, SD 92-255; the ST050 and ST041 copies are Tier 2, because
-# they have no issuer line or module number. The trigger rests on the booklet (Tier 2) and the 2005
-# checklist (the same publisher), so this entry is `verified: false`. It would meet the rule for the
-# trigger if the booklet copy were ruled Tier 1, and the 60,000 miles would still need a second
-# source.
+# Tiers (data.md, 'Sources', rulings R77 and R84): the owner's manual copy and the booklet copy are
+# Tier 1; the ST050 and ST041 copies are Tier 2, because they have no issuer line or module number.
+# The trigger rests on the booklet (Tier 1), so this entry is `verified: true` for the trigger. The
+# 60,000 miles in `notes` is not verified: it still needs a second source.
 #
 # No cost is published: no Tier 1 or Tier 2 source gives a figure for this service, and price
 # collection is a separate lane (data.md, 'Costs that are absent').
@@ -39,9 +37,9 @@ sources:
   - title: "Service and Warranty Information, 2004 E46 M3 (SD 92-255, printed 9/03)"
     publisher: BMW of North America, LLC
     url: https://archive.org/download/manualzilla-id-7066322/7066322.pdf
-    tier: 2
+    tier: 1
     accessed: 2026-11-24
-    note: "Third-party copy on archive.org (item manualzilla-id-7066322, uploaded to archive.org from Manualzilla by a private account), so the copy rule in data.md, 'Sources' (ruling R77), applies, and this copy is Tier 2. Tests 1, 2 and 4 pass: the file is BMW NA's own print file (QuarkXPress 5.01, Acrobat Distiller 4.05 for Macintosh, created 13 November 2003, live text, embedded BMW fonts), not a scan or a retyping; it is complete (42 PDF pages, from the cover, which carries 'Printed in U.S.A. 9/03 SD 92-255', to the owner information page, 'Model M3 Year 2004'); and the url is the existing archive.org item, with no snapshot created. Test 3 fails: no independent source I could open states the number SD 92-255. Only the numbering style is corroborated (BMW NA's 2005 M3 booklet shows 'SD 92-269' on ManualsLib, and a 2007 3 Series booklet shows 'SD 92-322' on NHTSA's site). Its scope, a US-market BMW booklet, is corroborated by the owner's manual, which refers to 'the Service and Warranty Information Booklet for US models' (pp. 125-126). A BMW of North America document speaks for US-market cars only. Page numbers in this entry are the booklet's printed pages; in the PDF, printed page N is PDF page N + 3. 2004 model year. Supports the trigger: 'Spark Plug Service: Replace spark plugs every Inspection II' and 'Your BMW is equipped with platinum-tipped spark plugs.' (p. 3); Inspection II, Engine Compartment, 'Replace spark plugs.' (p. 8); and the record page, 'Record of Spark Plug Replacement (Every Insp. II)' (p. 9). It gives no mileage."
+    note: "Third-party copy on archive.org (item manualzilla-id-7066322, uploaded to archive.org from Manualzilla by a private account); the copy is complete (all 42 PDF pages) and nothing is missing. Tier 1 under data.md, 'Sources', ruling R84: it is BMW NA's own print file (QuarkXPress 5.01, Acrobat Distiller 4.05, created 2003-11-13, live text) with the line '© BMW of North America, LLC ... Printed in U.S.A. 9/03 SD 92-255' on the cover; the number fits BMW NA's sequence (SD 92-269, printed 08/04, on ManualsLib; SD 92-322, printed 07/06, on NHTSA's site); and the owner's manual (Tier 1) pp. 125-126 names 'the Service and Warranty Information Booklet for US models'. A BMW NA document, so it speaks for US-market cars only. Page numbers are the booklet's printed pages (PDF page = printed page + 3). 2004 model year. Supports the trigger: 'Spark Plug Service: Replace spark plugs every Inspection II' and 'Your BMW is equipped with platinum-tipped spark plugs.' (p. 3); Inspection II, Engine Compartment, 'Replace spark plugs.' (p. 8); and the record page, 'Record of Spark Plug Replacement (Every Insp. II)' (p. 9). It gives no mileage."
   - title: "Sample 2005 BMW Service Maintenance Checklist (BMW NA SD92-283 8/04), as reproduced in ST050 Service and Maintenance, pp. 12-13"
     publisher: BMW of North America, LLC
     url: https://archive.org/download/BMWTechnicalTrainingDocuments/ST050%20Technical%20Systems%20%28Archive%201%29/Service%20and%20Maintenance.pdf
@@ -54,5 +52,5 @@ sources:
     tier: 2
     accessed: 2026-11-24
     note: "Third-party copy on archive.org, from the item 'BMW Technical Training Documents' uploaded by a private account, so the copy rule in data.md, 'Sources' (ruling R77), applies, and this copy is Tier 2 on test 1: the file ('motorsport engines S54.qxd', Acrobat Distiller 5.0, created 3 April 2002) has no issuer line and no module number ('ST041' appears only in the archive.org item's description, not in the file). The url is the existing archive.org file; no snapshot was created. Module for the S54B32, production date '2001 MY to Present'. Says 'NGK DCPR8EKP dual electrode spark plugs are used.' (p. 26, Ignition Coils)."
-verified: false
-notes: "BMW's 2004 US booklet ties the plugs to Inspection II and gives no mileage: 'Spark Plug Service: Replace spark plugs every Inspection II' (p. 3), and 'Replace spark plugs.' under Inspection II (p. 8). The only number in any source is the 2005 US checklist's 60 (thousand miles) in the M3 column of 'BMW Spark Plug Replacement, required at intervals of ______,000 mi.' (BMW NA SD92-283 8/04, reproduced in ST050 p. 12). That is another model year, a Tier 2 copy and a single source, so it is not the interval here. It is a number the 2004 booklet does not give, and Inspection II is the interval the booklet does give. The plug the S54 uses is the NGK DCPR8EKP, a dual-electrode plug (ST041, Tier 2), and the booklet says the car is 'equipped with platinum-tipped spark plugs'."
+verified: true
+notes: "BMW's 2004 US booklet ties the plugs to Inspection II and gives no mileage: 'Spark Plug Service: Replace spark plugs every Inspection II' (p. 3), and 'Replace spark plugs.' under Inspection II (p. 8). The only number in any source is the 2005 US checklist's 60 (thousand miles) in the M3 column of 'BMW Spark Plug Replacement, required at intervals of ______,000 mi.' (BMW NA SD92-283 8/04, reproduced in ST050 p. 12). That is another model year, a Tier 2 copy and a single source, so it is not verified and is not the interval here. It is a number the 2004 booklet does not give, and Inspection II is the interval the booklet does give. The plug the S54 uses is the NGK DCPR8EKP, a dual-electrode plug (ST041, Tier 2), and the booklet says the car is 'equipped with platinum-tipped spark plugs'."
