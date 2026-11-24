@@ -33,8 +33,8 @@ The schemas in [`src/data/schemas.ts`](../../src/data/schemas.ts) are the contra
 | `generations` | `Generation` | Chassis, production years, engines, bodies and their sources, dimensions per body, driver eye point, stock wheel fitment per axle, and which values are unverified |
 | `variants` | `Variant` | Market, body, transmissions, packages, paints, factory wheels, interiors, which assets render it (base car, interior, body modules), and which values are unverified |
 | `parts` | `Part` | A product or a generic tier, with fitment attributes, options, prices, labor, 3D model (and the body modules it replaces), sources |
-| `maintenance` | `MaintenanceItem` | A service with its interval (miles, months, triggers, or a mix), the markets its sources cover, parts, fluids, an optional cost range and a buyer's inspection note |
-| `issues` | `KnownIssue` | A known problem with the markets its sources cover, symptoms, cause, an optional fix, an optional cost range and how common it is |
+| `maintenance` | `MaintenanceItem` | A service with its interval (miles, months, triggers, or a mix), the markets and model years its sources cover, parts, fluids, an optional cost range and a buyer's inspection note |
+| `issues` | `KnownIssue` | A known problem with the markets and model years its sources cover, symptoms, cause, an optional fix, an optional cost range and how common it is |
 
 The schemas reject keys they don't list, so a typo like `brnad:` is an error instead of a silently dropped field. They also reject a few shapes the types alone allow:
 
@@ -44,7 +44,7 @@ The schemas reject keys they don't list, so a typo like `brnad:` is an error ins
 - A model's `replaces` names at least one body module, each at most once, and only from the four in `BODY_MODULES`. A variant's `render.modules` has only those four as keys.
 - A part's `attributes.kind` matches its category: `wheel` and `hub-ring` go with `wheels`, `tire` with `tires`, `brake-kit` with `brakes`, `suspension` with `suspension`.
 - `inspectWhenBuying: true` needs a non-empty `howToCheck`.
-- A maintenance interval has at least one of `miles`, `months` or `triggers`, and `triggers` is a non-empty list with no repeats (see "Maintenance intervals"). A maintenance item's or known issue's `markets`, when present, is a non-empty list of `us` or `euro` with no repeats (see "Markets").
+- A maintenance interval has at least one of `miles`, `months` or `triggers`, and `triggers` is a non-empty list with no repeats (see "Maintenance intervals"). A maintenance item's or known issue's `markets`, when present, is a non-empty list of `us` or `euro` with no repeats (see "Markets"). Their `modelYears`, when present, is a `[from, to]` pair of whole years from 1985 to 2035, with `from` not after `to` (see "Model years").
 - A measured driver eye point has sources. An estimated one may have none, and its `note` says it is an estimate. Labor estimates are another sourceless exception the schema names (see "Labor estimates"), and a paint's display colour (`baseColor`) is a third: it is a render value, not a fact about the car, so it needs no source, and the variant file's comment says how each value was picked (a paint's code, name and the markets and variants that offered it are facts and still need sources). (A generic part has no sources of its own either, because it is a computed tier, not a claim, and so its labor is an estimate.)
 - A part's `labor` always says whether it is an estimate: `estimated` is `true` or `false`, written out, with no default. Labor with `estimated: false` needs at least one source on the part.
 - Required text (names, titles, sellers, publishers) must not be empty or only whitespace. The value is kept as written, not trimmed.
@@ -101,6 +101,7 @@ Every `Source` has a `title`, `publisher`, `tier` (1 to 3) and `accessed` date, 
   1. It is complete and not retyped: the whole document, with the manufacturer's identifiers intact (number, date or revision, issuer, model range), and the passages you rely on are the copy's own text (the original file, a scan or a faithful print), not re-rendered or retyped.
   2. The `note` names the host and says what is missing.
   3. The document's number and scope are corroborated by an independent Tier 1 or Tier 2 source.
+     - Test 3 is also met when all of these hold (ruling R84): the copy is the issuer's own native file (live text, not a scan or a retype); it carries the issuer's own identification line and document number; the number fits the issuer's numbering sequence, as the issuer's other documents show; and an independent Tier 1 document confirms what kind of document it is and which market it serves. The `note` states each of these. The other tests stay as they are.
   4. The `url` is an existing archive.org snapshot, if one exists. Don't create snapshots. A copy on a vendor's server is neither linkable nor stable, so when there is no snapshot the note says so.
   A safety value that rests on a copy alone says so in the entry.
 - **A cost is published only under the label its source states** (ruling R78; see "Costs that are absent").
@@ -189,8 +190,8 @@ Safety advice never rests on a forum post alone. This is weaker than `verified` 
 
 An interval is `miles`, `months`, `triggers`, or a mix, and it says what the source says.
 
-- **Give a number only when the source gives one.** BMW's E46 documents give a number for a few services (oil at least once a year, brake fluid every two years, spark plugs at 60,000 miles in the 2005 US checklist). For the others they name the service that carries it. Record that in `triggers`. The site shows the triggers, not a made-up mileage, so don't turn a trigger into miles from a forum, from a typical figure, or by reading one number across from another document.
-- **`miles` and `months` may sit beside `triggers` only when the source gives both** the service and its number. A source that names only the service supports the triggers alone. The schema can't see the source, so the data verifier and the `safety` spot-check look at this. It does enforce two cases. `lifetime-fill` takes no number at all. And a number sits beside a single trigger only: with two or more, it couldn't be pinned to one of them (`miles: 1200` beside `[break-in, inspection-ii]` would read as the interval of both), so the gearbox oil's `[break-in, inspection-ii]` takes no `miles` or `months`.
+- **Give a number only when the source gives one.** BMW's E46 documents give a number for a few services (oil at least once a year, brake fluid every two years, spark plugs at 60,000 miles in the 2005 US checklist), each for the model years the document names (see "Model years"). For the others they name the service that carries it. Record that in `triggers`. The site shows the triggers, not a made-up mileage, so don't turn a trigger into miles from a forum, from a typical figure, or by reading one number across from another document.
+- **`miles` and `months` may sit beside `triggers` only when the source gives both** the service and its number, for the item's model years: a number from a source for other model years doesn't carry across. A source that names only the service supports the triggers alone. The schema can't see the source, so the data verifier and the `safety` spot-check look at this. It does enforce two cases. `lifetime-fill` takes no number at all. And a number sits beside a single trigger only: with two or more, it couldn't be pinned to one of them (`miles: 1200` beside `[break-in, inspection-ii]` would read as the interval of both), so the gearbox oil's `[break-in, inspection-ii]` takes no `miles` or `months`. An item whose source lists more than one trigger and also gives a calendar or mileage maximum records that number in `notes`, quoting the source (ruling R81). Engine oil is the example: the 2004 US booklet changes it at the 1200 Mile Service, at every Engine Oil Service and at Inspection I, and says "change oil at least once a year", so the triggers are `[break-in, oil-service, inspection-i]` and the year is in `notes`.
 - **One service can have several triggers,** so `triggers` is a list with each value at most once. The 2004 US M3 booklet lists the microfilter at the Engine Oil Service and at Inspection I (`[oil-service, inspection-i]`), and the transmission and differential oil at the 1200 Mile Service and at Inspection II (`[break-in, inspection-ii]`). Inspection II repeats every Inspection I item, so an item due at both inspections lists `inspection-i` only, and the schema rejects the pair. `lifetime-fill` and `condition-based` say there is no scheduled service, so each stands alone in the list, and an item that uses either needs a Tier 1 source (see "Safety advice needs evidence").
 - **A shorter interval that specialists recommend is not the interval.** It goes in `notes`, labelled as theirs, with its own source. It never replaces BMW's number or triggers.
 
@@ -207,7 +208,7 @@ On the E46 the Service Interval Indicator works out when the next service is due
 
 A page that shows an item's triggers shows an `inspection-i` item as due at every inspection, not only at Inspection I.
 
-The table is sourced from BMW of North America's 2004 US M3 booklet, with the US owner's manual for `break-in` and BMW's training module ST050 for `condition-based`. Other generations and markets can differ, so check a new generation's own documents before reusing a row.
+The table is sourced from BMW of North America's 2004 US M3 booklet, with the US owner's manual for `break-in` and BMW's training module ST050 for `condition-based`. Other generations, markets and model years can differ (the E46 coolant changed mid-run, see "Model years"), so check a new generation's own documents before reusing a row.
 
 ### Markets
 
@@ -218,6 +219,29 @@ A document for one market covers that market only (the one-market clause of ruli
 A remedy that rests on a market-specific document splits the issue into one entry per market (ruling R82). The entry for the document's market carries the remedy and is verified on it. Every other market keeps an entry of its own, built from what the evidence supports there and `verified: false` unless it has its own sourced remedy, so a market without a sourced remedy keeps an unverified entry and the issue does not disappear from it. Each entry's id names its market.
 
 Leave `markets` out only when the evidence covers every market: either one source that applies to all of them (a document that is not for one market, such as an international BMW media release), or a source for each market. When the US and European schedules differ, write one item for each market, with its own `markets` and an id that names the market. The schema can't see which market a source is for, so the data verifier and the `safety` spot-check look at `markets` against the sources.
+
+### Model years
+
+`modelYears` names the model years a maintenance item's or a known issue's sources speak for: `[from, to]`, both inclusive, such as `[2001, 2003]`. One year is `[2004, 2004]`. Both ends are always given, and there is no open-ended form: "from 2004 on" for a generation that ends in 2006 is `[2004, 2006]`.
+
+For a maintenance item or a known issue, a manufacturer document (a booklet, an owner's manual, a checklist, a bulletin or a training module) speaks for the model years it names and for no others (ruling R86, the time counterpart of the one-market clause of R61 in "Markets"). A document for 2001 to 2003 says nothing about 2004. A model-wide statement inside a document for one model year is still a document for that year, so it covers that year only, and R85 never widens `modelYears` either.
+
+The range lies inside the generation's `years`, with nothing past either end (ruling R88). The generation's `years` are also the year choices the site offers, so a range inside them can always be picked. If a source names a model year past the generation's `years`, the generation's `years` is fixed first, as its own sourced change, and `modelYears` may use the year afterwards. A model year must come from a source that names it: a document that names none supports no `modelYears` on its own. For a generation with `years: [2000, 2006]`, `[2001, 2006]` is fine, and `[1999, 2003]` and `[2001, 2007]` aren't. `check-data` reports a range outside as `model-years-outside-generation`.
+
+Leave `modelYears` out only when the sources cover every model year of the generation, meaning every year in its `years`: either one source that applies to the whole span, or a source for each part of it.
+
+When the schedule differs by year, write one entry for each year range, each with its own `modelYears` and an id that names the years. When the market differs too, the id names both, as in `e46-coolant-us-2001-2003`. The ranges of one service must not overlap, and an entry without `modelYears` can't sit beside them, because it would claim every year again. A gap between the ranges means no source gives a schedule for those years, so no entry says anything about them. `check-data` can't tell which entries are one service, so the data verifier looks.
+
+BMW changed the E46 coolant schedule mid-run. BMW NA SI B17 01 07 gives "Every 4 years" and "Starting from the date of production" for model years 2001 to 2003, and "Long-Term" and "No Replacement Interval" from model year 2004. The bulletin is a BMW of North America document, so both entries are `markets: [us]` (see "Markets"). The coolant is two items and a gap:
+
+| id | `markets` | `modelYears` | `interval` |
+|---|---|---|---|
+| `e46-coolant-2001-2003` | `[us]` | `[2001, 2003]` | `months: 48`, with the date-of-production wording in `notes` |
+| `e46-coolant-2004` | `[us]` | `[2004, 2004]` | `triggers: [lifetime-fill]` |
+
+The copy of the bulletin is Tier 2 (see the R77 tests in the items' source notes), so it cannot carry `lifetime-fill`, which needs a Tier 1 source. Only the 2004 US booklet (Tier 1) gives the lifetime rating, so the lifetime item covers 2004 alone. Model years 2005 and 2006 have no coolant entry: that is a gap.
+
+The schema can't see which model years a source covers, so the data verifier and the `safety` spot-check look at `modelYears` against the sources. It does enforce the shape: two whole years from 1985 to 2035, with `from` not after `to`.
 
 ### Costs that are absent
 
@@ -282,6 +306,7 @@ It prints one `<file>: <code>: <message>` line per problem, exits 1 if there are
 | `part-bodies-outside-generation` | A part's `fits.bodies` names a body its generation doesn't build | Fix the bodies |
 | `fits-list-empty` | A part's `fits.bodies` or `fits.transmissions` is `[]`, which fits nothing | List at least one, or leave the field out to fit all |
 | `unknown-engine` | A maintenance item or issue names an `engine` that isn't one of its generation's engine codes | Fix the code, or leave `engine` out for every engine |
+| `model-years-outside-generation` | A maintenance item's or issue's `modelYears` aren't within its generation's `years` | Fix the years |
 | `no-schedule-without-tier1` | A maintenance item with the `lifetime-fill` or `condition-based` trigger has no Tier 1 source | Add the Tier 1 source, or use the trigger the sources do support |
 | `future-date` | A source's `accessed` or a price's `checked` is more than a day after today (UTC) | Fix the date |
 | `unverified-path-missing` | A path in `unverified` doesn't point at a value: no such field, key or element; an optional field that isn't set in the file; an element named by position; a position or an element under a list with no key; a key under a fixed-length list; a position past its end; a path below a plain value; an element key shared by two elements (the path is ambiguous); or the `unverified` field itself | Fix the path; the message says where it stops |
