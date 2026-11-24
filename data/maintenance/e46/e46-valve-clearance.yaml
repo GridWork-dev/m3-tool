@@ -6,6 +6,16 @@
 # archive.org's BMW manuals collection are all US English editions, and web searches found no
 # European one.
 #
+# Model years: `modelYears: [2004, 2004]` (rulings R86 and R88). The 2004 booklet names the model
+# year on its cover ('2004 E46 M3'), and the owner's manual (09/03) goes with it: the manual names
+# no model year itself, and ManualsLib lists it as 'BMW M3 2004'. The 2005 checklist, ST050 and
+# ST041 are Tier 2 copies and cannot widen the range on their own. I looked for another year's BMW
+# document that is Tier 1 under R77 or R84 and says the same: the archive.org copies of BMW NA's US
+# M3 booklets are for 2004 and for 2008 to 2010, and the 2005 booklet (SD 92-269) on ManualsLib is a
+# viewer's re-rendering, so I could not show it is the native file. The other years' owner's manuals
+# on archive.org name no model year in the document. The field is explicit because the US cars start
+# in 2001, so no US item can leave it out (R88).
+#
 # Interval: `triggers: [inspection-i]` and no number. The 2004 booklet lists 'Check valve settings.
 # Adjust if needed.' under Inspection I, which is due at every inspection (Inspection II repeats
 # it). No BMW document I opened gives miles or months for it, and the booklet adjusts only 'if
@@ -29,11 +39,11 @@ id: e46-valve-clearance
 generation: e46
 engine: S54B32
 markets: [us]
+modelYears: [2004, 2004]
 title: "Valve clearance check"
 interval:
   triggers: [inspection-i]
-parts:
-  - "valve clearance shims, only when an adjustment is needed"
+parts: []
 fluids: []
 inspectWhenBuying: false
 sources:
@@ -42,7 +52,7 @@ sources:
     url: https://archive.org/download/manualzilla-id-7066322/7066322.pdf
     tier: 1
     accessed: 2026-11-24
-    note: "Third-party copy on archive.org (item manualzilla-id-7066322, uploaded to archive.org from Manualzilla by a private account); the copy is complete (all 42 PDF pages) and nothing is missing. Tier 1 under data.md, 'Sources', ruling R84: it is BMW NA's own print file (QuarkXPress 5.01, Acrobat Distiller 4.05, created 2003-11-13, live text) with the line '© BMW of North America, LLC ... Printed in U.S.A. 9/03 SD 92-255' on the cover; the number fits BMW NA's sequence (SD 92-269, printed 08/04, on ManualsLib; SD 92-322, printed 07/06, on NHTSA's site); and the owner's manual (Tier 1) pp. 125-126 names 'the Service and Warranty Information Booklet for US models'. A BMW NA document, so it speaks for US-market cars only. Page numbers are the booklet's printed pages (PDF page = printed page + 3). 2004 model year. Inspection I, Engine Compartment: 'Check valve settings. Adjust if needed.' (p. 6). Inspection II 'Includes all items listed under Inspection I' (p. 8)."
+    note: "Third-party copy on archive.org (item manualzilla-id-7066322, uploaded to archive.org from Manualzilla by a private account); the copy is complete (all 42 PDF pages) and nothing is missing. Tier 1 under data.md, 'Sources', ruling R84: it is BMW NA's own print file (QuarkXPress 5.01, Acrobat Distiller 4.05, created 2003-11-13, live text) with the line '© BMW of North America, LLC ... Printed in U.S.A. 9/03 SD 92-255' on the cover, which also names the model year ('2004 E46 M3'); the number fits BMW NA's sequence (SD 92-269, printed 08/04, on ManualsLib; SD 92-322, printed 07/06, on NHTSA's site); and the owner's manual (Tier 1) pp. 125-126 names 'the Service and Warranty Information Booklet for US models', which confirms what kind of document it is and that it serves the US market. A BMW NA document, so it speaks for US-market cars only. Page numbers are the booklet's printed pages (PDF page = printed page + 3). 2004 model year. Inspection I, Engine Compartment: 'Check valve settings. Adjust if needed.' (p. 6). Inspection II 'Includes all items listed under Inspection I' (p. 8)."
   - title: "Sample 2005 BMW Service Maintenance Checklist (BMW NA SD92-283 8/04), as reproduced in ST050 Service and Maintenance, pp. 12-13"
     publisher: BMW of North America, LLC
     url: https://archive.org/download/BMWTechnicalTrainingDocuments/ST050%20Technical%20Systems%20%28Archive%201%29/Service%20and%20Maintenance.pdf
@@ -56,4 +66,4 @@ sources:
     accessed: 2026-11-24
     note: "Third-party copy on archive.org, from the item 'BMW Technical Training Documents' uploaded by a private account, so the copy rule in data.md, 'Sources' (ruling R77), applies, and this copy is Tier 2 on test 1: the file ('motorsport engines S54.qxd', Acrobat Distiller 5.0, created 3 April 2002) has no issuer line and no module number ('ST041' appears only in the archive.org item's description, not in the file). The url is the existing archive.org file; no snapshot was created. Module for the S54B32, production date '2001 MY to Present'. Technical Data (p. 4): 'Valve Clearance (Adjustment < 35º C Engine Temperature)', 'Intake (mm) 0.18 - 0.23', 'Exhaust (mm) 0.28 - 0.33'. Valve Train (p. 16): 'The adjustable valve clearance set by various shim thickness is:' 'Intake 0.18 - 0.23mm', 'Exhaust 0.28-0.33mm'."
 verified: true
-notes: "BMW's 2004 US booklet lists 'Check valve settings. Adjust if needed.' under Inspection I (p. 6), so the check is due at every inspection, because Inspection II 'Includes all items listed under Inspection I' (p. 8). It gives no miles or months and adjusts only 'if needed'. The 2005 US checklist's wording is 'Check and adjust valves.', for the M3 only (ST050 p. 13). Clearance figures, from BMW's ST041 training module (BMW Technical Training, a Tier 2 copy, the only source for them, so not verified): 'Valve Clearance (Adjustment < 35º C Engine Temperature)', intake 0.18 - 0.23 mm and exhaust 0.28 - 0.33 mm (p. 4, repeated on p. 16 as 'The adjustable valve clearance set by various shim thickness is:'). The figures are the engine's clearance with the engine below 35 ºC, not an interval."
+notes: "BMW's 2004 US booklet lists 'Check valve settings. Adjust if needed.' under Inspection I (p. 6), so the check is due at every inspection, because Inspection II 'Includes all items listed under Inspection I' (p. 8). It gives no miles or months and adjusts only 'if needed'. The 2005 US checklist's wording is 'Check and adjust valves.', for the M3 only (ST050 p. 13). Clearance figures, from BMW's ST041 training module (BMW Technical Training, a Tier 2 copy, the only source for them, so not verified): 'Valve Clearance (Adjustment < 35º C Engine Temperature)', intake 0.18 - 0.23 mm and exhaust 0.28 - 0.33 mm (p. 4, repeated on p. 16 as 'The adjustable valve clearance set by various shim thickness is:'). The figures are the engine's clearance with the engine below 35 ºC, not an interval. ST041 also says the clearance is 'set by various shim thickness' (p. 16), a single Tier 2 source, so shims are not listed in `parts`. The only Tier 1 source for this item is the booklet, a third-party copy on archive.org accepted under ruling R84, so the item rests on that copy alone (data.md, 'Sources')."

@@ -6,6 +6,16 @@
 # archive.org's BMW manuals collection are all US English editions, and web searches found no
 # European one.
 #
+# Model years: `modelYears: [2004, 2004]` (rulings R86 and R88). The 2004 booklet names the model
+# year on its cover ('2004 E46 M3'), and the owner's manual (09/03) goes with it: the manual names
+# no model year itself, and ManualsLib lists it as 'BMW M3 2004'. The 2005 checklist, ST050 and
+# ST041 are Tier 2 copies and cannot widen the range on their own. I looked for another year's BMW
+# document that is Tier 1 under R77 or R84 and says the same: the archive.org copies of BMW NA's US
+# M3 booklets are for 2004 and for 2008 to 2010, and the 2005 booklet (SD 92-269) on ManualsLib is a
+# viewer's re-rendering, so I could not show it is the native file. The other years' owner's manuals
+# on archive.org name no model year in the document. The field is explicit because the US cars start
+# in 2001, so no US item can leave it out (R88).
+#
 # Interval: `triggers: [inspection-ii]` and no `miles`. The 2004 booklet ties the plugs to
 # Inspection II and gives no mileage. The only number any source gives is 60,000 miles, from the
 # 2005 US checklist as reproduced in ST050 (the M3 column of 'BMW Spark Plug Replacement, required
@@ -25,11 +35,12 @@ id: e46-spark-plugs
 generation: e46
 engine: S54B32
 markets: [us]
+modelYears: [2004, 2004]
 title: "Spark plugs"
 interval:
   triggers: [inspection-ii]
 parts:
-  - "NGK DCPR8EKP dual-electrode spark plugs (ST041)"
+  - "spark plugs (platinum-tipped, per the 2004 booklet)"
 fluids: []
 inspectWhenBuying: true
 howToCheck: "Look in the booklet's Special Maintenance Record for entries under 'Record of Spark Plug Replacement (Every Insp. II)', which has a date and a mileage. No entry on a car that has passed its first Inspection II is a question to ask."
@@ -39,7 +50,7 @@ sources:
     url: https://archive.org/download/manualzilla-id-7066322/7066322.pdf
     tier: 1
     accessed: 2026-11-24
-    note: "Third-party copy on archive.org (item manualzilla-id-7066322, uploaded to archive.org from Manualzilla by a private account); the copy is complete (all 42 PDF pages) and nothing is missing. Tier 1 under data.md, 'Sources', ruling R84: it is BMW NA's own print file (QuarkXPress 5.01, Acrobat Distiller 4.05, created 2003-11-13, live text) with the line '© BMW of North America, LLC ... Printed in U.S.A. 9/03 SD 92-255' on the cover; the number fits BMW NA's sequence (SD 92-269, printed 08/04, on ManualsLib; SD 92-322, printed 07/06, on NHTSA's site); and the owner's manual (Tier 1) pp. 125-126 names 'the Service and Warranty Information Booklet for US models'. A BMW NA document, so it speaks for US-market cars only. Page numbers are the booklet's printed pages (PDF page = printed page + 3). 2004 model year. Supports the trigger: 'Spark Plug Service: Replace spark plugs every Inspection II' and 'Your BMW is equipped with platinum-tipped spark plugs.' (p. 3); Inspection II, Engine Compartment, 'Replace spark plugs.' (p. 8); and the record page, 'Record of Spark Plug Replacement (Every Insp. II)' (p. 9). It gives no mileage."
+    note: "Third-party copy on archive.org (item manualzilla-id-7066322, uploaded to archive.org from Manualzilla by a private account); the copy is complete (all 42 PDF pages) and nothing is missing. Tier 1 under data.md, 'Sources', ruling R84: it is BMW NA's own print file (QuarkXPress 5.01, Acrobat Distiller 4.05, created 2003-11-13, live text) with the line '© BMW of North America, LLC ... Printed in U.S.A. 9/03 SD 92-255' on the cover, which also names the model year ('2004 E46 M3'); the number fits BMW NA's sequence (SD 92-269, printed 08/04, on ManualsLib; SD 92-322, printed 07/06, on NHTSA's site); and the owner's manual (Tier 1) pp. 125-126 names 'the Service and Warranty Information Booklet for US models', which confirms what kind of document it is and that it serves the US market. A BMW NA document, so it speaks for US-market cars only. Page numbers are the booklet's printed pages (PDF page = printed page + 3). 2004 model year. Supports the trigger: 'Spark Plug Service: Replace spark plugs every Inspection II' and 'Your BMW is equipped with platinum-tipped spark plugs.' (p. 3); Inspection II, Engine Compartment, 'Replace spark plugs.' (p. 8); and the record page, 'Record of Spark Plug Replacement (Every Insp. II)' (p. 9). It gives no mileage."
   - title: "Sample 2005 BMW Service Maintenance Checklist (BMW NA SD92-283 8/04), as reproduced in ST050 Service and Maintenance, pp. 12-13"
     publisher: BMW of North America, LLC
     url: https://archive.org/download/BMWTechnicalTrainingDocuments/ST050%20Technical%20Systems%20%28Archive%201%29/Service%20and%20Maintenance.pdf
@@ -51,6 +62,6 @@ sources:
     url: https://archive.org/download/BMWTechnicalTrainingDocuments/ST041%20M3%20Complete%20Vehicle/2%20M3%20DriveLine.pdf
     tier: 2
     accessed: 2026-11-24
-    note: "Third-party copy on archive.org, from the item 'BMW Technical Training Documents' uploaded by a private account, so the copy rule in data.md, 'Sources' (ruling R77), applies, and this copy is Tier 2 on test 1: the file ('motorsport engines S54.qxd', Acrobat Distiller 5.0, created 3 April 2002) has no issuer line and no module number ('ST041' appears only in the archive.org item's description, not in the file). The url is the existing archive.org file; no snapshot was created. Module for the S54B32, production date '2001 MY to Present'. Says 'NGK DCPR8EKP dual electrode spark plugs are used.' (p. 26, Ignition Coils)."
+    note: "Third-party copy on archive.org, from the item 'BMW Technical Training Documents' uploaded by a private account, so the copy rule in data.md, 'Sources' (ruling R77), applies, and this copy is Tier 2 on test 1: the file ('motorsport engines S54.qxd', Acrobat Distiller 5.0, created 3 April 2002) has no issuer line and no module number ('ST041' appears only in the archive.org item's description, not in the file). The url is the existing archive.org file; no snapshot was created. Module for the S54B32, production date '2001 MY to Present'. Says 'NGK DCPR8EKP dual electrode spark plugs are used.' (p. 26, Ignition Coils). This is the only source for the plug type, so the type is in `notes`, labelled as not verified, and not in `parts`."
 verified: true
-notes: "BMW's 2004 US booklet ties the plugs to Inspection II and gives no mileage: 'Spark Plug Service: Replace spark plugs every Inspection II' (p. 3), and 'Replace spark plugs.' under Inspection II (p. 8). The only number in any source is the 2005 US checklist's 60 (thousand miles) in the M3 column of 'BMW Spark Plug Replacement, required at intervals of ______,000 mi.' (BMW NA SD92-283 8/04, reproduced in ST050 p. 12). That is another model year, a Tier 2 copy and a single source, so it is not verified and is not the interval here. It is a number the 2004 booklet does not give, and Inspection II is the interval the booklet does give. The plug the S54 uses is the NGK DCPR8EKP, a dual-electrode plug (ST041, Tier 2), and the booklet says the car is 'equipped with platinum-tipped spark plugs'."
+notes: "BMW's 2004 US booklet ties the plugs to Inspection II and gives no mileage: 'Spark Plug Service: Replace spark plugs every Inspection II' (p. 3), and 'Replace spark plugs.' under Inspection II (p. 8). The only number in any source is the 2005 US checklist's 60 (thousand miles) in the M3 column of 'BMW Spark Plug Replacement, required at intervals of ______,000 mi.' (BMW NA SD92-283 8/04, reproduced in ST050 p. 12). That is another model year, a Tier 2 copy and a single source, so it is not verified and is not the interval here. It is a number the 2004 booklet does not give, and Inspection II is the interval the booklet does give. The booklet says the car is 'equipped with platinum-tipped spark plugs' and names no part number. A plug type comes from ST041 alone (Tier 2, one source, not verified): 'NGK DCPR8EKP dual electrode spark plugs are used.' (p. 26). The only Tier 1 source for this item is the booklet, a third-party copy on archive.org accepted under ruling R84, so the item rests on that copy alone (data.md, 'Sources')."

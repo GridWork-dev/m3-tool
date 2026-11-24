@@ -6,6 +6,16 @@
 # archive.org's BMW manuals collection are all US English editions, and web searches found no
 # European one.
 #
+# Model years: `modelYears: [2004, 2004]` (rulings R86 and R88). The 2004 booklet names the model
+# year on its cover ('2004 E46 M3'), and the owner's manual (09/03) goes with it: the manual names
+# no model year itself, and ManualsLib lists it as 'BMW M3 2004'. The 2005 checklist, ST050 and
+# ST041 are Tier 2 copies and cannot widen the range on their own. I looked for another year's BMW
+# document that is Tier 1 under R77 or R84 and says the same: the archive.org copies of BMW NA's US
+# M3 booklets are for 2004 and for 2008 to 2010, and the 2005 booklet (SD 92-269) on ManualsLib is a
+# viewer's re-rendering, so I could not show it is the native file. The other years' owner's manuals
+# on archive.org name no model year in the document. The field is explicit because the US cars start
+# in 2001, so no US item can leave it out (R88).
+#
 # Interval: `triggers: [break-in, inspection-ii]` and no number: with two triggers a number can't be
 # pinned to one of them. The owner's manual (Tier 1) says the differential oil is changed 'during
 # running-in check and during each inspection II' (p. 153), which is the same two triggers, so the
@@ -23,6 +33,7 @@ id: e46-differential-oil
 generation: e46
 engine: S54B32
 markets: [us]
+modelYears: [2004, 2004]
 title: "Differential oil"
 interval:
   triggers: [break-in, inspection-ii]
@@ -37,12 +48,12 @@ sources:
     url: https://archive.org/download/manualsonline-id-d3b68d3e-dade-4bda-875b-3716cdeabf3f/d3b68d3e-dade-4bda-875b-3716cdeabf3f.pdf
     tier: 1
     accessed: 2026-11-24
-    note: "Third-party copy on archive.org (item manualsonline-id-d3b68d3e-dade-4bda-875b-3716cdeabf3f, uploaded by a private account from ManualsOnline). Tier 1 under data.md, 'Sources' (R77): tests 1, 2 and 4 pass, because the file is BMW's own 'Online Edition' PDF (FrameMaker+SGML 5.5.6, Acrobat Distiller 5.0.5, created 30 July 2003), all 170 pages, with 'Online Edition for Part-No. 01 41 0 157 628 - © 09/03 BMW AG' on each page and 'Order No. 01 41 0 157 628 US English VIII/03' on p. 4, so it is complete and not retyped, and the url is the existing archive.org item, with no snapshot created; and test 3 is met, because its part number and scope are corroborated independently by ManualsLib, which lists a 170-page 'BMW M3 2004' owner's manual with 'Online Edition for Part-No. 01 41 0 157 628 - © 09/03 BMW AG' and 'Order No. 01 41 0 157 628 US English VIII/03 Printed in Germany'. A US English edition, so it supports the US market only. Capacities table, row 'Differential quarts/liters approx. 1.2/approx. 1.1' with the note 'Oil change during running-in check and during each inspection II' (p. 153). It asks for a break-in inspection 'at approx. 1,250 miles/ 2,000 km regardless of the service interval indicated on the display' (p. 126). It gives no oil grade."
+    note: "Third-party copy on archive.org (item manualsonline-id-d3b68d3e-dade-4bda-875b-3716cdeabf3f, uploaded by a private account from ManualsOnline). Tier 1 under data.md, 'Sources' (R77): tests 1, 2 and 4 pass, because the file is BMW's own 'Online Edition' PDF (FrameMaker+SGML 5.5.6, Acrobat Distiller 5.0.5, created 30 July 2003), all 170 pages, with 'Online Edition for Part-No. 01 41 0 157 628 - © 09/03 BMW AG' on each page and 'Order No. 01 41 0 157 628 US English VIII/03' on p. 4, so it is complete and not retyped, and the url is the existing archive.org item, with no snapshot created; and test 3 is met, because its part number and scope are corroborated independently by ManualsLib, which lists a 170-page 'BMW M3 2004' owner's manual with 'Online Edition for Part-No. 01 41 0 157 628 - © 09/03 BMW AG' and 'Order No. 01 41 0 157 628 US English VIII/03 Printed in Germany'. Its imprint on p. 4 reads '© 2003 BMW M GmbH' and each page footer '© 09/03 BMW AG'; the publisher is given as BMW AG, as in the generation file. A US English edition that also refers to Canadian models (p. 125), so it supports the US market only. It names no model year. Capacities table, row 'Differential quarts/liters approx. 1.2/approx. 1.1' with the note 'Oil change during running-in check and during each inspection II' (p. 153). It asks for a break-in inspection 'at approx. 1,250 miles/ 2,000 km regardless of the service interval indicated on the display' (p. 126). It gives no oil grade."
   - title: "Service and Warranty Information, 2004 E46 M3 (SD 92-255, printed 9/03)"
     publisher: BMW of North America, LLC
     url: https://archive.org/download/manualzilla-id-7066322/7066322.pdf
     tier: 1
     accessed: 2026-11-24
-    note: "Third-party copy on archive.org (item manualzilla-id-7066322, uploaded to archive.org from Manualzilla by a private account); the copy is complete (all 42 PDF pages) and nothing is missing. Tier 1 under data.md, 'Sources', ruling R84: it is BMW NA's own print file (QuarkXPress 5.01, Acrobat Distiller 4.05, created 2003-11-13, live text) with the line '© BMW of North America, LLC ... Printed in U.S.A. 9/03 SD 92-255' on the cover; the number fits BMW NA's sequence (SD 92-269, printed 08/04, on ManualsLib; SD 92-322, printed 07/06, on NHTSA's site); and the owner's manual (Tier 1) pp. 125-126 names 'the Service and Warranty Information Booklet for US models'. A BMW NA document, so it speaks for US-market cars only. Page numbers are the booklet's printed pages (PDF page = printed page + 3). 2004 model year. 1200 Mile Service: 'Replace differential oil.' (p. 5), and 'The 1200 Mile Service requires changing the oil in the engine and both the transmission and the differential.' (p. 4). Inspection II, Undercarriage: 'Replace differential oil.' (p. 8), and Inspection II 'Includes all items listed under Inspection I, and the following checks and maintenance operations.'"
+    note: "Third-party copy on archive.org (item manualzilla-id-7066322, uploaded to archive.org from Manualzilla by a private account); the copy is complete (all 42 PDF pages) and nothing is missing. Tier 1 under data.md, 'Sources', ruling R84: it is BMW NA's own print file (QuarkXPress 5.01, Acrobat Distiller 4.05, created 2003-11-13, live text) with the line '© BMW of North America, LLC ... Printed in U.S.A. 9/03 SD 92-255' on the cover, which also names the model year ('2004 E46 M3'); the number fits BMW NA's sequence (SD 92-269, printed 08/04, on ManualsLib; SD 92-322, printed 07/06, on NHTSA's site); and the owner's manual (Tier 1) pp. 125-126 names 'the Service and Warranty Information Booklet for US models', which confirms what kind of document it is and that it serves the US market. A BMW NA document, so it speaks for US-market cars only. Page numbers are the booklet's printed pages (PDF page = printed page + 3). 2004 model year. 1200 Mile Service: 'Replace differential oil.' (p. 5), and 'The 1200 Mile Service requires changing the oil in the engine and both the transmission and the differential.' (p. 4). Inspection II, Undercarriage: 'Replace differential oil.' (p. 8), and Inspection II 'Includes all items listed under Inspection I, and the following checks and maintenance operations.'"
 verified: true
 notes: "BMW ties the differential oil to the break-in service and to Inspection II, and gives no mileage for Inspection II. The owner's manual (Tier 1) has, for the differential, 'Oil change during running-in check and during each inspection II' (p. 153) and a capacity of about 1.2 US quarts / 1.1 liters. The 2004 US booklet lists 'Replace differential oil.' at the 1200 Mile Service (p. 5) and under Inspection II (p. 8), and says the 1200 Mile Service 'requires changing the oil in the engine and both the transmission and the differential.' (p. 4). None of the sources opened names an oil grade for the differential."
