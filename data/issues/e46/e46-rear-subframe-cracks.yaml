@@ -1,0 +1,56 @@
+# Cracking of the body metal around the rear subframe mounts. Every source below was opened on
+# 2026-11-23.
+#
+# Markets: `markets` is left out. Jalopnik ('a problem with all BMW E46s') and ECS Tuning ('even
+# cars that have never seen more than standard street driving') make model-wide statements, from
+# two different publishers, about a body-structure weakness that is not market-specific (ruling
+# R61). None is a market-specific BMW document. No BMW bulletin for this problem was found.
+#
+# Reinforcement is attributed only to the sources that say it. Jalopnik names a chassis
+# reinforcement kit for minor damage, and ECS Tuning recommends Turner Motorsport's kit by name on
+# intact or repaired subframes. MotorBiscuit never mentions reinforcement: it says worn subframe
+# bushings tear the frame and to 'fix it immediately', which this entry uses for the cause only.
+#
+# Not a contest: only ECS Tuning recommends reinforcing a subframe with no cracks. Jalopnik and
+# MotorBiscuit say nothing for or against, and silence is not disagreement, so the entry says the
+# sources do not say more and takes no side.
+#
+# `frequency: common` rests on editorial wording. Jalopnik says 'all BMW E46s' and MotorBiscuit
+# says 'all cars', which would also fit `very-common`. `common` is kept as the conservative
+# reading, because no source gives a rate.
+#
+# No cost is published (ruling R78). MotorBiscuit's 'around $2,000' follows its bushing-wear
+# sentence and does not say what the work is, who does it, or what it includes. No source costs a
+# kit installation or the repair of a cracked mount.
+id: e46-rear-subframe-cracks
+generation: e46
+title: Rear subframe mount cracking
+symptoms:
+  - "Cracks or tears in the body metal around the rear subframe mounts."
+  - "Cracks can sit behind the subframe bushings, so a visual check from below can pass a car that has them."
+cause: "Jalopnik calls it 'a problem with all BMW E46s', and ECS Tuning calls it an 'engineering oversight' that can hit cars that only saw street driving. MotorBiscuit says worn subframe bushings, left alone, tear the frame. The sources opened here give no BMW explanation or bulletin."
+fix: "Jalopnik says minor damage can be treated with a chassis reinforcement kit, and that untreated cracking 'costs many thousands of dollars to fix' and, for a heavily damaged subframe, 'the repair costs could exceed the costs of the car'. ECS Tuning recommends a reinforcement kit, naming Turner Motorsport's, on intact or repaired subframes as well. MotorBiscuit says only to fix worn bushings 'immediately' and does not mention reinforcement. No source costs a kit installation or the repair of a cracked mount, so no cost is published."
+prevention: "Have the mounting areas inspected before you buy and again from time to time. Because cracks can hide behind the bushings, ECS Tuning says only removing the subframe shows for sure. ECS Tuning recommends a reinforcement kit even on an intact subframe, and Jalopnik mentions a kit only for minor damage. No source here says more about reinforcing a car that has no cracks, and this entry takes no side."
+frequency: common
+inspectWhenBuying: true
+howToCheck: "From under the car, look at the sheet metal around the rear subframe mounts for cracks or tears. Ask whether the subframe was ever removed for inspection, because a visual check can miss cracks behind the bushings."
+sources:
+  - title: "The Affordable Supercar: The Ultimate E46 M3 Buyer's Guide"
+    publisher: Jalopnik
+    url: https://jalopnik.com/the-affordable-supercar-the-ultimate-e46-m3-buyers-gui-1593133171
+    tier: 2
+    accessed: 2026-11-23
+    note: "By Freddy 'Tavarish' Hernandez, 19 June 2014 (the page says it is from APiDA Online, so it is an outside author's post). Says 'check the rear subframe for cracks or tears in the metal surrounding the mounts. This is a problem with all BMW E46s and costs many thousands of dollars to fix if left untreated, not to mention it makes the car unsafe to drive', 'If there is a small amount of damage, a chassis reinforcement kit can be purchased and installed', and that for a heavily damaged subframe 'it's not inconcievable that the repair costs could exceed the costs of the car' (spelling as published)."
+  - title: Most Common BMW E46 M3 Problems
+    publisher: ECS Tuning
+    url: https://blog.ecstuning.com/most-common-bmw-e46-m3-problems/
+    tier: 2
+    accessed: 2026-11-23
+    note: "Specialist retailer's tech article (Tier 2 under data.md). By Craig Daugherty, 5 November 2020. Says 'Even cars that have never seen more than standard street driving can suffer from this engineering oversight and should be inspected before purchase and periodically', that 'the subframe bushings can hide fissures and cracks' and that without removing the subframe 'you won't know for sure', and that 'the Turner Motorsport Rear Subframe Reinforcement Kit is a permanent fix that will help you keep your intact or repaired subframe stout'. The page names Turner Motorsport's kit as plain text and does not say ECS sells it."
+  - title: "Buyer's Guide: BMW E46 M3 (2000-2006)"
+    publisher: MotorBiscuit
+    url: https://www.motorbiscuit.com/buyers-guide-bmw-e46-m3-2000-2006
+    tier: 2
+    accessed: 2026-11-23
+    note: "By Chase Bierenkoven, 7 July 2021. Says 'the subframe bushings will eventually wear on all cars. If not taken care of, they'll tear the frame. Fix it immediately, just like the bearings, for around $2,000.' Used for the bushing-wear cause only. It names no kit, no reinforcement and no labor, so the $2,000 is not used as a cost and is not tied to a reinforcement fix (ruling R78)."
+verified: true

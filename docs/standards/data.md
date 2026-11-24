@@ -97,6 +97,13 @@ Every `Source` has a `title`, `publisher`, `tier` (1 to 3) and `accessed` date, 
 - **Cite what you opened.** Record the date you read it as `accessed`. Never invent a source or a URL.
 - **Use `note` to say what the source supports,** with the page or table, so a reviewer can find the number.
 - **Say so when a copy is not the original.** An archived or mirrored copy goes in the `url`, and the `note` says it is a copy.
+- **A third-party copy of a manufacturer's document is Tier 1 only if all of these hold** (ruling R77). A copy that fails one is Tier 2.
+  1. It is complete and not retyped: the whole document, with the manufacturer's identifiers intact (number, date or revision, issuer, model range), and the passages you rely on are the copy's own text (the original file, a scan or a faithful print), not re-rendered or retyped.
+  2. The `note` names the host and says what is missing.
+  3. The document's number and scope are corroborated by an independent Tier 1 or Tier 2 source.
+  4. The `url` is an existing archive.org snapshot, if one exists. Don't create snapshots. A copy on a vendor's server is neither linkable nor stable, so when there is no snapshot the note says so.
+  A safety value that rests on a copy alone says so in the entry.
+- **A cost is published only under the label its source states** (ruling R78; see "Costs that are absent").
 - **A generation's own `sources`** (at least one) cover its name, chassis, years, engines and bodies. Its dimensions, eye point and fitment carry their own.
 
 ### Citations
@@ -206,11 +213,13 @@ The table is sourced from BMW of North America's 2004 US M3 booklet, with the US
 
 A document for one market covers that market only (the one-market clause of ruling R61, in "What counts as verified"). A BMW of North America booklet, checklist or bulletin supports `markets: [us]` and nothing else, and a European handbook supports `markets: [euro]`. A model-wide statement inside a one-market document is still a one-market document, so it does not widen the item.
 
+A remedy that rests on a market-specific document splits the issue into one entry per market (ruling R82). The entry for the document's market carries the remedy and is verified on it. Every other market keeps an entry of its own, built from what the evidence supports there and `verified: false` unless it has its own sourced remedy, so a market without a sourced remedy keeps an unverified entry and the issue does not disappear from it. Each entry's id names its market.
+
 Leave `markets` out only when the evidence covers every market: either one source that applies to all of them (a document that is not for one market, such as an international BMW media release), or a source for each market. When the US and European schedules differ, write one item for each market, with its own `markets` and an id that names the market. The schema can't see which market a source is for, so the data verifier and the `safety` spot-check look at `markets` against the sources.
 
 ### Costs that are absent
 
-`cost` is optional on a maintenance item and on a known issue. Leave it out when no Tier 1 or Tier 2 source gives a figure. The site then shows "no sourced cost", and never zero. Don't write `[0, 0]` for "unknown": nothing tells it from free. A `cost` that is given is still checked: USD, a sorted range, and for a maintenance item both `diy` and `shop`. Price collection is a separate lane (see "Prices"), so a figure from a retailer's product listing is not a sourced cost.
+`cost` is optional on a maintenance item and on a known issue. Leave it out when no Tier 1 or Tier 2 source gives a figure. A cost is published only under the label its source states (ruling R78): a shop price, meaning parts and labor, goes in `shop`, and a do-it-yourself price in `diy` and never in `shop`. `cost` requires `shop` (a maintenance `cost` requires both), so a DIY figure with no shop figure is not published. A figure whose source doesn't say what it covers is not a sourced cost, and a parts-only figure is never a `shop` price. In those cases leave `cost` out, even when the source is Tier 1 or Tier 2. The site then shows "no sourced cost", and never zero. Don't write `[0, 0]` for "unknown": nothing tells it from free. A `cost` that is given is still checked: USD, a sorted range, and for a maintenance item both `diy` and `shop`. Price collection is a separate lane (see "Prices"), so a figure from a retailer's product listing is not a sourced cost.
 
 ### Review
 

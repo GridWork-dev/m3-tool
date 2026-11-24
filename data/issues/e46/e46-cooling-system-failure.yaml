@@ -1,0 +1,61 @@
+# Cooling system wear on the S54 car: water pump and radiator. Every source below was opened on
+# 2026-11-23.
+#
+# Markets: `markets` is left out. ECS Tuning and MotorBiscuit say the E46 M3 can overheat and name
+# the water pump and the radiator, which are model-wide statements from two different publishers
+# (ruling R61). The one market-specific source is BMW's booklet, a BMW of North America document,
+# so its coolant statement speaks for US-market cars only, and the text says so.
+#
+# Two separate points, not a disagreement, so nothing here is called contested:
+# - BMW's US 2004 booklet says the engine coolant, the fluid, has a lifetime rating.
+# - BimmerWorld, a retailer, says the water pump and radiator typically need replacing at 80,000
+#   to 100,000 miles, and that fresh coolant is then required. That is about the hardware, from a
+#   product page (Tier 3).
+# No source opened here gives BMW's view on the pump or the radiator, and no overhaul interval is
+# published.
+#
+# Unverified on purpose: only MotorBiscuit names a repair (a radiator, and 'going through the
+# cooling system'). ECS Tuning names a failing water pump as a problem and no repair, and no Tier 1
+# or Tier 2 source states a pump repair, so none is published.
+#
+# No cost is published (ruling R78). MotorBiscuit's radiator figure does not say who does the work
+# or what is included.
+id: e46-cooling-system-failure
+generation: e46
+engine: S54B32
+title: Cooling system wear (water pump and radiator)
+symptoms:
+  - "The coolant temperature climbs in stop-and-go traffic, which ECS Tuning says can point to a failing water pump."
+  - "Overheating: MotorBiscuit says 'these cars can overheat'."
+cause: "ECS Tuning lists a failing water pump among the E46 M3's common problems. MotorBiscuit says the cars can overheat and advises going through the cooling system, naming the radiator. BimmerWorld, a retailer, says wear in the water pump bearings and plastic fatigue in the radiator tanks are why its overhaul of the pump, radiator and hoses is typically needed at 80,000 to 100,000 miles; that is a product page, so it is Tier 3 and not evidence of an interval. None of the sources gives a failure rate."
+fix: "Go through the cooling system, as MotorBiscuit advises. MotorBiscuit names a new radiator but does not say when a radiator should be replaced. ECS Tuning names a failing water pump as a common problem, but no Tier 1 or Tier 2 source here states a pump repair, so none is published. No cost is published, because no source says who does the work or what a price would cover. The fix rests on MotorBiscuit alone, so the entry stays unverified."
+prevention: "Two separate points. BMW's US 2004 service booklet says 'The engine coolant has a lifetime rating and does not need to be changed.' That is about the coolant, the fluid, and it covers the US-market car only. BimmerWorld, a retailer, says the water pump and radiator typically need replacing at 80,000 to 100,000 miles and that fresh coolant is then required. That is about the hardware, and it comes from a product page. No source here gives BMW's view on the pump or the radiator, and this entry gives no overhaul interval. Ask what has been replaced and when."
+frequency: common
+inspectWhenBuying: true
+howToCheck: "Sit in traffic or idle on the test drive and watch the coolant temperature gauge for creep. Ask whether the radiator and water pump have been replaced, and when."
+sources:
+  - title: The ECS Tuning BMW E46 M3 Buyer's Guide
+    publisher: ECS Tuning
+    url: https://blog.ecstuning.com/the-ecs-tuning-bmw-e46-m3-buyers-guide/
+    tier: 2
+    accessed: 2026-11-23
+    note: "Specialist retailer's tech article (Tier 2 under data.md). By Craig Daugherty, 6 November 2020. Says to get the car 'stuck in traffic. See if the temperature creeps up. That could indicate a failing water pump, one of the E46 M3's common problems.' It names a failing pump as a problem and names no repair."
+  - title: "Buyer's Guide: BMW E46 M3 (2000-2006)"
+    publisher: MotorBiscuit
+    url: https://www.motorbiscuit.com/buyers-guide-bmw-e46-m3-2000-2006
+    tier: 2
+    accessed: 2026-11-23
+    note: "By Chase Bierenkoven, 7 July 2021. Says 'consider going through the cooling system, as these cars can overheat. A new radiator can run around $500-$1,000.' It names a radiator and 'going through the cooling system', not a water pump repair. The figure is not used as a cost: the page does not say who does the work or what is included (ruling R78)."
+  - title: "Service and Warranty Information, 2004 E46 M3 (SD 92-255, printed 9/03)"
+    publisher: BMW of North America, LLC
+    url: https://archive.org/download/manualzilla-id-7066322/7066322.pdf
+    tier: 1
+    accessed: 2026-11-23
+    note: "BMW NA booklet for the 2004 US M3, a copy hosted on archive.org: a PDF of BMW NA's own print file (QuarkXPress 5.01, Acrobat Distiller 4.05 for Macintosh, created 13 November 2003) with live text, all 42 pages. Its scope is corroborated by the US owner's manual (part no. 01 41 0 157 628, 09/03), which refers to the 'Service and Warranty Information Booklet for US models' and agrees on the two-year brake fluid change. 'Maintenance System' (booklet pp. 2-3): 'The engine coolant has a lifetime rating and does not need to be changed.' Used only for that statement, which is about the coolant and speaks for US-market cars."
+  - title: Cooling System Overhaul Kit, OEM - E46 M3
+    publisher: BimmerWorld
+    url: https://www.bimmerworld.com/Cooling/Cooling-System-Overhaul-Kit-OEM-E46-M3.html
+    tier: 3
+    accessed: 2026-11-23
+    note: "Retailer product page (a listing, so Tier 3). Says the overhaul 'typically needs to be performed at 80-100,000 miles with stock parts due to normal wear and tear of water pump bearings and plastic fatigue on the radiator tanks', and 'Coolant: we do not include coolant/antifreeze in this package even though fresh fluid is required.' Recorded as a retailer's view of the hardware, not as an interval. No price is recorded."
+verified: false
