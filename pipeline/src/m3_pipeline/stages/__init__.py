@@ -47,4 +47,5 @@ def run_stage(name: str, asset: AssetSpec, settings: Settings) -> StageResult:
 # which must be fully defined by then.
 from m3_pipeline.stages import export as export  # noqa: E402
 from m3_pipeline.stages import refs as refs  # noqa: E402
+from m3_pipeline.stages import segment as segment  # noqa: E402
 from m3_pipeline.stages import validate as validate  # noqa: E402
