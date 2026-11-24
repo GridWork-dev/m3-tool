@@ -218,7 +218,7 @@ YAML under `data/`, one entry per file, validated by the Zod schemas in `src/dat
 
 **`maintenance item`**
 - Generation, engine, the markets its sources cover (`us`, `euro`, or every market when left out), interval, parts and fluids, and an optional cost range for DIY and shop. (amended 2026-11-23)
-- The interval is `miles`, `months`, `triggers`, or a mix. `triggers` is a non-empty list of `break-in`, `oil-service`, `inspection-i`, `inspection-ii`, `lifetime-fill` and `condition-based`, because one service can be due at two of them. They are what BMW ties the service to when it gives no number, and the site shows them instead of a made-up mileage. `lifetime-fill` and `condition-based` stand alone. (amended 2026-11-23)
+- The interval is `miles`, `months`, `triggers`, or a mix. `triggers` is a non-empty list of `break-in`, `oil-service`, `inspection-i`, `inspection-ii`, `lifetime-fill` and `condition-based`, because one service can be due at two of them. They are what BMW ties the service to when it gives no number, and the site shows them instead of a made-up mileage. `lifetime-fill` and `condition-based` stand alone, an item due at both inspections lists `inspection-i` only, and a number sits beside a single trigger only. (amended 2026-11-23)
 - With no sourced cost the site shows "no sourced cost", never zero. (amended 2026-11-23)
 - `inspectWhenBuying` plus `howToCheck`.
 - `sources[]` (at least one of Tier 1 or Tier 2, section 7.6) and `verified`. (amended 2026-11-23)

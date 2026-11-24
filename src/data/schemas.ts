@@ -538,8 +538,11 @@ export const MAINTENANCE_TRIGGERS = [
   'condition-based',
 ] as const
 
-// These two say there is no scheduled service, so each stands alone in the list.
-const NO_SCHEDULE_TRIGGERS: readonly string[] = ['lifetime-fill', 'condition-based']
+// These two say there is no scheduled service, so each stands alone in the list, and an item that
+// uses either needs a Tier 1 source (`no-schedule-without-tier1`, quality.ts).
+export const NO_SCHEDULE_TRIGGERS = ['lifetime-fill', 'condition-based'] as const
+export const isNoScheduleTrigger = (trigger: string): boolean =>
+  (NO_SCHEDULE_TRIGGERS as readonly string[]).includes(trigger)
 
 // `markets` on a maintenance item or a known issue: absent means every market, and a repeated
 // market is an error. A document for one market supports that market only (data.md).
@@ -567,7 +570,9 @@ export const MaintenanceItem = z
     // One service can be due at more than one trigger, so `triggers` is a list (ruling R79): the
     // microfilter is due at the Oil Service and Inspection I, and the gearbox oil at the
     // 1200 Mile Service and Inspection II. `miles` and `months` may sit beside `triggers` only
-    // when the source gives both, and never beside `lifetime-fill`.
+    // when the source gives both, only beside a single trigger (with several, a number can't be
+    // pinned to one of them), and never beside `lifetime-fill`. `inspection-ii` repeats every
+    // `inspection-i` item, so an item due at both lists `inspection-i` only.
     interval: z
       .strictObject({
         miles: z.int().positive().optional(),
@@ -588,11 +593,31 @@ export const MaintenanceItem = z
       .refine(
         (interval) =>
           (interval.triggers ?? []).length < 2 ||
-          !(interval.triggers ?? []).some((trigger) => NO_SCHEDULE_TRIGGERS.includes(trigger)),
+          !(interval.triggers ?? []).some(isNoScheduleTrigger),
         {
           message: "'lifetime-fill' and 'condition-based' must be the only trigger",
           path: ['triggers'],
         },
+      )
+      .refine(
+        (interval) =>
+          !(
+            (interval.triggers ?? []).includes('inspection-i') &&
+            (interval.triggers ?? []).includes('inspection-ii')
+          ),
+        {
+          message:
+            "'inspection-ii' repeats every 'inspection-i' item, so an item due at both lists 'inspection-i' only",
+          path: ['triggers'],
+        },
+      )
+      // With two or more triggers a number can't say which one it belongs to: `miles: 1200` beside
+      // [break-in, inspection-ii] would read as the interval of both.
+      .refine(
+        (interval) =>
+          (interval.triggers ?? []).length < 2 ||
+          (interval.miles === undefined && interval.months === undefined),
+        'miles and months go beside one trigger only: with several triggers a number belongs to none of them',
       )
       // A lifetime fill has no scheduled change, so a number beside it would contradict it. A
       // shorter interval that specialists recommend goes in `notes`, not here.

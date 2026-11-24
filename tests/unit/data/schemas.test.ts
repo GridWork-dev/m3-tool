@@ -3,9 +3,11 @@ import { loadDataSet } from '../../../src/data/load.ts'
 import {
   DateLike,
   Generation,
+  isNoScheduleTrigger,
   KnownIssue,
   MAINTENANCE_TRIGGERS,
   MaintenanceItem,
+  NO_SCHEDULE_TRIGGERS,
   Part,
   PriceObservation,
   Source,
@@ -656,8 +658,9 @@ describe('maintenance item and known issue', () => {
     const lists = [
       ['oil-service', 'inspection-i'],
       ['break-in', 'inspection-ii'],
-      ['break-in', 'oil-service', 'inspection-i', 'inspection-ii'],
+      ['break-in', 'oil-service', 'inspection-i'],
       ['inspection-ii', 'break-in'],
+      ['inspection-ii', 'oil-service'],
     ]
     for (const triggers of lists) {
       expect(
@@ -708,17 +711,88 @@ describe('maintenance item and known issue', () => {
     }
   })
 
-  test('miles and months may sit beside triggers', () => {
+  test('miles and months may sit beside a single trigger', () => {
     const both = { miles: 60000, months: 48, triggers: ['inspection-ii'] }
     expect(MaintenanceItem.safeParse(edit(maintenance(), 'interval', both)).success).toBe(true)
-    const one = { miles: 60000, triggers: ['break-in', 'inspection-ii'] }
+    const one = { miles: 60000, triggers: ['inspection-ii'] }
     expect(MaintenanceItem.safeParse(edit(maintenance(), 'interval', one)).success).toBe(true)
-    // The other interval rules still apply beside triggers.
+    // The other interval rules still apply beside a trigger.
     const zero = MaintenanceItem.safeParse(
       edit(maintenance(), 'interval', { miles: 0, triggers: ['inspection-ii'] }),
     )
     expect(zero.success).toBe(false)
     expect(issuePaths(zero)).toContain('interval.miles')
+  })
+
+  test('miles and months are rejected beside two or more triggers: a number is pinned to one', () => {
+    // `miles: 1200` beside [break-in, inspection-ii] would read as the interval of both.
+    const cases = [
+      { miles: 1200, triggers: ['break-in', 'inspection-ii'] },
+      { months: 12, triggers: ['oil-service', 'inspection-i'] },
+      { miles: 60000, months: 48, triggers: ['break-in', 'inspection-ii'] },
+      { miles: 15000, triggers: ['break-in', 'oil-service', 'inspection-i'] },
+    ]
+    for (const interval of cases) {
+      const r = MaintenanceItem.safeParse(edit(maintenance(), 'interval', interval))
+      expect(r.success, JSON.stringify(interval)).toBe(false)
+      expect(issuePaths(r), JSON.stringify(interval)).toContain('interval')
+      expect(issueMessages(r).join(' '), JSON.stringify(interval)).toMatch(/one trigger/)
+    }
+    // The same triggers without numbers are fine, and so is a number beside either one alone.
+    expect(
+      MaintenanceItem.safeParse(
+        edit(maintenance(), 'interval', { triggers: ['break-in', 'inspection-ii'] }),
+      ).success,
+    ).toBe(true)
+    for (const trigger of ['break-in', 'inspection-ii']) {
+      const r = MaintenanceItem.safeParse(
+        edit(maintenance(), 'interval', { miles: 1200, triggers: [trigger] }),
+      )
+      expect(r.success, trigger).toBe(true)
+    }
+  })
+
+  test('inspection-i and inspection-ii are not listed together: inspection-ii repeats inspection-i', () => {
+    const pairs = [
+      ['inspection-i', 'inspection-ii'],
+      ['inspection-ii', 'inspection-i'],
+      ['oil-service', 'inspection-i', 'inspection-ii'],
+      ['inspection-i', 'break-in', 'inspection-ii'],
+    ]
+    for (const triggers of pairs) {
+      const r = MaintenanceItem.safeParse(edit(maintenance(), 'interval', { triggers }))
+      expect(r.success, triggers.join()).toBe(false)
+      expect(issuePaths(r), triggers.join()).toContain('interval.triggers')
+      expect(issueMessages(r).join(' '), triggers.join()).toMatch(/lists 'inspection-i' only/)
+    }
+    // Each is fine alone and beside any other trigger, and an item due at both lists inspection-i.
+    for (const triggers of [
+      ['inspection-i'],
+      ['inspection-ii'],
+      ['inspection-i', 'oil-service'],
+      ['inspection-i', 'break-in'],
+      ['inspection-ii', 'break-in'],
+      ['inspection-ii', 'oil-service'],
+    ]) {
+      expect(
+        MaintenanceItem.safeParse(edit(maintenance(), 'interval', { triggers })).success,
+        triggers.join(),
+      ).toBe(true)
+    }
+  })
+
+  test('the two no-schedule triggers are one shared constant', () => {
+    expect([...NO_SCHEDULE_TRIGGERS]).toEqual(['lifetime-fill', 'condition-based'])
+    for (const trigger of NO_SCHEDULE_TRIGGERS) {
+      expect(MAINTENANCE_TRIGGERS).toContain(trigger)
+      expect(isNoScheduleTrigger(trigger)).toBe(true)
+    }
+    for (const trigger of MAINTENANCE_TRIGGERS.filter(
+      (t) => !NO_SCHEDULE_TRIGGERS.includes(t as never),
+    )) {
+      expect(isNoScheduleTrigger(trigger), trigger).toBe(false)
+    }
+    expect(isNoScheduleTrigger('annual')).toBe(false)
   })
 
   test('a lifetime-fill interval may not also carry miles or months', () => {
