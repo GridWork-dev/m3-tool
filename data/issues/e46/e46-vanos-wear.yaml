@@ -1,17 +1,23 @@
 # VANOS (variable valve timing) wear on the S54. Every source below was opened on 2026-11-23.
 #
-# Market: the sources are editorial guides, not market-specific BMW documents. PistonHeads writes
-# about Euro-spec cars, the others are US-facing.
+# Markets: `markets` is left out because the evidence covers both. PistonHeads writes about
+# Euro-spec cars ('we'll concentrate on Euro-spec models'), and ECS Tuning, MotorBiscuit,
+# Motorious and Jalopnik write for the US or for the model generally. None of them is a
+# market-specific BMW document.
 #
 # Contested or thin, and worded that way:
-# - ECS Tuning sells VANOS kits and recommends service with updated hubs, while PistonHeads says
-#   the E46 M3's double VANOS is 'more robust' than the E36 version. None of the sources gives a
-#   failure rate, so `frequency` rests on their wording ('a known issue', 'can give all sorts of
-#   issues').
+# - ECS Tuning sells VANOS kits and recommends service with its VAC-brand camshaft hubs, while
+#   PistonHeads says the E46 M3's double VANOS is 'more robust' than the E36 version. None of the
+#   sources gives a failure rate, so `frequency` rests on their wording ('a known issue', 'can
+#   give all sorts of issues').
+# - The 'updated' hubs are VAC aftermarket hubs that ECS sells. No source opened here says BMW
+#   updated the hubs. Only the bolts are shown as available from BMW (PistonHeads), and Motorious
+#   independently says to replace the cam gear retaining bolts.
 # - Jalopnik reports a voluntary BMW service action on the VANOS solenoid and cites a bulletin
 #   number. The bulletin was not found, so the number is not repeated here.
 #
-# The cost is MotorBiscuit's $500 to $800 for a rebuild (2021).
+# No cost is published (ruling R78). MotorBiscuit's '$500-$800' for a rebuild does not say who does
+# the work or what is included.
 id: e46-vanos-wear
 generation: e46
 engine: S54B32
@@ -19,12 +25,9 @@ title: VANOS variable valve timing wear
 symptoms:
   - "A rattle from the top of the engine, described by Motorious as a marble in a tin can, which can mean VANOS pump wear."
   - "Limp mode with engine warning lights and stored fault codes, which Motorious says can point to the VANOS solenoid or a larger VANOS failure."
-cause: "More than one VANOS part wears. ECS Tuning says tabs on the camshaft hubs tend to break off and reach the timing chain, and PistonHeads says the VANOS bolts can loosen at around 70,000 miles and, if they break, can ruin the engine. Motorious names VANOS pump wear and the solenoid. Jalopnik reports a voluntary BMW service action covering the VANOS solenoid, which it says 'would seal improperly and fail over time'; BMW's own bulletin was not available to check. ECS sells VANOS kits, and PistonHeads calls the E46 M3's double VANOS 'more robust' than the E36 version. None of the sources gives a failure rate."
-fix: "Service or rebuild the VANOS units and fit the updated parts. ECS Tuning says the service should include updated camshaft hubs, and PistonHeads says stronger replacement bolts are available from BMW. MotorBiscuit (2021) puts a rebuild at $500 to $800."
-prevention: "Listen for the top-end rattle on a cold start, and check for engine warning lights and stored fault codes. Ask for records of any VANOS service and whether it included updated hubs and bolts."
-cost:
-  currency: USD
-  shop: [500, 800]
+cause: "More than one VANOS part wears. ECS Tuning says tabs on the camshaft hubs tend to break off and reach the timing chain. PistonHeads says the VANOS bolts can loosen at around 70,000 miles and, if they break, can ruin the engine, and Motorious says the retaining bolts for the cam gears can come loose. Motorious also names VANOS pump wear and the solenoid. Jalopnik reports a voluntary BMW service action covering the VANOS solenoid, which it says 'would seal improperly and fail over time'; BMW's own bulletin was not available to check. ECS sells VANOS kits, and PistonHeads calls the E46 M3's double VANOS 'more robust' than the E36 version. None of the sources gives a failure rate."
+fix: "Service or rebuild the VANOS units, and replace the cam gear retaining bolts. PistonHeads says stronger replacement bolts are available from BMW, and Motorious says to budget to have the bolts replaced 'with more reliable versions as a matter of course'. ECS Tuning says the service should include 'VAC updated' camshaft hubs. VAC is an aftermarket supplier whose hubs ECS sells, so that is a vendor's part and not a BMW update, and no source here says BMW updated the hubs. No cost is published: the one figure found does not say who does the work or what it includes."
+prevention: "Listen for the top-end rattle, and check for engine warning lights and stored fault codes. Ask for records of any VANOS service and whether the camshaft bolts and hubs were replaced."
 frequency: common
 inspectWhenBuying: true
 howToCheck: "Listen for a rattle from the top of the engine. Check for engine warning lights and stored fault codes with a proper code reader, which Motorious says is safer than a phone app on a Bluetooth adapter. Ask for VANOS service records."
@@ -34,7 +37,7 @@ sources:
     url: https://blog.ecstuning.com/most-common-bmw-e46-m3-problems/
     tier: 2
     accessed: 2026-11-23
-    note: "Specialist retailer's tech article (Tier 2 under data.md); ECS sells the VANOS kit it mentions. By Craig Daugherty, 5 November 2020. Says 'VANOS units are a known issue for all BMWs of this era, but the S54 has a unique twist', 'tabs on the camshaft hubs have a tendency to break off and find themselves in the timing chain', and that the VANOS service should include the updated camshaft hubs."
+    note: "Specialist retailer's tech article (Tier 2 under data.md); ECS sells the VANOS kit and the VAC hubs it mentions ('our BMW E46 M3 Dual VANOS service kit and VAC camshaft hubs'). By Craig Daugherty, 5 November 2020. Says 'VANOS units are a known issue for all BMWs of this era, but the S54 has a unique twist', 'tabs on the camshaft hubs have a tendency to break off and find themselves in the timing chain', and 'it is also critical that you ensure the VAC updated VANOS camshaft hubs are included in that service'. VAC is an aftermarket brand, not BMW."
   - title: "BMW M3 (E46) | PH Used Buying Guide"
     publisher: PistonHeads
     url: https://www.pistonheads.com/features/ph-buying-guides/bmw-m3-e46--ph-used-buying-guide/25931
@@ -46,17 +49,17 @@ sources:
     url: https://www.motorbiscuit.com/buyers-guide-bmw-e46-m3-2000-2006
     tier: 2
     accessed: 2026-11-23
-    note: "By Chase Bierenkoven, 7 July 2021. Says 'Ensure the VANOS camshaft timing system has been rebuilt' and 'That'll run you a comparatively cheap $500-$800.' Its remark about smoke and oil is not used."
+    note: "By Chase Bierenkoven, 7 July 2021. Says 'Ensure the VANOS camshaft timing system has been rebuilt' and 'That'll run you a comparatively cheap $500-$800.' The figure is not used as a cost: the page does not say who does the work or what is included (ruling R78). Its remark about smoke and oil is not used."
   - title: 2002-2007 BMW M3 E46 Buying Guide
     publisher: Motorious
     url: https://www.motorious.com/articles/highlights/2002-2007-bmw-m3-e46-buying-guide
     tier: 2
     accessed: 2026-11-23
-    note: "By Motorious Staff, 22 January 2019. Says the VANOS system 'can give all sorts of issues', that a sound 'of a marble in a tin can' from the top end 'can indicate wear in the VANOS pump, and possible failure', and that limp mode 'can be issues with the VANOS solenoid, or a possible complete system failure'. It suggests a proper code reader over a Bluetooth adapter and phone app."
+    note: "By Motorious Staff, 22 January 2019. The checklist on the page is labelled 'Your AutoClassics BMW M3 E46 inspection checklist', so the text appears to be syndicated. Says the VANOS system 'can give all sorts of issues', that a sound 'of a marble in a tin can' from the top end 'can indicate wear in the VANOS pump, and possible failure', and that limp mode 'can be issues with the VANOS solenoid, or a possible complete system failure'. On the bolts: 'Another possible issue is the retaining bolts for the cam gears coming loose. This is not something you're likely to be able to check when looking at a potential purchase, but budget to have them replaced with more reliable versions as a matter of course if it hasn't already been done.' It suggests a proper code reader over a Bluetooth adapter and phone app."
   - title: "The Affordable Supercar: The Ultimate E46 M3 Buyer's Guide"
     publisher: Jalopnik
     url: https://jalopnik.com/the-affordable-supercar-the-ultimate-e46-m3-buyers-gui-1593133171
     tier: 2
     accessed: 2026-11-23
-    note: "By Freddy 'Tavarish' Hernandez, 19 June 2014 (the page says it is from APiDA Online). Says 'The second recall was on the VANOS solenoid, as it would seal improperly and fail over time. This wasn't as prevalent and wasn't compulsory. The DME (engine computer) was also reprogrammed in this case.' It gives a bulletin number that this entry does not repeat, because the bulletin was not found."
+    note: "By Freddy 'Tavarish' Hernandez, 19 June 2014 (the page says it is from APiDA Online, so it is an outside author's post). Says 'The second recall was on the VANOS solenoid, as it would seal improperly and fail over time. This wasn't as prevalent and wasn't compulsory. The DME (engine computer) was also reprogrammed in this case.' It gives a bulletin number that this entry does not repeat, because the bulletin was not found."
 verified: true

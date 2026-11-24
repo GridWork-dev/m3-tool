@@ -97,6 +97,12 @@ Every `Source` has a `title`, `publisher`, `tier` (1 to 3) and `accessed` date, 
 - **Cite what you opened.** Record the date you read it as `accessed`. Never invent a source or a URL.
 - **Use `note` to say what the source supports,** with the page or table, so a reviewer can find the number.
 - **Say so when a copy is not the original.** An archived or mirrored copy goes in the `url`, and the `note` says it is a copy.
+- **A third-party copy of a manufacturer's document is Tier 1 only if all of these hold** (ruling R77). A copy that fails one is Tier 2.
+  1. It is complete and not retyped: the whole document, with the manufacturer's identifiers intact (number, date or revision, issuer, model range), and the passages you rely on are the copy's own text (the original file, a scan or a faithful print), not re-rendered or retyped.
+  2. The `note` names the host and says what is missing.
+  3. The document's number and scope are corroborated by an independent Tier 1 or Tier 2 source.
+  4. The `url` is an existing archive.org snapshot, if one exists. Don't create snapshots. A copy on a vendor's server is neither linkable nor stable, so when there is no snapshot the note says so.
+  A safety value that rests on a copy alone says so in the entry.
 - **A generation's own `sources`** (at least one) cover its name, chassis, years, engines and bodies. Its dimensions, eye point and fitment carry their own.
 
 ### Citations

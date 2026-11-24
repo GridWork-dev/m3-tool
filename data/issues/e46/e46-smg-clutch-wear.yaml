@@ -3,9 +3,17 @@
 #
 # Unverified on purpose: two Tier 2 sources describe different parts of it (PistonHeads the faster
 # wear and the judder, Jalopnik hard launches), and each point rests on one publisher. There is
-# no fix and no cost: PistonHeads mentions a BMW software update but gives no cost or bulletin.
+# no fix: PistonHeads' remark about a BMW software update is one publisher's aside with no bulletin,
+# so it stays a question to ask in `prevention`.
 #
-# Market: PistonHeads writes about Euro-spec cars, Jalopnik for the US. Neither is a BMW document.
+# Markets: `markets` is left out because the evidence covers both. PistonHeads writes about Euro-spec
+# cars and Jalopnik for the US, and neither is a market-specific BMW document.
+#
+# Left `verified: false` on purpose (the verifier called it conservative, not wrong): the one piece
+# of advice, the software update, rests on PistonHeads alone, and each point has one publisher.
+#
+# `frequency: common` rests on editorial wording ('Clutches wear more quickly', 'affinity for eating
+# clutches'). No source gives a rate.
 id: e46-smg-clutch-wear
 generation: e46
 title: SMG clutch wear and judder
@@ -16,7 +24,7 @@ cause: "PistonHeads says clutches wear more quickly in SMG cars, particularly on
 prevention: "Ask whether BMW's software update to reduce clutch judder was applied: PistonHeads says it 'should have been added to any SMG M3'. Ask when the clutch was last replaced."
 frequency: common
 inspectWhenBuying: true
-howToCheck: "On an SMG car, pull away in first and second gear and feel for judder as the clutch takes up drive. Ask for clutch replacement records and whether the software update was applied."
+howToCheck: "On an SMG car, pull away in the lower gears and feel for judder as the clutch takes up drive. Ask for clutch replacement records and whether the software update was applied."
 sources:
   - title: "BMW M3 (E46) | PH Used Buying Guide"
     publisher: PistonHeads
