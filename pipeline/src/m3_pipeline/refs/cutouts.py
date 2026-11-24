@@ -1,18 +1,23 @@
 # pyright: reportUnknownMemberType=false, reportUnknownVariableType=false
+from __future__ import annotations
+
 import importlib
 import logging
 import os
 from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
-from typing import cast
-
-from PIL import Image, ImageOps
+from typing import TYPE_CHECKING, cast
 
 from m3_pipeline.refs.filters import FilterTarget, evaluate
 from m3_pipeline.refs.store import RefStore
 
-Remover = Callable[[Image.Image], Image.Image]
+if TYPE_CHECKING:
+    from PIL import Image
+
+# Quoted forward references keep the alias PIL-free at import time, matching
+# imaging.py's lazy Pillow import.
+Remover = Callable[["Image.Image"], "Image.Image"]
 logger = logging.getLogger(__name__)
 
 
@@ -29,7 +34,7 @@ def load_remover(model: str = "birefnet-general", *, models_dir: Path) -> Remove
             "rembg is not installed; run `uv sync --group bg`"
         ) from None
     session = rembg.new_session(model)
-    return lambda im: cast(Image.Image, rembg.remove(im, session=session))
+    return lambda im: cast("Image.Image", rembg.remove(im, session=session))
 
 
 def cutout_relpath(image_id: str) -> str:
@@ -44,6 +49,8 @@ class CutoutReport:
 
 
 def make_cutouts(store: RefStore, subject: str, remover: Remover) -> CutoutReport:
+    from PIL import Image, ImageOps
+
     target = FilterTarget.from_subject(subject)
     created = existing = failed = 0
     for record in store.records(subject):
