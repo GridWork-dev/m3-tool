@@ -10,7 +10,6 @@ failure into a failed verdict too, so a caller counts it as a failed round.
 """
 
 import json
-import re
 import tempfile
 from collections.abc import Sequence
 from dataclasses import dataclass
@@ -23,8 +22,7 @@ Severity = Literal["blocker", "major", "minor"]
 Kind = Literal["synth-view", "exterior", "interior", "product"]
 
 _NO_VALID_VERDICT = "critic returned no valid verdict"
-# A message that is exactly one fenced block: ```json or a bare ```, a newline, the body, ```.
-_FENCE = re.compile(r"^```(?:json)?[ \t]*\n(?P<body>.*?)\s*```$", re.DOTALL)
+_FENCE = "```"
 
 
 def _reject_duplicate_keys(pairs: list[tuple[str, object]]) -> dict[str, object]:
@@ -63,6 +61,25 @@ def _failed(text: str, raw: str) -> Verdict:
     return Verdict(False, (Issue("blocker", text, ""),), raw)
 
 
+def _fenced_body(text: str) -> str | None:
+    """The body of `text` if it is exactly one fenced block, else None.
+
+    `text` is trimmed and starts with the fence. The block is the fence, an optional lowercase
+    `json` tag, optional spaces or tabs, a line end (LF or CRLF), the body, and the closing
+    fence as the last characters. Plain slicing: no pattern to backtrack on long whitespace.
+    """
+    if len(text) < 2 * len(_FENCE) or not text.endswith(_FENCE):
+        return None
+    inner = text[len(_FENCE) : -len(_FENCE)]
+    line_end = inner.find("\n")
+    if line_end == -1:
+        return None
+    tag = inner[:line_end].removesuffix("\r").rstrip(" \t")
+    if tag not in ("", "json"):
+        return None
+    return inner[line_end + 1 :].strip()
+
+
 def _single_object(message: str) -> dict[str, object]:
     """The one JSON object that `message` is, bare or as a single fenced block.
 
@@ -72,11 +89,11 @@ def _single_object(message: str) -> dict[str, object]:
     text = message.strip()
     if not text:
         raise _Invalid("the message is empty")
-    if text.startswith("```"):
-        fenced = _FENCE.match(text)
-        if fenced is None:
+    if text.startswith(_FENCE):
+        body = _fenced_body(text)
+        if body is None:
             raise _Invalid("not a single fenced block (```json or bare ```) around the JSON")
-        text = fenced.group("body")
+        text = body
     try:
         value = _DECODER.decode(text)
     except json.JSONDecodeError as error:

@@ -1,6 +1,7 @@
 import json
+import subprocess
 import time
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from pathlib import Path
 from typing import Literal, cast, get_args
 
@@ -76,6 +77,34 @@ def test_parse_verdict_reads_json_inside_a_code_fence() -> None:
 def test_parse_verdict_accepts_a_single_fenced_block(message: str) -> None:
     verdict = parse_verdict(message)
     assert verdict.ok is True and verdict.issues == ()
+
+
+@pytest.mark.parametrize(
+    "message",
+    [
+        "```json\r\n" + PASSING + "\r\n```",  # CRLF line ends, as some terminals and APIs send
+        "```\r\n" + PASSING + "\r\n```",
+        "```json \t\r\n" + PASSING + "\r\n```\r\n",
+        "```json\r\n" + json.dumps(json.loads(PASSING), indent=2).replace("\n", "\r\n") + "\r\n```",
+        "```json\r\n" + PASSING + "```",
+    ],
+)
+def test_parse_verdict_accepts_a_fence_with_crlf_line_ends(message: str) -> None:
+    verdict = parse_verdict(message)
+    assert verdict.ok is True and verdict.issues == ()
+
+
+@pytest.mark.parametrize(
+    "message",
+    [
+        "```json\r\r\n" + PASSING + "\n```",  # a stray carriage return is not a newline
+        "```json\r" + PASSING + "\r```",  # CR alone does not end the opening line
+        "``` json\r\n" + PASSING + "\r\n```",
+        "```json\r\n" + PASSING + "\r\n``",
+    ],
+)
+def test_a_crlf_fence_is_still_held_to_the_same_rules(message: str) -> None:
+    _assert_failed_with_no_valid_verdict(parse_verdict(message), message)
 
 
 def test_nested_issue_objects_are_part_of_the_one_verdict_object() -> None:
@@ -230,6 +259,23 @@ def test_parse_time_is_linear_on_large_garbage() -> None:
     for message in ("{x}" * 200000, "{" * 200000, '{"a":[' * 20000):
         assert parse_verdict(message).ok is False
     assert time.monotonic() - started < 2.0
+
+
+def test_a_fenced_input_with_long_whitespace_runs_parses_in_linear_time() -> None:
+    # The first fence regex took seconds on a long run of whitespace (40k spaces: 0.94 s).
+    run = " " * 100_000
+    shapes = [
+        "```json\n" + run + PASSING + run + "\n```",
+        "```json\n" + run + "```",  # an empty body
+        "```json" + run + "\n" + PASSING + "\n```",  # the run on the opening line
+        "```json\n" + PASSING + run + "\n``" + run,  # an unclosed fence
+        "```json\r\n" + ("\r\n" * 50_000) + PASSING + "\r\n```",
+        "```" + "\n" * 100_000,
+    ]
+    started = time.monotonic()
+    verdicts = [parse_verdict(shape) for shape in shapes]
+    assert time.monotonic() - started < 1.0
+    assert [v.ok for v in verdicts] == [True, False, True, False, True, False]
 
 
 @pytest.mark.parametrize(
@@ -509,3 +555,49 @@ def test_run_critic_returns_the_parsed_issues(
     assert verdict.ok is False
     assert verdict.issues == (Issue("major", "grille too wide", "narrow it"),)
     assert verdict.raw == message
+
+
+def test_run_critic_passes_the_images_to_codex_in_exactly_the_order_given(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # The synth-view prompt says the last image is the candidate, so a reordered, sorted or
+    # de-duplicated attachment list would make the critic judge the wrong picture. This goes
+    # through the real `run_codex` and argv builder, with only the process runner faked.
+    import m3_pipeline.stages.lib.codex as codex_module
+
+    seen: list[list[str]] = []
+
+    def fake_run(
+        cmd: Sequence[str],
+        *,
+        cwd: Path | None = None,
+        timeout_s: int | None = None,
+        stdin_devnull: bool = False,
+        env: Mapping[str, str] | None = None,
+    ) -> subprocess.CompletedProcess[str]:
+        argv = list(cmd)
+        if argv[1:3] == ["login", "status"]:
+            return subprocess.CompletedProcess(argv, 0, "", "Logged in using ChatGPT\n")
+        seen.append(argv)
+        Path(argv[argv.index("-o") + 1]).write_text(_verdict_json(True), "utf-8")
+        return subprocess.CompletedProcess(argv, 0, "", "")
+
+    def fake_binary(env: Mapping[str, str] | None = None) -> Path:
+        return Path("/opt/fake/codex")
+
+    monkeypatch.setattr(codex_module, "_run", fake_run)
+    monkeypatch.setattr(codex_module, "codex_binary", fake_binary)
+    names = ["c.png", "a.png", "b.png", "c.png"]  # unsorted, with a repeat
+    images: list[Path] = []
+    for name in names:
+        image = tmp_path / name
+        image.write_bytes(b"\x89PNG")
+        images.append(image)
+
+    verdict = run_critic("synth-view", ["x"], images, cwd=tmp_path)
+
+    assert verdict.ok is True
+    (argv,) = seen
+    attached = [argv[i + 1] for i, token in enumerate(argv) if token == "-i"]
+    assert attached == [str(image) for image in images]
+    assert argv.index("-i") > argv.index(critic_prompt("synth-view", ["x"]))  # prompt first

@@ -18,8 +18,15 @@ from m3_pipeline.stages.lib.codex import (
 FAKE_BINARY = Path("/opt/fake/codex")
 
 
+STATUS_OK = "Logged in using ChatGPT\n"  # what `codex login status` prints, on stderr
+
+
 class FakeRun:
-    """Stands in for `codex._run`: records every call, and writes the `-o` file like Codex."""
+    """Stands in for `codex._run`: records every call, and writes the `-o` file like Codex.
+
+    `calls` holds the exec calls only and `status_calls` the `codex login status` preflights;
+    `sequence` is the order they came in. The status output defaults to the real ChatGPT one.
+    """
 
     def __init__(
         self,
@@ -28,12 +35,22 @@ class FakeRun:
         returncode: int = 0,
         stderr: str = "",
         raises: BaseException | None = None,
+        status_stdout: str = "",
+        status_stderr: str = STATUS_OK,
+        status_code: int = 0,
+        status_raises: BaseException | None = None,
     ) -> None:
         self.message = message
         self.returncode = returncode
         self.stderr = stderr
         self.raises = raises
+        self.status_stdout = status_stdout
+        self.status_stderr = status_stderr
+        self.status_code = status_code
+        self.status_raises = status_raises
         self.calls: list[dict[str, object]] = []
+        self.status_calls: list[dict[str, object]] = []
+        self.sequence: list[str] = []
 
     def __call__(
         self,
@@ -44,15 +61,23 @@ class FakeRun:
         stdin_devnull: bool = False,
         env: Mapping[str, str] | None = None,
     ) -> subprocess.CompletedProcess[str]:
-        self.calls.append(
-            {
-                "cmd": list(cmd),
-                "cwd": cwd,
-                "timeout_s": timeout_s,
-                "stdin_devnull": stdin_devnull,
-                "env": None if env is None else dict(env),
-            }
-        )
+        record: dict[str, object] = {
+            "cmd": list(cmd),
+            "cwd": cwd,
+            "timeout_s": timeout_s,
+            "stdin_devnull": stdin_devnull,
+            "env": None if env is None else dict(env),
+        }
+        if list(cmd)[1:3] == ["login", "status"]:
+            self.status_calls.append(record)
+            self.sequence.append("status")
+            if self.status_raises is not None:
+                raise self.status_raises
+            return subprocess.CompletedProcess(
+                list(cmd), self.status_code, self.status_stdout, self.status_stderr
+            )
+        self.calls.append(record)
+        self.sequence.append("exec")
         if self.raises is not None:
             raise self.raises
         if self.message is not None:
@@ -111,7 +136,28 @@ def test_argv_repeats_dash_i_once_per_image_in_order() -> None:
         Path("/tmp/last.md"),
         [Path("a.png"), Path("b.png"), Path("c.png")],
     )
-    assert argv[7:] == ["/tmp/last.md", "p", "-i", "a.png", "-i", "b.png", "-i", "c.png"]
+    assert argv[7:] == [
+        "/tmp/last.md",
+        "-c",
+        'forced_login_method="chatgpt"',
+        "p",
+        "-i",
+        "a.png",
+        "-i",
+        "b.png",
+        "-i",
+        "c.png",
+    ]
+
+
+def test_argv_forces_the_chatgpt_login_in_codex_itself() -> None:
+    # Belt and braces next to the `codex login status` preflight: with this config key, Codex
+    # refuses API-key credentials at exec time (verified on 0.167.0: exit 1, no request).
+    for sandbox in ("read-only", "workspace-write"):
+        argv = build_argv(Path("/bin/codex"), "p", Path("/tmp/last.md"), [], sandbox=sandbox)
+        assert argv.count("-c") == 1
+        assert argv[argv.index("-c") + 1] == 'forced_login_method="chatgpt"'
+        assert argv.index("-c") < argv.index("p")
 
 
 def test_argv_without_images_has_no_image_flag() -> None:
@@ -358,7 +404,7 @@ def test_run_codex_refuses_to_start_when_an_image_is_missing(
     message = str(raised.value)
     assert str(gone_a) in message and str(gone_b) in message
     assert str(good) not in message
-    assert fake.calls == []  # Codex was never started
+    assert fake.sequence == []  # neither the login check nor Codex was started
 
 
 def test_run_codex_refuses_a_directory_in_place_of_an_image(
@@ -390,3 +436,172 @@ def test_run_codex_hands_codex_absolute_image_paths(
     cmd = cast("list[str]", fake.calls[0]["cmd"])
     passed = Path(cmd[cmd.index("-i") + 1])
     assert passed.is_absolute() and passed.resolve() == (ours / "a.png").resolve()
+
+
+# --- the login preflight ---------------------------------------------------------------------
+
+
+def test_run_codex_checks_the_login_with_the_same_binary_and_env_before_the_exec_call(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("OPENAI_API_KEY", "sk-openai")
+    monkeypatch.setenv("CODEX_API_KEY", "sk-codex")
+    fake = _install(monkeypatch, FakeRun())
+    work = tmp_path / "work"
+    work.mkdir()
+
+    run_codex("p", [], cwd=work, last_message=tmp_path / "last.md")
+
+    assert fake.sequence == ["status", "exec"]
+    (status,) = fake.status_calls
+    (execution,) = fake.calls
+    assert status["cmd"] == [str(FAKE_BINARY), "login", "status"]
+    assert cast("list[str]", execution["cmd"])[0] == str(FAKE_BINARY)
+    assert status["env"] == execution["env"]
+    assert "OPENAI_API_KEY" not in cast("dict[str, str]", status["env"])
+    assert "CODEX_API_KEY" not in cast("dict[str, str]", status["env"])
+    assert status["stdin_devnull"] is True and status["cwd"] == work
+    timeout = status["timeout_s"]
+    assert isinstance(timeout, int) and 0 < timeout <= 120
+
+
+@pytest.mark.parametrize(
+    "stdout, stderr",
+    [
+        ("", "Logged in using ChatGPT\n"),  # where the CLI prints it today
+        ("Logged in using ChatGPT\n", ""),
+        ("", "  logged in using chatgpt  \n"),
+        ("", "Logged in using ChatGPT\n\n"),
+    ],
+)
+def test_run_codex_proceeds_only_on_a_chatgpt_login(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, stdout: str, stderr: str
+) -> None:
+    fake = _install(monkeypatch, FakeRun(status_stdout=stdout, status_stderr=stderr))
+    assert run_codex("p", [], cwd=tmp_path, last_message=tmp_path / "last.md") == "ok"
+    assert len(fake.calls) == 1
+
+
+# A JWT-shaped string, built at run time so no token-like literal sits in the source (the
+# pre-push secret scan flags one even when it is a made-up value).
+FAKE_JWT = ".".join(
+    ("ey" + "JhbGciOiJIUzI1NiJ9", "ey" + "JzdWIiOiIxMjM0NTY3ODkwIn0", "abcdefghijklmnop")
+)
+API_KEY_STATUS = (
+    "API key configured - sk-proj-***bcdef\nAuthentication is checked when you send a request.\n"
+)
+
+
+@pytest.mark.parametrize(
+    "stdout, stderr, code, mode",
+    [
+        ("", API_KEY_STATUS, 0, "API key"),  # exit 0: the code alone proves nothing
+        ("", "Logged in using an API key - sk-proj-***bcdef\n", 0, "API key"),
+        (API_KEY_STATUS, "", 0, "API key"),
+        ("", "Logged in using ChatGPT\n" + API_KEY_STATUS, 0, "API key"),
+        ("", "Not logged in\n", 1, "not logged in"),
+        ("", "Not logged in\n", 0, "not logged in"),
+        ("", "", 0, "no output"),
+        ("", "", 1, "no output"),
+        ("", "   \n\n", 0, "no output"),
+        ("", "Logged in using ChatGPT\n", 1, "exit 1"),  # a nonzero exit refuses, whatever it says
+        ("", "Something new and unexpected\n", 0, "unrecognized"),
+        ("", "Logged in using a company token\n", 0, "unrecognized"),
+    ],
+)
+def test_run_codex_refuses_any_login_that_is_not_chatgpt_and_never_runs_exec(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    stdout: str,
+    stderr: str,
+    code: int,
+    mode: str,
+) -> None:
+    fake = _install(
+        monkeypatch, FakeRun(status_stdout=stdout, status_stderr=stderr, status_code=code)
+    )
+    with pytest.raises(CodexError) as raised:
+        run_codex("p", [], cwd=tmp_path, last_message=tmp_path / "last.md")
+    message = str(raised.value)
+    assert "ChatGPT login" in message
+    assert mode.lower() in message.lower()
+    assert fake.calls == [] and fake.sequence == ["status"]  # no exec call was made
+    assert not (tmp_path / "last.md").exists()
+
+
+@pytest.mark.parametrize(
+    "status, secret",
+    [
+        (API_KEY_STATUS, "bcdef"),
+        (API_KEY_STATUS, "sk-proj"),
+        ("Logged in with sk-live-ABCDEF0123456789abcdef0123\n", "ABCDEF0123456789abcdef0123"),
+        ("Logged in with sk-live-ABCDEF0123456789abcdef0123\n", "sk-live"),
+        pytest.param(f"Token {FAKE_JWT}\n", FAKE_JWT.split(".")[0], id="jwt-shaped"),
+        ("key=abcd1234abcd1234abcd1234\n", "abcd1234abcd1234abcd1234"),
+        ("Odd mode ****wxyz\n", "wxyz"),
+        ("Odd mode sk-***wxyz\n", "wxyz"),
+    ],
+)
+def test_the_login_refusal_never_echoes_a_key_or_token(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, status: str, secret: str
+) -> None:
+    _install(monkeypatch, FakeRun(status_stderr=status))
+    with pytest.raises(CodexError) as raised:
+        run_codex("p", [], cwd=tmp_path, last_message=tmp_path / "last.md")
+    assert secret not in str(raised.value)
+
+
+def test_the_login_refusal_shows_a_short_redacted_line_for_an_unknown_mode(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _install(monkeypatch, FakeRun(status_stderr="Logged in using SSO via example.org\n"))
+    with pytest.raises(CodexError, match="Logged in using SSO via example.org"):
+        run_codex("p", [], cwd=tmp_path, last_message=tmp_path / "last.md")
+    long_line = "Mode " + "word " * 100
+    _install(monkeypatch, FakeRun(status_stderr=long_line))
+    with pytest.raises(CodexError) as raised:
+        run_codex("p", [], cwd=tmp_path, last_message=tmp_path / "last.md")
+    assert len(str(raised.value)) < 400
+
+
+@pytest.mark.parametrize(
+    "raises",
+    [OSError("no such file"), subprocess.TimeoutExpired(["codex", "login", "status"], 60)],
+)
+def test_run_codex_refuses_when_the_login_check_itself_fails(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, raises: BaseException
+) -> None:
+    fake = _install(monkeypatch, FakeRun(status_raises=raises))
+    with pytest.raises(CodexError, match="could not check the codex login"):
+        run_codex("p", [], cwd=tmp_path, last_message=tmp_path / "last.md")
+    assert fake.calls == []
+
+
+# --- the order of the attached images is part of the prompt contract ------------------------
+
+
+def _dash_i_values(cmd: object) -> list[str]:
+    argv = cast("list[str]", cmd)
+    return [argv[index + 1] for index, token in enumerate(argv) if token == "-i"]
+
+
+def test_run_codex_keeps_the_image_order_exactly_as_given(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    fake = _install(monkeypatch, FakeRun())
+    c, a, b = (_image(tmp_path, name) for name in ("c.png", "a.png", "b.png"))
+
+    run_codex("p", [c, a, b], cwd=tmp_path, last_message=tmp_path / "last.md")
+
+    assert _dash_i_values(fake.calls[0]["cmd"]) == [str(c), str(a), str(b)]
+
+
+def test_run_codex_keeps_a_repeated_image_where_it_was_given(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    fake = _install(monkeypatch, FakeRun())
+    b, a = _image(tmp_path, "b.png"), _image(tmp_path, "a.png")
+
+    run_codex("p", [b, a, b], cwd=tmp_path, last_message=tmp_path / "last.md")
+
+    assert _dash_i_values(fake.calls[0]["cmd"]) == [str(b), str(a), str(b)]

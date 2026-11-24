@@ -8,12 +8,16 @@ Facts about the CLI, each verified in this project, that shape the code below:
   `build_argv` puts the prompt before every `-i`.
 - Codex waits on an inherited stdin, so `run_codex` closes it.
 - Stdout carries headers, so the answer is read from the `-o` file.
-- The ChatGPT login is what is billed. An API key or access token in the child's environment would
-  flip it to API billing (`codex exec` calls the API with `CODEX_API_KEY` instead of falling back
-  to the login), so `child_env` drops them.
+- The ChatGPT login is what is billed, and an API key would bill the API with no ledger row.
+  Three guards: `child_env` drops the key and token variables from the child's environment
+  (`codex exec` uses `CODEX_API_KEY` instead of the login); `run_codex` runs `codex login status`
+  first and refuses anything but a ChatGPT login, because Codex also reuses an API key cached in
+  `auth.json` or the OS credential store, which no variable removal touches; and the argv forces
+  `forced_login_method="chatgpt"`, so Codex itself refuses API-key credentials at exec time.
 """
 
 import os
+import re
 import shutil
 import subprocess
 from collections.abc import Mapping, Sequence
@@ -34,6 +38,14 @@ _DROPPED_ENV = frozenset(
     {"OPENAI_API_KEY", "ANTHROPIC_API_KEY", "CODEX_API_KEY", "CODEX_ACCESS_TOKEN"}
 )
 _STDERR_TAIL_CHARS = 2000
+_STATUS_TIMEOUT_S = 60
+_CHATGPT_STATUS = "logged in using chatgpt"
+# Codex's own refusal of API-key credentials at exec time (verified on codex-cli 0.167.0: exit 1,
+# no request sent, no last message written).
+_FORCE_CHATGPT = ("-c", 'forced_login_method="chatgpt"')
+# Text that looks like a key, a token or a masked fragment of one, for the login refusal.
+_SECRETISH = re.compile(r"\S*\*{2,}\S*|\b[A-Za-z]{2,4}-[\w.*-]{4,}|\S{20,}|\S*[=:]\S{12,}")
+_LOGIN_LINE_CHARS = 80
 
 
 class CodexError(RuntimeError):
@@ -75,7 +87,8 @@ def build_argv(
     """The command line: the prompt comes BEFORE every `-i`, because `-i` is variadic.
 
     `sandbox` is `workspace-write` by default, for runs that write files (view synthesis). A
-    read-only job, like the critic, passes `read-only`.
+    read-only job, like the critic, passes `read-only`. `-c forced_login_method="chatgpt"` makes
+    Codex refuse API-key credentials itself.
     """
     argv = [
         str(binary),
@@ -86,11 +99,72 @@ def build_argv(
         "--skip-git-repo-check",
         "-o",
         str(last_message),
+        *_FORCE_CHATGPT,
         prompt,
     ]
     for image in images:
         argv += ["-i", str(image)]
     return argv
+
+
+def _redacted(line: str) -> str:
+    """`line` shortened, with anything that looks like a key or token replaced."""
+    return _SECRETISH.sub("[redacted]", line[:200]).strip()[:_LOGIN_LINE_CHARS]
+
+
+def _login_mode(proc: subprocess.CompletedProcess[str]) -> str:
+    """Name the login mode `codex login status` reported, without echoing secret text.
+
+    The CLI prints its status on stderr (stdout is empty), and `API key configured - sk-...` with
+    exit 0, so both streams and the text are read, not the exit code alone. Known modes get a
+    fixed label; an unknown line is shown redacted and shortened.
+    """
+    lines = [line.strip() for line in (proc.stderr + "\n" + proc.stdout).splitlines()]
+    lines = [line for line in lines if line]
+    lowered = [line.lower() for line in lines]
+    if not lines:
+        return "no output"
+    if any("api key" in line for line in lowered):
+        return "API key"
+    if any(line.startswith("not logged in") for line in lowered):
+        return "not logged in"
+    if any(line.startswith(_CHATGPT_STATUS) for line in lowered):
+        return "ChatGPT"
+    return f"unrecognized: {_redacted(lines[0])}"
+
+
+def _require_chatgpt_login(binary: Path, cwd: Path, env: Mapping[str, str]) -> None:
+    """Raise CodexError unless `codex login status` reports a ChatGPT login (exit 0).
+
+    Dropping `OPENAI_API_KEY` and the like from the child's environment is not enough: Codex
+    reuses an API key cached in `auth.json` or the OS credential store, and a run on it would
+    bill the API with no ledger row. So `run_codex` asks before any inference, with the same
+    binary and the same environment as the run, and fails closed: an API key, no login, no
+    output, a nonzero exit or a check that cannot run all refuse.
+    """
+    try:
+        proc = _run(
+            [str(binary), "login", "status"],
+            cwd=cwd,
+            timeout_s=_STATUS_TIMEOUT_S,
+            stdin_devnull=True,
+            env=env,
+        )
+    except subprocess.TimeoutExpired as error:
+        raise CodexError(
+            f"could not check the codex login: `codex login status` timed out after "
+            f"{_STATUS_TIMEOUT_S}s"
+        ) from error
+    except OSError as error:
+        raise CodexError(f"could not check the codex login: {error}") from error
+    mode = _login_mode(proc)
+    if proc.returncode != 0 or mode != "ChatGPT":
+        raise CodexError(
+            f"codex is not using the ChatGPT login (login mode: {mode}; `codex login status` "
+            f"exit {proc.returncode}); run `codex login` with the ChatGPT account. No Codex run "
+            "was started: only the ChatGPT login is allowed, since an API key bills the API "
+            "with no ledger row"
+        )
 
 
 def run_codex(
@@ -106,11 +180,13 @@ def run_codex(
 
     Relative `images` and `last_message` paths are made absolute against our working directory,
     not `cwd`. Every image must be an existing file, or CodexError is raised before Codex starts.
+    `images` keep the order given (the prompt promises it). Before any inference, `codex login
+    status` must report a ChatGPT login (see `_require_chatgpt_login`); no other login runs.
     Codex writes its message to `last_message` (`-o`) only if the folder exists, so the folder
     is created, and a file left there by an earlier run is removed first, so a run that writes
     nothing can't return a stale answer. Raises CodexError for every failure: a missing image, a
-    binary that can't start, a timeout, a nonzero exit (with the tail of stderr) and an empty or
-    missing last message.
+    login that is not ChatGPT, a binary that can't start, a timeout, a nonzero exit (with the tail
+    of stderr) and an empty or missing last message.
     """
     # Codex resolves `-o` and `-i` against `cwd`, we resolve them against our own directory: make
     # every path absolute once, so the checks, the arguments and the read name the same files.
@@ -123,6 +199,8 @@ def run_codex(
         names = ", ".join(str(image) for image in missing)
         raise CodexError(f"codex was not started: image file(s) not found: {names}")
     binary = codex_binary()
+    env = child_env()
+    _require_chatgpt_login(binary, cwd, env)
     argv = build_argv(binary, prompt, last_message, attached, sandbox=sandbox)
     try:
         last_message.parent.mkdir(parents=True, exist_ok=True)
@@ -130,7 +208,7 @@ def run_codex(
     except OSError as error:
         raise CodexError(f"could not prepare {last_message}: {error}") from error
     try:
-        proc = _run(argv, cwd=cwd, timeout_s=timeout_s, stdin_devnull=True, env=child_env())
+        proc = _run(argv, cwd=cwd, timeout_s=timeout_s, stdin_devnull=True, env=env)
     except subprocess.TimeoutExpired as error:
         raise CodexError(f"codex timed out after {timeout_s}s") from error
     except OSError as error:
