@@ -232,12 +232,14 @@ Leave `modelYears` out only when the sources cover every model year of the gener
 
 When the schedule differs by year, write one entry for each year range, each with its own `modelYears` and an id that names the years. When the market differs too, the id names both, as in `e46-coolant-us-2001-2003`. The ranges of one service must not overlap, and an entry without `modelYears` can't sit beside them, because it would claim every year again. A gap between the ranges means no source gives a schedule for those years, so no entry says anything about them. `check-data` can't tell which entries are one service, so the data verifier looks.
 
-BMW changed the E46 coolant schedule mid-run. BMW NA SI B17 01 07 gives "Every 4 years" and "Starting from the date of production" for model years 2001 to 2003, and "Long-Term" and "No Replacement Interval" from model year 2004. The bulletin is a BMW of North America document, so both entries are `markets: [us]` (see "Markets"). The coolant is two items:
+BMW changed the E46 coolant schedule mid-run. BMW NA SI B17 01 07 gives "Every 4 years" and "Starting from the date of production" for model years 2001 to 2003, and "Long-Term" and "No Replacement Interval" from model year 2004. The bulletin is a BMW of North America document, so both entries are `markets: [us]` (see "Markets"). The coolant is two items and a gap:
 
 | id | `markets` | `modelYears` | `interval` |
 |---|---|---|---|
 | `e46-coolant-2001-2003` | `[us]` | `[2001, 2003]` | `months: 48`, with the date-of-production wording in `notes` |
-| `e46-coolant-2004-2006` | `[us]` | `[2004, 2006]` | `triggers: [lifetime-fill]` |
+| `e46-coolant-2004` | `[us]` | `[2004, 2004]` | `triggers: [lifetime-fill]` |
+
+The copy of the bulletin is Tier 2 (see the R77 tests in the items' source notes), so it cannot carry `lifetime-fill`, which needs a Tier 1 source. Only the 2004 US booklet (Tier 1) gives the lifetime rating, so the lifetime item covers 2004 alone. Model years 2005 and 2006 have no coolant entry: that is a gap, and the site shows it as no sourced schedule, not as no schedule.
 
 The schema can't see which model years a source covers, so the data verifier and the `safety` spot-check look at `modelYears` against the sources. It does enforce the shape: two whole years from 1985 to 2035, with `from` not after `to`.
 
