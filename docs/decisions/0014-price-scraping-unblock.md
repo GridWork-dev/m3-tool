@@ -1,4 +1,4 @@
-# 0009. Price and product-page scraping may unblock
+# 0014. Price and product-page scraping may unblock
 
 - **Status:** Accepted 2026-11-23
 - **Date:** 2026-11-23
