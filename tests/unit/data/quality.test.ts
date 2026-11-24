@@ -578,9 +578,8 @@ describe('cross-file checks against the generation', () => {
     })
   })
 
-  // R86: `modelYears` sits inside the generation's years, widened by one at the top, because a
-  // model year can run one ahead of the calendar year of production. The fixture generation runs
-  // 2000 to 2006, so the allowed model years are 2000 to 2007.
+  // R88: `modelYears` sits inside the generation's years exactly, with nothing past either end.
+  // The fixture generation runs 2000 to 2006, so the allowed model years are 2000 to 2006.
   describe('model years', () => {
     const owners = [
       ['maintenance item', oil, 'maintenance/e46/fixture-oil-service.yaml'],
@@ -590,25 +589,28 @@ describe('cross-file checks against the generation', () => {
     describe.each(owners)('on a %s', (kind, owner, path) => {
       test.each([
         ['starts before the generation', [1999, 2003]],
-        ['ends two years after the last production year', [2004, 2008]],
-        ['is entirely outside it', [2010, 2012]],
+        ['ends one year after the generation', [2001, 2007]],
+        ['ends two years after the generation', [2004, 2008]],
+        ['is the one year after the generation', [2007, 2007]],
+        ['is entirely above it', [2010, 2012]],
+        ['is entirely below it', [1990, 1995]],
       ] as const)('a range that %s is refused', (_label, years) => {
         const set = fresh()
         owner(set).modelYears = [years[0], years[1]]
         const issues = checkDataSet(set)
         expect(issues.map((issue) => issue.code)).toEqual(['model-years-outside-generation'])
         expect(issues[0]?.file).toBe(path)
+        // The message names the entry, the range it wrote and the range it may use.
         expect(issues[0]?.message).toContain(kind)
-        expect(issues[0]?.message).toContain(`${years[0]} to ${years[1]}`)
-        expect(issues[0]?.message).toContain('2000 to 2006')
+        expect(issues[0]?.message).toContain(`modelYears [${years[0]}, ${years[1]}]`)
+        expect(issues[0]?.message).toContain('generation "e46"')
+        expect(issues[0]?.message).toContain('years [2000, 2006]')
       })
 
       test.each([
-        ['one year past the last production year', [2001, 2007]],
         ['the generation exactly', [2000, 2006]],
-        ['the widened range exactly', [2000, 2007]],
-        ['the first model year alone', [2000, 2000]],
-        ['the extra model year alone', [2007, 2007]],
+        ['the first year alone', [2000, 2000]],
+        ['the last year alone', [2006, 2006]],
         ['a range inside the generation', [2003, 2004]],
       ] as const)('a range that is %s passes', (_label, years) => {
         const set = fresh()
@@ -616,7 +618,7 @@ describe('cross-file checks against the generation', () => {
         expect(codes(set)).toEqual([])
       })
 
-      test('a missing range means every model year, and passes', () => {
+      test('a missing range means every year of the generation, and passes', () => {
         const set = fresh()
         expect(owner(set).modelYears).toBeUndefined()
         expect(codes(set)).toEqual([])
@@ -629,18 +631,28 @@ describe('cross-file checks against the generation', () => {
         expect(codes(set)).toEqual(['unknown-generation'])
       })
 
-      test('is measured against the generation it belongs to', () => {
-        const set = fresh()
-        find(set.generations, 'e46').data.years = [2007, 2013]
-        const here = (set: DataSet) =>
-          checkDataSet(set).filter(
-            (issue) => issue.file === path && issue.code === 'model-years-outside-generation',
-          )
-        owner(set).modelYears = [2001, 2007]
-        expect(here(set)).toHaveLength(1)
-        expect(here(set)[0]?.message).toContain('2007 to 2013')
-        owner(set).modelYears = [2008, 2014]
-        expect(here(set)).toEqual([])
+      test('is measured against the generation the entry names, not another', () => {
+        // Two generations with different years: a lookup of the wrong one flips an answer below.
+        const set = withGeneration(fresh(), 'e47')
+        find(set.generations, 'e47').data.years = [2010, 2014]
+        const refusals = () =>
+          checkDataSet(set).filter((issue) => issue.code === 'model-years-outside-generation')
+
+        owner(set).generation = 'e46'
+        owner(set).modelYears = [2001, 2005]
+        expect(refusals()).toEqual([])
+        owner(set).modelYears = [2011, 2013]
+        expect(refusals()).toHaveLength(1)
+        expect(refusals()[0]?.message).toContain('generation "e46"')
+        expect(refusals()[0]?.message).toContain('years [2000, 2006]')
+
+        owner(set).generation = 'e47'
+        owner(set).modelYears = [2011, 2013]
+        expect(refusals()).toEqual([])
+        owner(set).modelYears = [2001, 2005]
+        expect(refusals()).toHaveLength(1)
+        expect(refusals()[0]?.message).toContain('generation "e47"')
+        expect(refusals()[0]?.message).toContain('years [2010, 2014]')
       })
     })
 

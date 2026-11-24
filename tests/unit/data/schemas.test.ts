@@ -36,7 +36,7 @@ const issue = () => readFixture('issues/e46/fixture-rod-bearings.yaml')
 const issueWithFix = () => readFixture('issues/e46/fixture-guide-wear.yaml')
 // An issue with a fix and a Tier 2 source, and no cost.
 const issueFixNoCost = () => readFixture('issues/e46/fixture-fix-without-cost.yaml')
-// An issue scoped to the last model years: modelYears [2005, 2007].
+// An issue scoped to the last model years: modelYears [2005, 2006].
 const modelYearsIssue = () => readFixture('issues/e46/fixture-model-years-issue.yaml')
 
 // The unmutated fixtures must pass, so a failing mutation below is the mutation's doing.

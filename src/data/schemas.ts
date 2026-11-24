@@ -566,10 +566,11 @@ export const MaintenanceItem = z
     generation: Id,
     engine: Text.optional(),
     markets: Markets,
-    // The model years the item's sources speak for, `[from, to]`, both inclusive. Absent means
-    // every model year the generation covers. A service booklet speaks only for the model years
-    // it names (R86, data.md "Model years"), so a schedule that changed mid-run is one item per
-    // year range. quality.ts keeps the range inside the generation's years.
+    // The model years the item's sources speak for, `[from, to]`, both inclusive and both always
+    // given (there is no open-ended form). Absent means every year in the generation's `years`. A
+    // service booklet speaks only for the model years it names (R86, data.md "Model years"), so a
+    // schedule that changed mid-run is one item per year range. quality.ts keeps the range inside
+    // the generation's `years` exactly (R88).
     modelYears: YearRange.optional(),
     title: Text,
     // One service can be due at more than one trigger, so `triggers` is a list (ruling R79): the
@@ -657,8 +658,9 @@ export const KnownIssue = z
     // Absent means every market, as on a maintenance item. A fix that rests on a document for one
     // market is a claim about that market only (data.md).
     markets: Markets,
-    // Absent means every model year the generation covers, as on a maintenance item. A fix that
-    // rests on a document for some model years is a claim about those years only (data.md).
+    // Absent means every year in the generation's `years`, as on a maintenance item, and both ends
+    // are always given. A fix that rests on a document for some model years is a claim about those
+    // years only (data.md).
     modelYears: YearRange.optional(),
     title: Text,
     symptoms: z.array(Text).min(1),

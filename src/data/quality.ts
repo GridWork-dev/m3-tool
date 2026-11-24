@@ -376,14 +376,15 @@ function checkAgainstGeneration(set: DataSet, add: Add): void {
         )
       }
     }
-    // A model year can run one ahead of the calendar year of production, so the generation's last
-    // production year admits a model year one later (data.md, "Model years").
-    const [first, last] = generation.years
-    if (modelYears !== undefined && outside(modelYears, [first, last + 1])) {
+    // Exactly the generation's years, with no slack at either end (ruling R88, data.md "Model
+    // years"): the site's year choices are the generation's years, so a range past them would
+    // describe a year no car has, and could not be picked.
+    if (modelYears !== undefined && outside(modelYears, generation.years)) {
+      const [first, last] = generation.years
       add(
         file,
         'model-years-outside-generation',
-        `${kind} "${id}" is scoped to model years ${modelYears[0]} to ${modelYears[1]}, outside generation "${generation.id}" (${first} to ${last}, plus one at the end for a model year that runs ahead)`,
+        `${kind} "${id}" has modelYears [${modelYears[0]}, ${modelYears[1]}], outside generation "${generation.id}"'s years [${first}, ${last}]`,
       )
     }
   }
