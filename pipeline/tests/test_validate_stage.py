@@ -1,4 +1,5 @@
 import ast
+import dataclasses
 import json
 import subprocess
 import sys
@@ -9,7 +10,7 @@ import pytest
 import m3_pipeline.stages.validate as validate_mod
 from m3_pipeline.assets import AssetSpec
 from m3_pipeline.config import Settings, load_settings
-from m3_pipeline.stages import REGISTRY
+from m3_pipeline.stages import REGISTRY, StageResult
 from m3_pipeline.stages.validate import validate
 
 ASSET = AssetSpec("e46-coupe-body", "base-car", "e46", "e46-coupe")
@@ -21,6 +22,13 @@ def _export(work_dir: Path) -> Path:
     glb.parent.mkdir(parents=True)
     glb.write_bytes(b"x")
     return glb
+
+
+def _report_path(work_dir: Path) -> Path:
+    return work_dir / "assets/e46-coupe-body/export/e46-coupe-body.validate.json"
+
+
+STATS = {"triangles": 120000, "bytes": 5242880}
 
 
 def _stub_validator(
@@ -85,8 +93,82 @@ def test_passes_when_the_report_is_ok(tmp_path: Path, monkeypatch: pytest.Monkey
     _export(tmp_path)
     _stub_validator(monkeypatch, 0, json.dumps({"ok": True, "issues": []}))
     r = validate(ASSET, Settings(repo_root=REPO, work_dir=tmp_path))
-    assert r.ok and r.outputs == []
+    assert r.ok and r.outputs == [_report_path(tmp_path)]
     assert r.messages == ["e46-coupe-body.glb meets the base-car contract"]
+
+
+def test_writes_the_cli_report_next_to_the_export_and_lists_it(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _export(tmp_path)
+    report: dict[str, object] = {"ok": True, "issues": [], "stats": STATS}
+    _stub_validator(monkeypatch, 0, json.dumps(report))
+    r = validate(ASSET, Settings(repo_root=REPO, work_dir=tmp_path))
+    path = _report_path(tmp_path)
+    assert r.ok and r.outputs == [path]
+    assert path.parent == tmp_path / "assets/e46-coupe-body/export"
+    assert json.loads(path.read_text(encoding="utf-8")) == report  # including the stats
+    assert path.read_text(encoding="utf-8").endswith("\n")
+
+
+def test_the_report_is_the_cli_json_byte_for_byte(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _export(tmp_path)
+    stdout = '{"ok":true,"issues":[],"stats":{"triangles":1200,"bytes":4096}}\n'
+    _stub_validator(monkeypatch, 0, stdout)
+    validate(ASSET, Settings(repo_root=REPO, work_dir=tmp_path))
+    assert _report_path(tmp_path).read_text(encoding="utf-8") == stdout
+
+
+def test_a_failing_report_is_written_and_listed_too(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _export(tmp_path)
+    report = {
+        "ok": False,
+        "issues": [{"code": "units", "severity": "error", "message": "Z length 449 m"}],
+        "stats": {"triangles": 120000, "bytes": 5242880},
+    }
+    _stub_validator(monkeypatch, 1, json.dumps(report))
+    r = validate(ASSET, Settings(repo_root=REPO, work_dir=tmp_path))
+    assert not r.ok and r.outputs == [_report_path(tmp_path)]
+    assert json.loads(_report_path(tmp_path).read_text(encoding="utf-8")) == report
+
+
+def test_a_second_run_replaces_the_report(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    _export(tmp_path)
+    _stub_validator(monkeypatch, 1, json.dumps({"ok": False, "issues": []}))
+    validate(ASSET, Settings(repo_root=REPO, work_dir=tmp_path))
+    _stub_validator(monkeypatch, 0, json.dumps({"ok": True, "issues": [], "stats": STATS}))
+    validate(ASSET, Settings(repo_root=REPO, work_dir=tmp_path))
+    assert json.loads(_report_path(tmp_path).read_text(encoding="utf-8"))["ok"] is True
+
+
+def test_no_report_file_is_written_when_the_validator_gave_none(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _export(tmp_path)
+    _stub_validator(monkeypatch, 2, "not json", "usage: --kind is required")
+    r = validate(ASSET, Settings(repo_root=REPO, work_dir=tmp_path))
+    assert not r.ok and r.outputs == []
+    assert not _report_path(tmp_path).exists()
+
+
+def test_a_report_that_cannot_be_written_fails_cleanly(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _export(tmp_path)
+    _report_path(tmp_path).mkdir()  # a directory where the file goes, so writing it fails
+    _stub_validator(monkeypatch, 0, json.dumps({"ok": True, "issues": []}))
+    r = validate(ASSET, Settings(repo_root=REPO, work_dir=tmp_path))
+    assert not r.ok and r.outputs == []
+    assert "could not write" in r.messages[0] and "e46-coupe-body.validate.json" in r.messages[0]
+
+
+def test_the_stage_result_type_is_unchanged() -> None:
+    # Plan 0B relies on StageResult(ok, messages, outputs) and nothing else.
+    assert [f.name for f in dataclasses.fields(StageResult)] == ["ok", "messages", "outputs"]
 
 
 def test_warnings_do_not_fail_the_stage(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
