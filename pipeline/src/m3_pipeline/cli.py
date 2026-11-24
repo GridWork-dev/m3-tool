@@ -4,9 +4,11 @@ import typer
 
 from m3_pipeline.assets import load_assets
 from m3_pipeline.config import load_settings
+from m3_pipeline.refs.cli import refs_app
 from m3_pipeline.stages import REGISTRY, UnknownStageError, run_stage
 
 app = typer.Typer(help="M3 asset pipeline.", no_args_is_help=True)
+app.add_typer(refs_app, name="refs")
 
 
 def _names(names: list[str]) -> str:

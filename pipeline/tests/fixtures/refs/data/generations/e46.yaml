@@ -1,0 +1,17 @@
+# Synthetic test values, not authoritative specifications.
+id: e46
+name: E46 M3
+chassis: E46
+years: [2001, 2006]
+engines:
+  - code: S54
+    displacement: 3.2 L
+bodies: [coupe]
+dimensions:
+  coupe:
+    lengthMm: 4500
+    widthMm: 1800
+    heightMm: 1350
+    wheelbaseMm: 2700
+    trackFrontMm: 1500
+    trackRearMm: 1520

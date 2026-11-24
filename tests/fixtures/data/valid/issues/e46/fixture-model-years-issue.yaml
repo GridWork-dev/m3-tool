@@ -1,0 +1,18 @@
+# FIXTURE DATA. Invented values for tests; not a real known issue.
+# An issue reported for the last model years only. The range ends at the fixture generation's last
+# year (2006): a range may not go past the generation's years (ruling R88).
+id: fixture-model-years-issue
+generation: e46
+modelYears: [2005, 2006]
+title: Fixture model-years issue
+symptoms:
+  - A fixture hum.
+cause: A fixture cause.
+frequency: rare
+inspectWhenBuying: false
+sources:
+  - title: Fixture forum thread
+    publisher: Fixture Forum
+    tier: 3
+    accessed: 2026-11-23
+verified: false

@@ -6,12 +6,22 @@ requires-python = ">=3.14,<3.15"
 dependencies = [
     "typer==0.29.2",
     "pyyaml==6.0.4",
+    "pydantic==2.14.4",
+    "pillow==13.0.0",
+    "imagehash==4.3.2",
+    "httpx==0.28.1",
+    "playwright==1.65.2",
+    "boto3==1.44.9",
+    "numpy==2.5.5",
 ]
 
 [project.scripts]
 pipeline = "m3_pipeline.cli:app"
 
 [dependency-groups]
+bg = [
+    "rembg[cpu]==2.0.87",
+]
 dev = [
     "ruff==0.17.6",
     "pyright==1.1.414",
@@ -33,3 +43,4 @@ typeCheckingMode = "strict"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+markers = ["browser: requires installed Playwright Chromium"]

@@ -1,0 +1,23 @@
+[http]
+user_agent = "m3-tool-refs/0.1 (+https://github.com/GridWork-dev/m3-tool)"
+
+[commons]
+thumb_width = 1920
+min_interval_s = 3.0
+
+[crawl]
+delay_s = 3.0
+max_pages = 25
+min_side_px = 800
+
+# Recon 2026-11-23: coupe category, 369 files.
+# Category:BMW M3 CSL (E46) (74 files) can also be collected here;
+# classification records trim and the filter drops CSL from standard sets.
+[subjects.e46-coupe]
+commons_categories = ["Category:BMW M3 (E46/2S)"]
+
+# Convertible category, 144 files. Shared dash and seats provide interior
+# references; classification/filtering drops its exterior photos.
+[subjects.e46-coupe-interior]
+commons_categories = ["Category:BMW M3 (E46/2CS)"]
+search_terms = ["E46 M3 interior", "BMW E46 interior"]

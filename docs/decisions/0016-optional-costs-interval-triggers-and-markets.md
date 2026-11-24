@@ -3,6 +3,7 @@
 - **Status:** Accepted 2026-11-23
 - **Date:** 2026-11-23
 - **Amends:** the cost-with-a-fix rule of [0010](0010-safety-advice-evidence.md)
+- **Amended 2026-11-24:** `MaintenanceItem` and `KnownIssue` gain optional `modelYears`, the model-year counterpart of `markets` (rulings R86 and R88), in contract PR #45. See `docs/standards/data.md`, "Model years".
 
 ## Context
 
