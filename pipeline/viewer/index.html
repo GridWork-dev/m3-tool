@@ -1,0 +1,174 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="robots" content="noindex" />
+    <title>m3-tool spike viewer</title>
+    <link rel="icon" href="data:," />
+    <!-- Throwaway local page for the Phase 0.6 3D spike. It is not part of the site. three is
+         pinned to 0.187.0 (ADR 0002). three/webgpu is the build that holds WebGPURenderer, and
+         the addons import 'three', so 'three' points at the same file to share one copy. -->
+    <script type="importmap">
+      {
+        "imports": {
+          "three": "https://cdn.jsdelivr.net/npm/three@0.187.0/build/three.webgpu.js",
+          "three/webgpu": "https://cdn.jsdelivr.net/npm/three@0.187.0/build/three.webgpu.js",
+          "three/tsl": "https://cdn.jsdelivr.net/npm/three@0.187.0/build/three.tsl.js",
+          "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.187.0/examples/jsm/"
+        }
+      }
+    </script>
+    <style>
+      :root {
+        color-scheme: dark;
+        --bg: #14161a;
+        --panel: #1c1f25;
+        --line: #333843;
+        --text: #e6e8ec;
+        --muted: #9aa1ad;
+        --accent: #6aa8ff;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      html,
+      body {
+        height: 100%;
+        margin: 0;
+      }
+      body {
+        background: var(--bg);
+        color: var(--text);
+        font: 14px/1.4 system-ui, sans-serif;
+        display: grid;
+        grid-template-columns: 300px 1fr;
+      }
+      /* The panel sits beside the canvas, never over it, so a screenshot of the canvas does not
+         change when a control does. */
+      aside {
+        background: var(--panel);
+        border-right: 1px solid var(--line);
+        padding: 16px;
+        overflow-y: auto;
+      }
+      h1 {
+        font-size: 15px;
+        margin: 0 0 12px;
+      }
+      fieldset {
+        border: 1px solid var(--line);
+        border-radius: 6px;
+        margin: 0 0 12px;
+        padding: 8px 12px 12px;
+      }
+      legend {
+        color: var(--muted);
+        padding: 0 4px;
+      }
+      label {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin: 6px 0;
+      }
+      label.stack {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 2px;
+      }
+      input[type='range'] {
+        width: 100%;
+      }
+      input[type='color'] {
+        width: 48px;
+        height: 28px;
+        padding: 0;
+        border: 1px solid var(--line);
+        background: none;
+      }
+      button {
+        background: var(--bg);
+        color: var(--text);
+        border: 1px solid var(--line);
+        border-radius: 4px;
+        padding: 4px 10px;
+        font: inherit;
+        cursor: pointer;
+      }
+      button:hover {
+        border-color: var(--accent);
+      }
+      .muted {
+        color: var(--muted);
+      }
+      #readout,
+      #status {
+        font: 12px/1.5 ui-monospace, monospace;
+        margin: 6px 0 0;
+        white-space: pre-wrap;
+        word-break: break-all;
+      }
+      #status.error {
+        color: #ff8585;
+      }
+      main {
+        position: relative;
+        min-width: 0;
+        min-height: 0;
+        overflow: hidden;
+      }
+      main canvas {
+        display: block;
+        width: 100%;
+        height: 100%;
+      }
+    </style>
+  </head>
+  <body>
+    <aside>
+      <h1>m3-tool spike viewer</h1>
+      <p id="status" class="muted">loading</p>
+
+      <fieldset>
+        <legend>Camera</legend>
+        <label><input type="radio" name="camera" id="camera-orbit" value="orbit" checked /> Orbit</label>
+        <label><input type="radio" name="camera" id="camera-driver" value="driver" /> Driver's eye (drag to look)</label>
+        <label class="stack"
+          ><span>Driver FOV <output id="fov-value">75</output> deg</span>
+          <input type="range" id="fov" min="40" max="110" step="1" value="75"
+        /></label>
+        <p id="readout" class="muted"></p>
+      </fieldset>
+
+      <fieldset>
+        <legend>Paint</legend>
+        <label>Color <input type="color" id="paint" value="#000000" /></label>
+      </fieldset>
+
+      <fieldset>
+        <legend>Glass</legend>
+        <label><input type="checkbox" id="glass-visible" checked /> Visible</label>
+        <label class="stack"
+          ><span>Opacity <output id="glass-opacity-value">0.35</output></span>
+          <input type="range" id="glass-opacity" min="0" max="1" step="0.01" value="0.35"
+        /></label>
+      </fieldset>
+
+      <fieldset>
+        <legend>Parts</legend>
+        <label><input type="checkbox" id="wheels-visible" /> Wheels</label>
+        <label><input type="checkbox" id="interior-visible" /> Interior</label>
+      </fieldset>
+
+      <button type="button" id="reset">Reset</button>
+      <p class="muted">
+        Query: <code>?car=&lt;path&gt;&amp;interior=&lt;path&gt;&amp;wheel=&lt;path&gt;</code>, paths
+        under the work dir. Optional: <code>gen=e46</code>, <code>eye=x,y,z</code> (meters),
+        <code>backend=webgl</code>.
+      </p>
+    </aside>
+    <main id="stage"></main>
+    <script type="module" src="./viewer.js"></script>
+  </body>
+</html>
