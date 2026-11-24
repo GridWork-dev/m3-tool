@@ -14,6 +14,7 @@ from typing import cast
 from m3_pipeline.assets import AssetSpec
 from m3_pipeline.config import Settings
 from m3_pipeline.stages import StageResult, register
+from m3_pipeline.stages.lib.paths import require_write_target_outside_repo, stage_dir
 from m3_pipeline.stages.lib.proc import run_process
 
 # Tests replace this to avoid starting node.
@@ -22,10 +23,18 @@ _run: Callable[[list[str]], subprocess.CompletedProcess[str]] = run_process
 
 @register("validate")
 def validate(asset: AssetSpec, settings: Settings) -> StageResult:
-    glb = settings.work_dir / "assets" / asset.id / "export" / f"{asset.id}.glb"
+    # The export folder comes from the same helper the export stage writes it with, and both the
+    # GLB (read) and the report (written) must stay out of the repo, links included. The guard
+    # takes `dest` first and `repo_root` second, so it is called with keywords.
+    try:
+        glb = stage_dir(settings, asset.id, "export") / f"{asset.id}.glb"
+        report = glb.with_name(f"{asset.id}.validate.json")
+        require_write_target_outside_repo(dest=glb, repo_root=settings.repo_root)
+        require_write_target_outside_repo(dest=report, repo_root=settings.repo_root)
+    except ValueError as error:
+        return StageResult(False, [str(error)], [])
     # Drop any report from an earlier run first, so a failure below can't leave a stale
     # `ok: true` and its stats next to a newer export.
-    report = glb.with_name(f"{asset.id}.validate.json")
     try:
         report.unlink(missing_ok=True)
     except OSError as error:
