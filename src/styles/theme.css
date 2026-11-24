@@ -1,0 +1,52 @@
+/* Tailwind theme: aliases onto the tokens in tokens.css, so the utilities (bg-floor, text-muted,
+   border-line, rounded-md, shadow-card) read the same custom properties the CSS does. `inline` keeps
+   the var() reference in the generated utility instead of copying the value. Spacing and the type
+   scale stay plain custom properties (--s-*, --fs-*). */
+@theme inline {
+  --color-floor-deep: var(--floor-deep);
+  --color-floor: var(--floor);
+  --color-wall: var(--wall);
+  --color-floor-seam: var(--floor-seam);
+  --color-wall-lit: var(--wall-lit);
+  --color-steel: var(--steel);
+  --color-steel-2: var(--steel-2);
+  --color-steel-3: var(--steel-3);
+  --color-line: var(--line);
+  --color-edge: var(--edge);
+  --color-text: var(--text);
+  --color-muted: var(--muted);
+  --color-dim: var(--dim);
+  --color-board: var(--board);
+  --color-board-hi: var(--board-hi);
+  --color-board-ink: var(--board-ink);
+  --color-canary: var(--canary);
+  --color-canary-2: var(--canary-2);
+  --color-canary-ink: var(--canary-ink);
+  --color-canary-muted: var(--canary-muted);
+  --color-canary-line: var(--canary-line);
+  --color-hot: var(--hot);
+  --color-stale: var(--stale);
+  --color-paint-1: var(--paint-1);
+  --color-paint-2: var(--paint-2);
+  --color-paint-3: var(--paint-3);
+  --color-paint-4: var(--paint-4);
+  --color-paint-5: var(--paint-5);
+  --color-paint-6: var(--paint-6);
+  --color-paint: var(--paint);
+  --color-focus: var(--focus);
+  --color-focus-ink: var(--focus-ink);
+
+  --radius-xs: var(--r-xs);
+  --radius-sm: var(--r-sm);
+  --radius-md: var(--r-md);
+  --radius-lg: var(--r-lg);
+  --radius-xl: var(--r-xl);
+  --radius-full: var(--r-full);
+
+  --shadow-board: var(--sh-board);
+  --shadow-paper: var(--sh-paper);
+  --shadow-card: var(--sh-card);
+  --shadow-clip: var(--sh-clip);
+  --shadow-sheet: var(--sh-sheet);
+  --shadow-drawer: var(--sh-drawer);
+}

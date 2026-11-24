@@ -1,1 +1,135 @@
 @import "tailwindcss";
+@import "./tokens.css";
+@import "./theme.css";
+
+/* Base, from the mock-up. In the base layer so a Tailwind utility beats the bare `a` colour. */
+@layer base {
+  * {
+    box-sizing: border-box;
+  }
+  html {
+    color-scheme: dark;
+    -webkit-text-size-adjust: 100%;
+    scroll-behavior: smooth;
+    scroll-padding-top: 60px;
+    scrollbar-color: var(--steel-3) var(--floor-deep);
+  }
+  body {
+    margin: 0;
+    background: var(--floor);
+    color: var(--text);
+    font: 400 var(--fs-md) / 1.5 var(--font-sans);
+    font-variant-numeric: tabular-nums;
+    accent-color: var(--board);
+    caret-color: var(--board);
+  }
+  ::selection {
+    background: var(--board);
+    color: var(--board-ink);
+  }
+  :focus-visible {
+    outline: 2px solid var(--focus);
+    outline-offset: 3px;
+  }
+  .total :focus-visible,
+  .pitboard :focus-visible,
+  .freq-plate :focus-visible,
+  .wo :focus-visible,
+  .tab-on:focus-visible {
+    outline-color: var(--focus-ink);
+  }
+  a {
+    color: var(--board);
+    text-underline-offset: 3px;
+  }
+  a:hover {
+    color: var(--board-hi);
+  }
+  .sr {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+  }
+  .rin {
+    position: absolute;
+    opacity: 0;
+    width: 1px;
+    height: 1px;
+    margin: 0;
+    pointer-events: none;
+  }
+  h1,
+  h2,
+  h3,
+  h4 {
+    margin: 0;
+    font-family: var(--font-display);
+    font-weight: 800;
+    text-transform: uppercase;
+    line-height: 0.9;
+    letter-spacing: 0.005em;
+    text-wrap: balance;
+  }
+  h2 {
+    font-size: var(--fs-display);
+  }
+  h3 {
+    font-size: var(--fs-xl);
+    letter-spacing: 0.02em;
+  }
+  .wrap {
+    max-width: 1320px;
+    margin: 0 auto;
+    padding: 0 var(--s-5);
+  }
+  .lede {
+    color: var(--muted);
+    max-width: 62ch;
+    margin: var(--s-3) 0 0;
+    font-size: var(--fs-lg);
+  }
+  /* The mock-up's selector list, with `.pitboard .row span` moved last so the plainer `span`
+     selectors do not follow a more specific one (Biome's noDescendingSpecificity). Same cascade. */
+  .lbl,
+  .tape,
+  .freq-plate span,
+  .total .t-lbl,
+  .wf,
+  .lines th,
+  .costs span,
+  .wo-meta,
+  .est,
+  .tier,
+  .count,
+  .pitboard .row span {
+    font-family: var(--font-sans);
+  }
+  .lbl {
+    font-size: var(--fs-2xs);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--muted);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+  .strips i,
+  .sweep {
+    animation: none;
+  }
+  .sweep {
+    translate: 0 0;
+  }
+  .vig,
+  .grip svg,
+  .tabs label::after {
+    transition: none;
+  }
+}
