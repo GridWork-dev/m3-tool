@@ -708,10 +708,12 @@ Settled 2026-11-23:
 - Generators are reached through fal (`M3_FAL_KEY`), plus the direct Tripo and Meshy keys. Hunyuan stays experiment-only (section 9.2). (amended 2026-11-23)
 - No model bake-off: the earlier plan to compare Fable 5.2 and Opus 5.5 with Astra 6.2 and Sol is dropped, and research chooses the models (section 9.9, ADR 0013). (amended 2026-11-23)
 - View synthesis uses the user's OpenAI subscription through the Codex CLI first, with a fal image-edit model as the fallback (section 9.1a, ADR 0013). (amended 2026-11-23)
+- Public name: **Gearwell**. `m3-tool` stays the repo, Worker and bucket name until a rename at Phase 1 kickoff. (amended 2026-11-23)
+- Visual design: direction B2, "pit garage", recorded in `docs/design/`. Its tokens become the Phase 1 site design. The hero's car outline is replaced by one traced from the spike's proportion-checked side view. (amended 2026-11-23)
 
 Still open:
 
-1. Public name and domain, before the public beta. Keep BMW and M3 out of the domain.
+1. Domain, before the public beta. Unregistered on 2026-11-23: gearwell.org, gearwell.dev and gearwell.app (gearwell.com is held by someone else). The user registers it. (amended 2026-11-23)
 2. Spend cap for Phase 1 generation, asked once the spike result is in.
 3. Confirm the CC BY-SA 4.0 license for 3D models once the generator terms are checked.
 4. Which generation comes second, before Phase 4.

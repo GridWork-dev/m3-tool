@@ -21,6 +21,7 @@ An index of everything under `docs/`, plus the infrastructure notes. Start with 
 - [Design spec](superpowers/specs/2026-11-23-m3-tool-design.md): what the tool is, the stack, the architecture and the roadmap.
 - [Phase 0A plan](superpowers/plans/2026-11-23-phase-0a-foundations.md): the foundations, task by task.
 - [Phase 0B plan](superpowers/plans/2026-11-23-phase-0b-photo-tooling.md): the reference-photo tooling.
+- [Visual design](design/README.md): the chosen direction, "pit garage", with its mock-up and tokens.
 
 ## Operations
 

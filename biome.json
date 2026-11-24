@@ -15,7 +15,8 @@
       "!**/pipeline",
       "!**/package-lock.json",
       "!**/playwright-report",
-      "!**/test-results"
+      "!**/test-results",
+      "!docs/design/*.html"
     ]
   },
   "formatter": {

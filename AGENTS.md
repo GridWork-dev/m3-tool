@@ -120,6 +120,7 @@ Opus reviews only when the orchestrator isn't Opus. With an Opus orchestrator, t
 - [docs/standards/](docs/standards): code, testing, data, 3D assets, legal.
 - [docs/decisions/](docs/decisions): the ADRs. Read one before you reopen a decision.
 - [docs/superpowers/specs/](docs/superpowers/specs) and [docs/superpowers/plans/](docs/superpowers/plans): the design and the implementation plans.
+- [docs/design/](docs/design): the visual direction ("pit garage"), its mock-up and design tokens. UI work starts here.
 - [docs/spend-ledger.md](docs/spend-ledger.md): every paid call.
 - [infra/README.md](infra/README.md): Cloudflare resources and tokens, by name.
 - [CONTRIBUTING.md](CONTRIBUTING.md): setup and the rules in short form.
