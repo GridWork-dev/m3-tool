@@ -1,18 +1,28 @@
 import hashlib
 import json
+import logging
 import os
 import tempfile
 from collections.abc import Iterable
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Literal
+from typing import Literal, cast
 
 from m3_pipeline.config import Settings
 from m3_pipeline.refs.imaging import UnreadableImage, inspect_image
 from m3_pipeline.refs.manifest import Manifest
 from m3_pipeline.refs.models import ImageRecord, Source
 from m3_pipeline.refs.subjects import parse_subject
+
+_LOG = logging.getLogger(__name__)
+
+
+def _source_urls(source: Source) -> list[str]:
+    urls = [source.source_url] if source.source_url else []
+    if source.kind == "commons" and source.page_url:
+        urls.append(source.page_url)
+    return urls
 
 
 class RefsStoreError(Exception):
@@ -36,9 +46,29 @@ class RefStore:
         self._skips_path = self.work_dir / "refs/skipped.jsonl"
         self._skips: set[str] = set()
         if self._skips_path.exists():
-            for line in self._skips_path.read_text().splitlines():
-                row: dict[str, str] = json.loads(line)
-                self._skips.add(row["url"])
+            self._load_skips()
+
+    def _load_skips(self) -> None:
+        lines = self._skips_path.read_bytes().splitlines(keepends=True)
+        for lineno, line in enumerate(lines, 1):
+            try:
+                value: object = json.loads(line)
+            except (json.JSONDecodeError, UnicodeDecodeError) as exc:
+                if lineno == len(lines) and not line.endswith(b"\n"):
+                    self._skips_path.write_bytes(b"".join(lines[:-1]))
+                    _LOG.warning("%s: dropped torn last skip-log line", self._skips_path)
+                    return
+                raise RefsStoreError(f"{self._skips_path}:{lineno}: {exc}") from exc
+            if not isinstance(value, dict):
+                raise RefsStoreError(f"{self._skips_path}:{lineno}: expected a skip record")
+            row = cast(dict[str, object], value)
+            url = row.get("url")
+            if not isinstance(url, str):
+                raise RefsStoreError(f"{self._skips_path}:{lineno}: expected a string url")
+            self._skips.add(url)
+        if lines and not lines[-1].endswith(b"\n"):
+            # Keep a complete tail appendable, just like the manifest.
+            self._skips_path.write_bytes(b"".join(lines) + b"\n")
 
     def ingest_bytes(
         self, data: bytes, *, subject: str, source: Source, now: datetime | None = None
@@ -49,29 +79,13 @@ class RefStore:
         except UnreadableImage as exc:
             return IngestResult("rejected", None, str(exc))
         image_id = hashlib.sha256(data).hexdigest()
-        urls = [source.source_url] if source.source_url else []
-        if source.kind == "commons" and source.page_url:
-            urls.append(source.page_url)
         existing = self.get(image_id)
         if existing:
-            values = existing.model_dump()
-            values["seen_urls"] = list(dict.fromkeys([*existing.seen_urls, *urls]))
-            if existing.license_short == "unknown" and source.license_short != "unknown":
-                values.update(
-                    source_kind=source.kind,
-                    source_url=source.source_url,
-                    page_url=source.page_url,
-                    author=source.author,
-                    license_short=source.license_short,
-                    license_url=source.license_url,
-                    source_note=source.source_note,
-                )
-            record = ImageRecord.model_validate(values)
-            self.update(record if r.id == image_id else r for r in self.records())
+            self.merge_provenance(image_id, source)
             reason = (
                 f"kept first subject {existing.subject}" if existing.subject != subject else None
             )
-            return IngestResult("known_bytes", record, reason)
+            return IngestResult("known_bytes", self.get(image_id), reason)
         record = ImageRecord.model_validate(
             {
                 "id": image_id,
@@ -88,7 +102,7 @@ class RefStore:
                 "height": info.height,
                 "ext": info.ext,
                 "phash": info.phash,
-                "seen_urls": urls,
+                "seen_urls": _source_urls(source),
             }
         )
         path = self.image_path(record)
@@ -116,8 +130,33 @@ class RefStore:
     def update(self, records: Iterable[ImageRecord]) -> None:
         self._manifest.replace_all(records)
 
+    def merge_provenance(self, image_id: str, source: Source) -> bool:
+        existing = self.get(image_id)
+        if existing is None:
+            return False
+        values = existing.model_dump()
+        values["seen_urls"] = list(dict.fromkeys([*existing.seen_urls, *_source_urls(source)]))
+        if existing.license_short == "unknown" and source.license_short != "unknown":
+            values.update(
+                source_kind=source.kind,
+                source_url=source.source_url,
+                page_url=source.page_url,
+                author=source.author,
+                license_short=source.license_short,
+                license_url=source.license_url,
+                source_note=source.source_note,
+            )
+        record = ImageRecord.model_validate(values)
+        if record == existing:
+            return False
+        self.update(record if r.id == image_id else r for r in self.records())
+        return True
+
+    def id_for_url(self, url: str) -> str | None:
+        return self._manifest.id_for_url(url)
+
     def known_url(self, url: str) -> bool:
-        return self._manifest.id_for_url(url) is not None
+        return self.id_for_url(url) is not None
 
     def record_skip(self, url: str, reason: str) -> None:
         self._skips_path.parent.mkdir(parents=True, exist_ok=True)

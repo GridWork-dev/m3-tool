@@ -44,3 +44,17 @@ def test_append_rejects_an_existing_id(tmp_path: Path) -> None:
     with pytest.raises(ManifestError):
         m.append(a)
     assert Manifest.load(tmp_path / "m.jsonl").records() == [a]
+
+
+def test_valid_last_line_without_newline_is_normalized_and_stays_appendable(
+    tmp_path: Path, caplog: pytest.LogCaptureFixture
+) -> None:
+    path = tmp_path / "manifest.jsonl"
+    first, second = make_record(id="a" * 64), make_record(id="b" * 64)
+    path.write_text(first.model_dump_json())
+    manifest = Manifest.load(path)
+    assert manifest.records() == [first]
+    assert path.read_bytes().endswith(b"\n")
+    assert "newline" in caplog.text and str(path) in caplog.text
+    manifest.append(second)
+    assert Manifest.load(path).records() == [first, second]

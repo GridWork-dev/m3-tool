@@ -7,7 +7,7 @@ from typing import Any
 import httpx
 import pytest
 from refs_fakes import FakeWikimedia
-from refs_helpers import FakeClock
+from refs_helpers import FakeClock, ingest, make_image_bytes
 
 import m3_pipeline.refs.commons as commons_module
 from m3_pipeline.refs.commons import CommonsClient, merge_batch, parse_page
@@ -259,3 +259,36 @@ def test_no_category_names_or_search_terms_are_hard_coded() -> None:
     assert commons_module.__file__ is not None
     src = Path(commons_module.__file__).read_text()
     assert not re.search(r"Category:[A-Za-z]", src) and "E46" not in src and "BMW" not in src
+
+
+@pytest.mark.parametrize("known_url", ["thumb", "page"])
+def test_commons_rerun_upgrades_known_url_provenance_without_downloading(
+    world: FakeWikimedia,
+    client: CommonsClient,
+    store: RefStore,
+    known_url: str,
+) -> None:
+    thumb_url = "https://upload.wikimedia.org/t/a.jpg"
+    page_url = "https://commons.wikimedia.org/wiki/File:a.jpg"
+    original = ingest(
+        store,
+        make_image_bytes(0),
+        kind="crawl",
+        source_url=thumb_url if known_url == "thumb" else page_url,
+        page_url="https://127.0.0.1/crawl.html",
+    )
+    assert original.license_short == "unknown" and original.author is None
+    report = client.collect("e46-coupe", ["Test cars"], limit=1)
+    assert report.known == 1 and report.added == 0
+    assert not [r for r in world.requests if r.url.host == "upload.wikimedia.org"]
+    upgraded = RefStore(store.settings).get(original.id)
+    assert upgraded is not None
+    assert (upgraded.source_kind, upgraded.license_short, upgraded.author) == (
+        "commons",
+        "CC BY-SA 4.0",
+        "Jane Doe",
+    )
+    assert upgraded.source_url == thumb_url and upgraded.page_url == page_url
+    assert upgraded.license_url == FULL["LicenseUrl"]["value"]
+    assert set(upgraded.seen_urls) == {thumb_url, page_url}
+    assert upgraded.retrieved_at == original.retrieved_at

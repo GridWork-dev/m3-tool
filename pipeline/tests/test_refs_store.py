@@ -138,3 +138,66 @@ def test_refs_stats_cli_counts_by_subject(store: RefStore, monkeypatch: pytest.M
 def test_external_network_is_blocked() -> None:
     with pytest.raises(OSError):
         socket.create_connection(("example.com", 80), timeout=1)
+
+
+def test_torn_skip_log_tail_is_dropped_and_store_loads(
+    store: RefStore, caplog: pytest.LogCaptureFixture
+) -> None:
+    url = "http://127.0.0.1/small.jpg"
+    store.record_skip(url, "small")
+    path = store.work_dir / "refs/skipped.jsonl"
+    before = path.read_bytes()
+    path.write_bytes(before + b'{"url": "http://127.0.0.1/torn')
+    recovered = RefStore(store.settings)
+    assert recovered.was_skipped(url)
+    assert recovered.records() == []
+    assert "torn" in caplog.text and str(path) in caplog.text
+    assert path.read_bytes() == before
+    recovered.record_skip("http://127.0.0.1/next.jpg", "small")
+    fresh = RefStore(store.settings)
+    assert fresh.was_skipped(url) and fresh.was_skipped("http://127.0.0.1/next.jpg")
+
+
+def test_corrupt_skip_log_line_in_middle_raises(store: RefStore) -> None:
+    store.record_skip("http://127.0.0.1/a.jpg", "small")
+    path = store.work_dir / "refs/skipped.jsonl"
+    with path.open("a") as output:
+        output.write('{not json}\n{"url": "http://127.0.0.1/b.jpg", "reason": "small"}\n')
+    before = path.read_bytes()
+    with pytest.raises(RefsStoreError, match=r"skipped\.jsonl:2") as exc:
+        RefStore(store.settings)
+    assert str(path) in str(exc.value)
+    assert path.read_bytes() == before
+
+
+def test_merge_provenance_merges_urls_without_downgrading_and_reports_changes(
+    store: RefStore,
+) -> None:
+    original = ingest(store, make_image_bytes(), author="Jane", license_short="CC BY 4.0")
+    incoming = Source("crawl", "http://127.0.0.1/a.jpg", "http://127.0.0.1/page.html", None)
+    assert store.merge_provenance(original.id, incoming)
+    updated = RefStore(store.settings).get(original.id)
+    assert updated is not None
+    assert (updated.source_kind, updated.license_short, updated.author) == (
+        "local",
+        "CC BY 4.0",
+        "Jane",
+    )
+    assert updated.seen_urls == [incoming.source_url]
+    before = (store.work_dir / "refs/manifest.jsonl").read_bytes()
+    assert not store.merge_provenance(original.id, incoming)
+    assert not store.merge_provenance("f" * 64, incoming)
+    assert (store.work_dir / "refs/manifest.jsonl").read_bytes() == before
+
+
+def test_valid_skip_log_tail_without_newline_stays_appendable(store: RefStore) -> None:
+    first, second = "http://127.0.0.1/a.jpg", "http://127.0.0.1/b.jpg"
+    store.record_skip(first, "small")
+    path = store.work_dir / "refs/skipped.jsonl"
+    path.write_bytes(path.read_bytes().rstrip(b"\n"))
+    recovered = RefStore(store.settings)
+    assert recovered.was_skipped(first)
+    assert path.read_bytes().endswith(b"\n")
+    recovered.record_skip(second, "small")
+    fresh = RefStore(store.settings)
+    assert fresh.was_skipped(first) and fresh.was_skipped(second)

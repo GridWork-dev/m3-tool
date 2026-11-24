@@ -207,7 +207,19 @@ class CommonsClient:
                         else:
                             report.skipped_no_imageinfo += 1
                         continue
-                    if self.store.known_url(file.thumb_url) or self.store.known_url(file.page_url):
+                    source = Source(
+                        "commons",
+                        file.thumb_url,
+                        file.page_url,
+                        file.author,
+                        file.license_short,
+                        file.license_url,
+                    )
+                    image_id = self.store.id_for_url(file.thumb_url) or self.store.id_for_url(
+                        file.page_url
+                    )
+                    if image_id is not None:
+                        self.store.merge_provenance(image_id, source)
                         report.known += 1
                         continue
                     try:
@@ -221,14 +233,7 @@ class CommonsClient:
                     result = self.store.ingest_bytes(
                         response.content,
                         subject=subject,
-                        source=Source(
-                            "commons",
-                            file.thumb_url,
-                            file.page_url,
-                            file.author,
-                            file.license_short,
-                            file.license_url,
-                        ),
+                        source=source,
                     )
                     if result.outcome == "added":
                         report.added += 1

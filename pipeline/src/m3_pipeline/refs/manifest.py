@@ -43,6 +43,9 @@ class Manifest:
         if torn:
             manifest.replace_all(records)
             logging.getLogger(__name__).warning("%s: dropped torn last manifest line", path)
+        elif lines and not lines[-1].endswith(b"\n"):
+            manifest.replace_all(records)
+            logging.getLogger(__name__).warning("%s: restored missing manifest newline", path)
         return manifest
 
     def get(self, image_id: str) -> ImageRecord | None:
