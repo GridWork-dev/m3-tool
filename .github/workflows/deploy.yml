@@ -66,6 +66,7 @@ jobs:
           path: dist/
           if-no-files-found: error
           include-hidden-files: true
+          overwrite: true # a re-run of all jobs uploads again under the same name
           retention-days: 3
 
   deploy:

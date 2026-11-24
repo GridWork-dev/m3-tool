@@ -159,6 +159,7 @@ describe('deploy.yml: a build job without secrets, and a deploy job that takes o
     expect(paths).toEqual(['dist/'])
     expect(upload?.with?.['if-no-files-found']).toBe('error')
     expect(upload?.with?.['include-hidden-files']).toBe(true)
+    expect(upload?.with?.overwrite).toBe(true) // so "re-run all jobs" can upload again
   })
 
   test('the deploy job has exactly these steps, and no others', () => {
