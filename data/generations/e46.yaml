@@ -70,14 +70,14 @@ driverEyePoint:
 # modelled.
 # Below data.md's verification rule (no Tier 1 source and fewer than two distinct Tier 2
 # publishers), now that Koleso.ee is Tier 3: the stock widthIn and offsetMm on both axles (Hubcap
-# Haven is the only Tier 2 publisher) and centerBoreMm 72.6 (BimmerWorld, which gives 72.56 mm, is
-# the only Tier 2 publisher). A generation has no verified field, so this comment is the record.
-# The stock tire sizes (owner's manual, Tier 1) and the 5x120 bolt pattern (Hubcap Haven and
-# BimmerWorld) still meet the rule.
+# Haven is the only Tier 2 publisher). A generation has no verified field, so this comment is the
+# record. The stock tire sizes (owner's manual, Tier 1), the 5x120 bolt pattern (Apex's E46 M3
+# page, Tier 1, and Hubcap Haven and BimmerWorld) and the 72.56 mm center bore (Apex's E46 M3
+# page, Tier 1, and BimmerWorld) meet the rule.
 fitment:
   front:
     boltPattern: 5x120
-    centerBoreMm: 72.6
+    centerBoreMm: 72.56
     stock:
       diameterIn: 18
       widthIn: 8
@@ -86,7 +86,7 @@ fitment:
     envelopes: []
   rear:
     boltPattern: 5x120
-    centerBoreMm: 72.6
+    centerBoreMm: 72.56
     stock:
       diameterIn: 18
       widthIn: 9
@@ -94,6 +94,12 @@ fitment:
       tire: 255/40ZR18
     envelopes: []
   sources:
+    - title: BMW E46 M3 Wheels
+      publisher: Apex Wheels
+      url: https://web.archive.org/web/20260812175415/https://apexwheels.com/vehicles/bmw/m3/e46-m3
+      tier: 1
+      accessed: 2026-11-23
+      note: "Archived copy (web.archive.org snapshot of 2026-08-12) of the manufacturer's E46 M3 vehicle page, 'for your 2001-2006 BMW E46 M3'. Its specification table (shown for the VS-5RS) gives bolt pattern 5x120mm, center bore 72.56mm and centering ring 'N/A Direct fit' for the E46 M3 fitment, on front and rear. Source for the center bore of 72.56 mm and a Tier 1 source for the 5x120 bolt pattern. Apex's wheel sizes are not used here: the wheels in this block are the 18-inch factory ones."
     - title: "BMW M3 Owner's Manual, online edition for part no. 01 41 0 157 628 (09/03): Tire inflation pressure, p. 27"
       publisher: BMW AG
       url: https://archive.org/download/manualsonline-id-d3b68d3e-dade-4bda-875b-3716cdeabf3f/d3b68d3e-dade-4bda-875b-3716cdeabf3f.pdf
@@ -105,7 +111,7 @@ fitment:
       url: https://koleso.ee/en/valuveljed/bmw/m3/263/e46-2000-2006/544
       tier: 3
       accessed: 2026-11-23
-      note: "Tire retailer's fitment data. Lists the OEM front as 225/45R18 on 8Jx18 ET47 and the OEM rear as 255/40R18 on 9Jx18 ET26, bolt pattern 5x120 and center bore 72.6 mm."
+      note: "Tire retailer's fitment data. Lists the OEM front as 225/45R18 on 8Jx18 ET47 and the OEM rear as 255/40R18 on 9Jx18 ET26, bolt pattern 5x120 and center bore 72.6 mm (a rounding of the 72.56 mm that Apex gives)."
     - title: ALY59367 BMW M3 Wheel/Rim Hyper Silver #36112229950
       publisher: Hubcap Haven
       url: https://www.hubcaphaven.com/p/3015/aly59367-bmw-m3-wheel-hyper-silver-36112229950.html
@@ -123,4 +129,4 @@ fitment:
       url: https://www.bimmerworld.com/About-Us/Wheel-Info-Tech/
       tier: 2
       accessed: 2026-11-23
-      note: "Specialist shop's tech page. Its bolt pattern table gives 5x120 with a 72.56 mm center bore for the 5-lug E-chassis (E46 included), which rounds to the 72.6 used here. Its E46 M3 row lists 19x8.0 ET47 front and 19x9.5 ET27 rear as stock, which differs from the 18-inch sizes used here (Koleso.ee labels those OEM), so it is not used for the wheel sizes."
+      note: "Specialist shop's tech page. Its bolt pattern table gives 5x120 with a 72.56 mm center bore for the 5-lug E-chassis (E46 included), which is the 72.56 used here. Its E46 M3 row lists 19x8.0 ET47 front and 19x9.5 ET27 rear as stock, which differs from the 18-inch sizes used here (Koleso.ee labels those OEM), so it is not used for the wheel sizes."
