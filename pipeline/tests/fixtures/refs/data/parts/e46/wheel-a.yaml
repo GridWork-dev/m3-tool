@@ -1,0 +1,17 @@
+# Synthetic product for reference-description tests.
+id: wheel-a
+name: Fixture Wheel A
+brand: Fixture Co
+category: wheels
+attributes:
+  spokes: 7
+  finish: silver
+options:
+  - id: small
+    label: Small diameter
+    attributes:
+      diameterIn: 18
+  - id: large
+    label: Large diameter
+    attributes:
+      diameterIn: 19
