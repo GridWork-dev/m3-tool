@@ -2,9 +2,9 @@
 
 The car has the real E46 coupe's length, height and wheelbase (4492, 1372 and 2731 mm), a
 blocky body, a cabin and two tires of a known radius, nose toward the left, on `#d9d9d9`. The
-body's underside is 150 mm above the ground and the tires reach the ground, so each tire shows
-below the sill line as a bump of a known circle. Nothing is antialiased, so the truth is exact
-to a pixel.
+body's underside is 150 mm above the ground (or raked between two heights) and the tires reach the
+ground, so each tire shows below the underside as a bump of a known circle. Nothing is
+antialiased, so the truth is exact to a pixel.
 """
 
 from dataclasses import dataclass
@@ -41,9 +41,15 @@ def draw_car(
     wheelbase_scale: float = 1.0,
     height_scale: float = 1.0,
     margin_px: int | None = None,
+    underside_mm: tuple[float, float] = (SILL_MM, SILL_MM),
+    splitter_mm: tuple[float, float] | None = None,
 ) -> tuple[Image.Image, CarTruth]:
     """The car at `scale` (1.0 is 0.25 px per mm), with its wheelbase and height optionally
-    stretched, on a background margin of `margin_px` (default: 100 px at scale 1)."""
+    stretched, on a background margin of `margin_px` (default: 100 px at scale 1).
+
+    `underside_mm` is the height of the body's underside at the nose and at the tail (a rake when
+    they differ). `splitter_mm` is `(width, drop)`: a flat splitter under the nose, that wide and
+    reaching that far below the underside."""
     s = _PX_PER_MM * scale
     margin = round(100 * scale) if margin_px is None else margin_px
     height_mm = HEIGHT_MM * height_scale
@@ -57,8 +63,9 @@ def draw_car(
 
     image = Image.new("RGB", (width, canvas_height), BACKGROUND)
     draw = ImageDraw.Draw(image)
+    nose_sill, tail_sill = underside_mm
     body = [
-        (0, SILL_MM),
+        (0, nose_sill),
         (0, 520),
         (300, 600),
         (1100, 780),
@@ -67,9 +74,13 @@ def draw_car(
         (3500, 830),
         (4300, 800),
         (LENGTH_MM, 700),
-        (LENGTH_MM, SILL_MM),
+        (LENGTH_MM, tail_sill),
     ]
     draw.polygon([at(x, y) for x, y in body], fill=BODY)
+    if splitter_mm is not None:
+        width_mm, drop_mm = splitter_mm
+        lip = [(0, nose_sill), (width_mm, nose_sill), (width_mm, nose_sill - drop_mm)]
+        draw.polygon([at(x, y) for x, y in [*lip, (0, nose_sill - drop_mm)]], fill=BODY)
     front_x = (LENGTH_MM - wheelbase_mm) / 2
     centers = [at(front_x, TIRE_RADIUS_MM), at(front_x + wheelbase_mm, TIRE_RADIUS_MM)]
     radius = TIRE_RADIUS_MM * s
@@ -84,3 +95,23 @@ def draw_car(
         rear_center=centers[1],
     )
     return image, truth
+
+
+def add_contact_shadows(
+    image: Image.Image,
+    truth: CarTruth,
+    *,
+    size: tuple[int, int] = (120, 14),
+    inward_px: int = 20,
+    lift_px: int = 0,
+    color: tuple[int, int, int] = (128, 128, 128),
+) -> None:
+    """Gray ellipses of `size` pixels on the ground under each tire, each shifted `inward_px`
+    toward the middle of the car and `lift_px` above the ground. They are part of the picture the
+    way a floor shadow is, and not of the car."""
+    draw = ImageDraw.Draw(image)
+    width, height = size
+    for (cx, cy), shift in ((truth.front_center, inward_px), (truth.rear_center, -inward_px)):
+        bottom = cy + truth.tire_radius_px - lift_px
+        x = cx + shift
+        draw.ellipse((x - width / 2, bottom - height, x + width / 2, bottom), fill=color)

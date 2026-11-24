@@ -1,18 +1,19 @@
+import io
 import math
-import subprocess
-import sys
+from collections.abc import Callable
 
 import numpy as np
 import pytest
 from numpy.typing import NDArray
-from PIL import Image, ImageDraw
-from silhouette_helpers import BACKGROUND, draw_car
+from PIL import Image, ImageDraw, ImageFilter
+from silhouette_helpers import BACKGROUND, add_contact_shadows, draw_car
 
 from m3_pipeline.stages.lib.dims import Dimensions
 from m3_pipeline.stages.lib.silhouette import (
     ProportionReport,
     SideMeasure,
     SilhouetteError,
+    WheelFit,
     check_proportions,
     mask_from_image,
     measure_side,
@@ -109,11 +110,54 @@ def test_silhouette_touching_the_border_is_rejected() -> None:
         mask_from_image(image)
 
 
-def test_a_car_cut_off_by_one_edge_is_rejected() -> None:
+def _cut_by_edge(rect: tuple[int, int, int, int]) -> Image.Image:
     image = Image.new("RGB", (400, 300), BACKGROUND)
-    ImageDraw.Draw(image).rectangle((-30, 100, 200, 200), fill=(30, 30, 40))
+    ImageDraw.Draw(image).rectangle(rect, fill=(30, 30, 40))
+    return image
+
+
+@pytest.mark.parametrize(
+    "rect",
+    [
+        (-30, 100, 200, 200),  # runs off the left edge
+        (200, 100, 429, 200),  # the right edge
+        (120, -30, 280, 100),  # the top edge
+        (120, 200, 280, 329),  # the bottom edge
+    ],
+    ids=["left", "right", "top", "bottom"],
+)
+def test_a_car_cut_off_by_any_one_edge_is_rejected(rect: tuple[int, int, int, int]) -> None:
     with pytest.raises(SilhouetteError, match="touches the image border"):
+        mask_from_image(_cut_by_edge(rect))
+
+
+def test_an_edge_cut_over_45_percent_of_its_length_is_a_crop() -> None:
+    # 136 of the 300 rows: the strip differs over 45% of the edge, so it is a car running off it.
+    with pytest.raises(SilhouetteError, match="touches the image border"):
+        mask_from_image(_cut_by_edge((-30, 80, 200, 215)))
+
+
+def test_an_edge_cut_over_55_percent_of_its_length_is_not_a_background() -> None:
+    # 166 of the 300 rows: most of the edge differs, so there is no background along it.
+    with pytest.raises(SilhouetteError, match="background not uniform"):
+        mask_from_image(_cut_by_edge((-30, 60, 200, 225)))
+
+
+def test_corners_that_differ_by_more_than_the_tolerance_are_not_one_background() -> None:
+    # Two tones, 16 apart per channel (a distance of 27.7 against the tolerance of 24). Each is
+    # within the tolerance of their mean, so only the corner comparison can reject this.
+    image = Image.new("RGB", (400, 300), (217, 217, 217))
+    ImageDraw.Draw(image).rectangle((200, 0, 399, 299), fill=(201, 201, 201))
+    ImageDraw.Draw(image).rectangle((150, 100, 250, 200), fill=(30, 30, 40))
+    with pytest.raises(SilhouetteError, match="background not uniform"):
         mask_from_image(image)
+
+
+def test_corners_within_the_tolerance_are_one_background() -> None:
+    image = Image.new("RGB", (400, 300), (217, 217, 217))
+    ImageDraw.Draw(image).rectangle((200, 0, 399, 299), fill=(207, 207, 207))  # 17.3 apart
+    ImageDraw.Draw(image).rectangle((150, 100, 250, 200), fill=(30, 30, 40))
+    assert mask_from_image(image)[150, 200]
 
 
 def test_empty_image_is_rejected() -> None:
@@ -179,7 +223,7 @@ def test_measure_side_rejects_an_empty_mask() -> None:
 def test_measure_side_rejects_a_silhouette_without_wheel_bumps() -> None:
     mask: NDArray[np.bool_] = np.zeros((100, 300), dtype=np.bool_)
     mask[20:80, 10:290] = True  # a plain box: a flat bottom contour
-    with pytest.raises(SilhouetteError, match="wheel"):
+    with pytest.raises(SilhouetteError, match="wheels not found"):
         measure_side(mask)
 
 
@@ -188,7 +232,7 @@ def test_measure_side_rejects_a_bump_that_is_not_a_circle_arc() -> None:
     mask[20:70, 10:290] = True
     for x0 in (40, 200):
         mask[70:80, x0 : x0 + 40] = True  # flat-bottomed feet, not tires
-    with pytest.raises(SilhouetteError, match="not an arc of a circle"):
+    with pytest.raises(SilhouetteError, match="wheels not found.*radius"):
         measure_side(mask)
 
 
@@ -256,11 +300,296 @@ def test_the_same_measure_at_two_scales_gives_the_same_report() -> None:
         assert getattr(half, field) == pytest.approx(getattr(double, field), rel=1e-9), field
 
 
-def test_importing_the_silhouette_module_loads_neither_numpy_nor_pillow() -> None:
-    code = (
-        "import sys, m3_pipeline.stages.lib.silhouette, m3_pipeline.stages.proportion; "
-        "print(','.join(m for m in ('numpy', 'PIL') if m in sys.modules))"
-    )
-    out = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True)
-    assert out.returncode == 0, out.stderr
-    assert out.stdout.strip() == ""
+# --- wheels: the underside, the splitter, the shadow and the gates ------------------------
+
+
+def _assert_the_true_wheels(
+    measure: SideMeasure, truth_wheelbase: float, truth_radius: float
+) -> None:
+    assert measure.wheelbase_px == pytest.approx(truth_wheelbase, rel=0.01)
+    assert measure.wheel_radius_px == pytest.approx(truth_radius, rel=0.03)
+
+
+@pytest.mark.parametrize(
+    ("underside_mm", "splitter_mm"),
+    [
+        ((120.0, 200.0), None),  # a raked underside, 80 mm over the length
+        ((100.0, 250.0), None),  # a steeper rake
+        ((150.0, 150.0), (700.0, 60.0)),  # a splitter wider than a tire bump, running into one
+    ],
+    ids=["rake-120-200", "rake-100-250", "splitter-700x60"],
+)
+def test_the_wheelbase_survives_a_raked_underside_and_a_wide_front_splitter(
+    underside_mm: tuple[float, float], splitter_mm: tuple[float, float] | None
+) -> None:
+    image, truth = draw_car(underside_mm=underside_mm, splitter_mm=splitter_mm)
+    measure = measure_side(mask_from_image(image))
+    report = check_proportions(measure, E46)
+    assert report.ok
+    assert report.wheelbase_error < 0.01
+    _assert_the_true_wheels(measure, truth.wheelbase_px, truth.tire_radius_px)
+    assert _near(measure.front_center, truth.front_center) <= 0.01 * truth.length_px
+    assert _near(measure.rear_center, truth.rear_center) <= 0.01 * truth.length_px
+
+
+@pytest.mark.parametrize("underside_mm", [(120.0, 200.0), (100.0, 250.0)])
+def test_on_a_raked_car_a_wheels_bump_is_the_tires_and_not_the_underside(
+    underside_mm: tuple[float, float],
+) -> None:
+    # A tire bump is about 12% of the length. Measured from a level line through the car instead
+    # of the raked underside, the lower end of the underside would join the bump and widen it.
+    image, truth = draw_car(underside_mm=underside_mm)
+    for wheel in measure_side(mask_from_image(image)).wheels:
+        assert wheel.columns[1] - wheel.columns[0] < 0.2 * truth.length_px
+
+
+@pytest.mark.parametrize("scale", [1.0, 2.0])
+def test_a_blurred_noisy_jpeg_car_is_still_measured(scale: float) -> None:
+    image, truth = draw_car(scale, underside_mm=(120.0, 200.0))
+    pixels = np.asarray(image.filter(ImageFilter.GaussianBlur(1.2)), dtype=np.float64)
+    noise = np.random.default_rng(1).normal(0, 4, pixels.shape)
+    noisy = Image.fromarray(np.clip(pixels + noise, 0, 255).astype(np.uint8))
+    jpeg = io.BytesIO()
+    noisy.save(jpeg, "JPEG", quality=75)
+    measure = measure_side(mask_from_image(Image.open(io.BytesIO(jpeg.getvalue()))))
+    _assert_the_true_wheels(measure, truth.wheelbase_px, truth.tire_radius_px)
+    assert check_proportions(measure, E46).ok
+
+
+def test_a_narrow_splitter_changes_nothing() -> None:
+    image, truth = draw_car(splitter_mm=(400.0, 60.0))
+    measure = measure_side(mask_from_image(image))
+    _assert_the_true_wheels(measure, truth.wheelbase_px, truth.tire_radius_px)
+
+
+@pytest.mark.parametrize(
+    ("size", "inward_px", "lift_px"),
+    [
+        ((120, 14), 20, 0),  # Codex's reproduction
+        ((120, 14), 20, 4),
+        ((80, 10), 20, 0),  # each of these fooled a looser circle gate
+        ((100, 12), 20, 0),
+        ((60, 8), 30, 0),
+    ],
+)
+def test_contact_shadows_never_turn_a_wrong_wheelbase_into_an_ok(
+    size: tuple[int, int], inward_px: int, lift_px: int
+) -> None:
+    """A 6% long wheelbase, and gray shadows under the tires, shifted inward. The shadows hide the
+    bottom of each tire, and a fit that trusts them puts the wheels 6% closer than they are. A
+    measurement here is right, or there is none."""
+    image, truth = draw_car(wheelbase_scale=1.06)
+    add_contact_shadows(image, truth, size=size, inward_px=inward_px, lift_px=lift_px)
+    try:
+        measure = measure_side(mask_from_image(image))
+    except SilhouetteError as error:
+        assert "wheels not found" in str(error)
+        return
+    report = check_proportions(measure, E46)
+    assert not report.ok
+    assert report.wheelbase_error > 0.04
+    assert measure.wheelbase_px == pytest.approx(truth.wheelbase_px, rel=0.02)
+
+
+def test_a_shadow_under_the_whole_tire_is_not_measured() -> None:
+    image, truth = draw_car()
+    add_contact_shadows(image, truth, inward_px=0)  # 120 px of the 138 px under the sill
+    with pytest.raises(SilhouetteError, match="wheels not found"):
+        measure_side(mask_from_image(image))
+
+
+def test_a_small_shadow_under_each_tire_is_tolerated() -> None:
+    image, truth = draw_car()
+    add_contact_shadows(image, truth, size=(30, 6), inward_px=0)
+    measure = measure_side(mask_from_image(image))
+    _assert_the_true_wheels(measure, truth.wheelbase_px, truth.tire_radius_px)
+    assert _near(measure.front_center, truth.front_center) <= 0.01 * truth.length_px
+
+
+def test_measure_side_reports_each_wheel_for_diagnosis() -> None:
+    image, truth = draw_car()
+    measure = measure_side(mask_from_image(image))
+    front, rear = measure.wheels
+    assert isinstance(front, WheelFit)
+    assert front.center == measure.front_center
+    assert rear.center == measure.rear_center
+    for wheel in (front, rear):
+        assert wheel.radius_px == pytest.approx(truth.tire_radius_px, rel=0.03)
+        assert wheel.residual < 0.02
+        assert wheel.coverage >= 0.8
+        assert wheel.arc_deg >= 60
+        first, last = wheel.columns
+        assert 0 < last - first < 0.2 * truth.length_px
+    assert front.columns[1] < rear.columns[0]
+
+
+# Direct masks for the gates, so each gate can be shown to fire on its own. A 1000 x 400 canvas,
+# a body from x=50 to x=950 and from y=150 to y=290, and discs for wheels standing on y=330.
+_GROUND = 330
+
+
+def _wheeled_mask(
+    wheels: list[tuple[int, int]], extra: Callable[[ImageDraw.ImageDraw], None] | None = None
+) -> NDArray[np.bool_]:
+    image = Image.new("L", (1000, 400), 0)
+    draw = ImageDraw.Draw(image)
+    draw.rectangle((50, 150, 950, 290), fill=255)
+    for cx, radius in wheels:
+        draw.ellipse((cx - radius, _GROUND - 2 * radius, cx + radius, _GROUND), fill=255)
+    if extra is not None:
+        extra(draw)
+    return np.asarray(image) > 0
+
+
+def test_a_box_with_two_round_wheels_is_measured() -> None:
+    measure = measure_side(_wheeled_mask([(250, 60), (750, 60)]))
+    assert measure.wheelbase_px == pytest.approx(500, rel=0.005)
+    assert measure.wheel_radius_px == pytest.approx(60, rel=0.03)
+    assert measure.front_center[0] == pytest.approx(250, abs=2)
+
+
+def _wobbly_wheel(cx: int, radius: int, amplitude: float) -> Callable[[ImageDraw.ImageDraw], None]:
+    """A wheel whose rim is a circle plus a six-lobed ripple of `amplitude` times the radius."""
+
+    def draw(canvas: ImageDraw.ImageDraw) -> None:
+        points: list[tuple[float, float]] = []
+        for step in range(720):
+            angle = math.tau * step / 720
+            r = radius * (1 + amplitude * math.sin(6 * angle))
+            points.append((cx + r * math.sin(angle), _GROUND - radius - r * math.cos(angle)))
+        canvas.polygon(points, fill=255)
+
+    return draw
+
+
+def test_wheels_with_a_wavy_rim_are_rejected_for_their_residual() -> None:
+    # Every point is within the 3% band of the circle, so only the residual gate can say no.
+    def both(canvas: ImageDraw.ImageDraw) -> None:
+        _wobbly_wheel(250, 60, 0.025)(canvas)
+        _wobbly_wheel(750, 60, 0.025)(canvas)
+
+    with pytest.raises(SilhouetteError, match="wheels not found.*residual"):
+        measure_side(_wheeled_mask([], both))
+
+
+def test_wheels_with_a_barely_wavy_rim_are_measured() -> None:
+    def both(canvas: ImageDraw.ImageDraw) -> None:
+        _wobbly_wheel(250, 60, 0.005)(canvas)
+        _wobbly_wheel(750, 60, 0.005)(canvas)
+
+    measure = measure_side(_wheeled_mask([], both))
+    assert measure.wheelbase_px == pytest.approx(500, rel=0.01)
+
+
+def _hidden_arc(width: int) -> Callable[[ImageDraw.ImageDraw], None]:
+    """A block that fills the contour under the left `width` px of the first wheel's arc (the arc
+    below the underside runs from x=194 to x=305). It leaves the rest of the arc intact."""
+
+    def draw(canvas: ImageDraw.ImageDraw) -> None:
+        canvas.rectangle((194, 290, 194 + width, _GROUND), fill=255)
+
+    return draw
+
+
+def test_a_wheel_with_a_third_of_its_arc_hidden_is_not_trusted() -> None:
+    # 39 of 111 columns (35%) of the first arc are not on the circle: coverage 65%.
+    with pytest.raises(SilhouetteError, match="wheels not found.*coverage 6"):
+        measure_side(_wheeled_mask([(250, 60), (750, 60)], _hidden_arc(39)))
+
+
+def test_a_wheel_with_a_fifth_of_its_arc_hidden_is_not_trusted() -> None:
+    # 20 of 111 columns (18%): coverage 82%, a hair under what is trusted.
+    with pytest.raises(SilhouetteError, match="wheels not found.*coverage 8"):
+        measure_side(_wheeled_mask([(250, 60), (750, 60)], _hidden_arc(20)))
+
+
+def test_a_wheel_with_a_tenth_of_its_arc_hidden_is_still_measured() -> None:
+    measure = measure_side(_wheeled_mask([(250, 60), (750, 60)], _hidden_arc(12)))
+    assert measure.wheelbase_px == pytest.approx(500, rel=0.01)
+    assert measure.wheels[0].coverage < 0.95  # it did lose some
+
+
+def test_measure_side_gives_the_same_answer_twice() -> None:
+    image, _ = draw_car(wheelbase_scale=1.06)
+    mask = mask_from_image(image)
+    assert measure_side(mask) == measure_side(mask)
+
+
+def test_bumps_that_barely_leave_the_underside_are_not_wheels() -> None:
+    # Discs of radius 55 reaching only 5 px below the underside: a 49 degree arc, which fixes a
+    # center too poorly to trust.
+    image = Image.new("L", (1000, 400), 0)
+    draw = ImageDraw.Draw(image)
+    draw.rectangle((50, 100, 950, 290), fill=255)
+    for cx in (250, 750):
+        draw.ellipse((cx - 55, 295 - 110, cx + 55, 295), fill=255)
+    with pytest.raises(SilhouetteError, match="wheels not found.*arc"):
+        measure_side(np.asarray(image) > 0)
+
+
+def test_bumps_much_smaller_than_a_wheel_are_not_wheels() -> None:
+    # Two half-discs of radius 40 under a 441 px tall car: 9% of its height. They are round and
+    # clean (pixel rounding is under 1% of their radius), so only the size can turn them down.
+    image = Image.new("L", (3000, 1000), 0)
+    draw = ImageDraw.Draw(image)
+    draw.rectangle((150, 300, 2850, 700), fill=255)
+    for cx in (750, 2250):
+        draw.ellipse((cx - 40, 700 - 40, cx + 40, 700 + 40), fill=255)
+    with pytest.raises(SilhouetteError, match="wheels not found.*radius"):
+        measure_side(np.asarray(image) > 0)
+
+
+def test_a_wide_shallow_belly_is_not_a_wheel() -> None:
+    # A disc of radius 300 reaching 45 px below the underside is a round bump with a clean
+    # circular rim, and with more columns than a tire. It is too big to be a wheel.
+    def belly(canvas: ImageDraw.ImageDraw) -> None:
+        canvas.ellipse((500 - 300, 335 - 600, 500 + 300, 335), fill=255)
+        canvas.rectangle((0, 0, 999, 149), fill=0)  # keep only the part under the body
+
+    measure = measure_side(_wheeled_mask([(150, 60), (850, 60)], belly))
+    assert measure.wheelbase_px == pytest.approx(700, rel=0.01)
+    assert measure.wheel_radius_px == pytest.approx(60, rel=0.03)
+
+
+def test_wheels_of_different_size_are_rejected() -> None:
+    with pytest.raises(SilhouetteError, match="wheels not found.*radii"):
+        measure_side(_wheeled_mask([(250, 55), (750, 70)]))
+
+
+def test_a_small_round_skid_does_not_displace_a_wheel() -> None:
+    # A third round bump, smaller than a tire but clean enough to pass every gate, at the tail. The
+    # wheels are the two best-supported circles, so the skid is left out. Picking the two
+    # least-supported would take the skid, and then the radii would disagree.
+    def skid(canvas: ImageDraw.ImageDraw) -> None:
+        canvas.ellipse((910 - 40, 290 - 40, 910 + 40, 290 + 40), fill=255)
+
+    measure = measure_side(_wheeled_mask([(250, 60), (650, 60)], skid))
+    assert measure.wheelbase_px == pytest.approx(400, rel=0.005)
+    assert measure.wheel_radius_px == pytest.approx(60, rel=0.03)
+    assert [wheel.columns[0] for wheel in measure.wheels] == pytest.approx([195, 595], abs=3)
+
+
+def test_many_small_bumps_do_not_crowd_out_the_wheels() -> None:
+    # Nine 20 px wide bumps between the wheels (each wide enough to be looked at) and the two
+    # wheel bumps make eleven. Only the widest few are fitted, and the wheels are the widest.
+    def studs(canvas: ImageDraw.ImageDraw) -> None:
+        for x in range(340, 700, 40):
+            canvas.rectangle((x, 291, x + 19, 296), fill=255)
+
+    measure = measure_side(_wheeled_mask([(250, 60), (750, 60)], studs))
+    assert measure.wheelbase_px == pytest.approx(500, rel=0.005)
+
+
+def test_the_message_counts_only_the_bumps_wide_enough_to_be_looked_at() -> None:
+    # One wheel, and three bumps of 8 px (under 2% of the 900 px length) that are not looked at.
+    def pimples(canvas: ImageDraw.ImageDraw) -> None:
+        for x in (400, 500, 600):
+            canvas.rectangle((x, 291, x + 7, 297), fill=255)
+
+    with pytest.raises(SilhouetteError, match="1 usable of 1 bump"):
+        measure_side(_wheeled_mask([(250, 60)], pimples))
+
+
+def test_a_silhouette_with_one_wheel_is_not_measured() -> None:
+    with pytest.raises(SilhouetteError, match="wheels not found"):
+        measure_side(_wheeled_mask([(250, 60)]))

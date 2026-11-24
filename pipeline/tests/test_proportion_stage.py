@@ -1,10 +1,11 @@
 import hashlib
 import json
+import re
 from pathlib import Path
 
 import pytest
 from PIL import Image
-from silhouette_helpers import BACKGROUND, draw_car
+from silhouette_helpers import BACKGROUND, add_contact_shadows, draw_car
 
 from m3_pipeline.assets import AssetSpec
 from m3_pipeline.config import Settings
@@ -78,6 +79,7 @@ def test_proportion_stage_writes_the_report_and_is_ok_for_a_good_side_view(
     result = proportion(ASSET, settings)
     assert result.ok, result.messages
     assert result.outputs == [_report(settings)]
+    assert result.messages[0].startswith("proportions ok")
     report = _read_report(settings)
     assert report["ok"] is True
     assert set(ProportionReport.__dataclass_fields__) | {"side_sha256"} == set(report)
@@ -96,9 +98,11 @@ def test_proportion_stage_is_not_ok_on_failure_and_still_writes_the_report(
     _put_side(settings, image)
     result = proportion(ASSET, settings)
     assert not result.ok
-    assert any("wheelbase" in message for message in result.messages), result.messages
     assert result.outputs == [_report(settings)]
     report = _read_report(settings)
+    # The messages must carry the numbers of the report: the verdict, and the error that failed.
+    assert result.messages[0].startswith("proportions not ok")
+    assert f"wheelbase error {_number(report, 'wheelbase_error'):.2%}" in " ".join(result.messages)
     assert report["ok"] is False
     assert _number(report, "wheelbase_error") > 0.02
     assert "error" not in report
@@ -184,3 +188,64 @@ def test_proportion_stage_rejects_a_subject_that_names_no_car_body(settings: Set
     result = proportion(AssetSpec("wheel", "product", "e46", "product-wheel"), settings)
     assert not result.ok
     assert "product-wheel" in " ".join(result.messages)
+
+
+def test_a_rerun_without_the_dimensions_leaves_no_report_behind(settings: Settings) -> None:
+    image, _ = draw_car()
+    _put_side(settings, image)
+    assert proportion(ASSET, settings).ok
+    assert _report(settings).exists()
+
+    # The data file loses its dimensions; the picture is unchanged and would still pass.
+    (settings.repo_root / "data" / "generations" / "e46.yaml").write_text("id: e46\n", "utf-8")
+    result = proportion(ASSET, settings)
+    assert not result.ok
+    assert "dimensions" in " ".join(result.messages)
+    assert not _report(settings).exists()  # an old `ok: true` must not outlive the data it used
+
+
+def test_a_rerun_with_a_subject_that_has_no_body_leaves_no_report_behind(
+    settings: Settings,
+) -> None:
+    image, _ = draw_car()
+    _put_side(settings, image)
+    assert proportion(ASSET, settings).ok
+    same_id_wheel = AssetSpec(ASSET.id, "product", "e46", "product-wheel")
+    assert not proportion(same_id_wheel, settings).ok
+    assert not _report(settings).exists()
+
+
+def test_the_messages_carry_what_each_wheel_measurement_rests_on(settings: Settings) -> None:
+    image, truth = draw_car()
+    _put_side(settings, image)
+    result = proportion(ASSET, settings)
+    for name, expected in (("front", truth.front_center), ("rear", truth.rear_center)):
+        [line] = [m for m in result.messages if m.startswith(f"{name} wheel")]
+        center = re.search(r"center \((\d+\.\d), (\d+\.\d)\) px", line)
+        radius = re.search(r"radius (\d+\.\d) px", line)
+        assert center is not None and radius is not None, line
+        assert float(center[1]) == pytest.approx(expected[0], abs=0.01 * truth.length_px)
+        assert float(center[2]) == pytest.approx(expected[1], abs=0.01 * truth.length_px)
+        assert float(radius[1]) == pytest.approx(truth.tire_radius_px, rel=0.03)
+        assert re.search(r"bump columns \d+-\d+ \(\d+ wide\)", line)
+        assert re.search(r"residual \d+\.\d+% of the radius", line)
+        assert re.search(r"coverage \d+%", line) and re.search(r"arc \d+ degrees", line)
+    # The report file keeps the plan's keys, whatever the messages say.
+    assert set(_read_report(settings)) == set(ProportionReport.__dataclass_fields__) | {
+        "side_sha256"
+    }
+
+
+def test_an_unmeasurable_wheel_pair_says_why_in_the_report_and_the_messages(
+    settings: Settings,
+) -> None:
+    image, truth = draw_car(wheelbase_scale=1.06)
+    add_contact_shadows(image, truth, inward_px=0)  # a shadow under each whole tire
+    _put_side(settings, image)
+    result = proportion(ASSET, settings)
+    assert not result.ok
+    report = _read_report(settings)
+    assert set(report) == {"ok", "error", "side_sha256"}
+    assert str(report["error"]).startswith("wheels not found")
+    assert "residual" in str(report["error"]) or "radius" in str(report["error"])
+    assert "wheels not found" in " ".join(result.messages)

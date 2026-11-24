@@ -32,11 +32,52 @@ _STRIP = 4
 _MAX_STRIP_SHARE = 0.5
 # The opening drops specks and hairlines narrower than this many pixels.
 _OPENING_PX = 5
-# A wheel is a bump of the bottom contour at least this many columns wide.
-_MIN_WHEEL_COLUMNS = 5
-# The sill line is the median of the bottom contour. A column counts as part of a wheel when its
-# bottom lies more than this share of the silhouette's height below the sill line.
+# The underside is the straight line most of the bottom contour lies along (a level sill, or a
+# raked one). A column belongs to a wheel bump when its contour lies more than this share of the
+# silhouette's height below that line, and never less than 2 px: the contour of a drawn or opened
+# mask wanders by a pixel.
 _SILL_MARGIN_SHARE = 0.01
+_SILL_MARGIN_MIN_PX = 2.0
+# The line search tries every pair of this many evenly spaced contour points whose two ends are at
+# least a quarter of the car's length apart, and keeps the line with the most points near it.
+_UNDERSIDE_POINTS = 160
+_UNDERSIDE_BASELINE = 0.25
+# A bump has to be at least this share of the car's length wide to be looked at, and at most this
+# many of the widest are (a wheel bump is about 12% of an E46's length).
+_MIN_RUN_SHARE = 0.02
+_MAX_RUNS = 6
+# Every bump gets a RANSAC circle: this many random triples of its contour points, from a fixed
+# seed so a picture always gives the same answer.
+_TRIALS = 300
+_REFINED = 5  # how many of the best random circles are refined
+_SEED = 0
+# A wheel's radius is this share of the silhouette's height: an E46's tire is 24% of its height,
+# an SUV's about 20%. Outside 10% to 40% a circle is a bolt head or a belly pan, not a wheel.
+_MIN_RADIUS_SHARE = 0.10
+_MAX_RADIUS_SHARE = 0.40
+# A contour point is on a circle when it is within this share of the radius of it (and never
+# closer than 1.5 px, which covers pixel rounding and the opening). It is tight on purpose: a
+# floor shadow that merges with a tire's bottom deviates from the arc by about 5% of the radius, and
+# a wide band would count it as part of the wheel and fit a bigger, wrong circle.
+_BAND_SHARE = 0.03
+_BAND_MIN_PX = 1.5
+# The gates a circle must pass, each a share of the radius or of the arc:
+# - Residual, the RMS distance of the points on the circle from it: at most 1% of the radius.
+#   Pixel rounding alone is 0.3 px (0.4% of an 80 px radius) and blur, noise and JPEG add up to
+#   0.5% at that size. The wrong circles that shadows shifted under the tires produce measure
+#   1.2% to 2.6% (the check against the shadow repros is in the tests).
+# - Coverage, the share of the arc below the underside that lies on the circle: at least 85%. A
+#   clean tire is 100%, and a splitter that runs into the bump takes about 6%. Over 300 floor
+#   shadows of every size and offset that passed, the wheelbase was within 0.3% of the truth at
+#   85% coverage or more, and off by up to 1.5% between 80% and 85%.
+# - Arc, the angle the points on the circle span seen from its center: at least 60 degrees. A tire
+#   under a sill 100 to 250 mm above the ground shows 90 to 150; a shorter arc fixes a center
+#   too loosely.
+# - Radii: the two wheels differ by at most 10% of their mean (staggered fitments are within 3%).
+_MAX_RESIDUAL = 0.01
+_MIN_COVERAGE = 0.85
+_MIN_ARC_DEG = 60.0
+_MAX_RADIUS_SPREAD = 0.10
 
 
 class SilhouetteError(ValueError):
@@ -105,11 +146,31 @@ def _open(mask: NDArray[np.bool_]) -> NDArray[np.bool_]:
 
 
 @dataclass(frozen=True)
+class WheelFit:
+    """One wheel's circle and the evidence for it, for diagnosis.
+
+    `residual` is the RMS distance of the contour points on the circle from it, as a share of
+    `radius_px`. `coverage` is the share of the arc below the underside that lies on the circle,
+    `arc_deg` the angle those points span seen from the center, `inliers` how many columns they
+    are, and `columns` the first and last column of the bump the circle was fitted to.
+    """
+
+    center: tuple[float, float]
+    radius_px: float
+    residual: float
+    coverage: float
+    arc_deg: float
+    inliers: int
+    columns: tuple[int, int]
+
+
+@dataclass(frozen=True)
 class SideMeasure:
     """What a side silhouette says, in pixels. `front_center` and `rear_center` are `(x, y)`.
 
     The synthesized side view has the nose toward the left of the image, so the left wheel is the
     front one. A mask that faces right swaps the two names; the wheelbase and radius don't care.
+    `wheels` is the evidence, front first; the brief's six fields don't depend on it.
     """
 
     length_px: float
@@ -118,20 +179,23 @@ class SideMeasure:
     wheel_radius_px: float
     front_center: tuple[float, float]
     rear_center: tuple[float, float]
+    wheels: tuple[WheelFit, ...] = ()
 
 
 def measure_side(mask: NDArray[np.bool_]) -> SideMeasure:
-    """Length and height from the bounding box, wheels from a circle fit.
+    """Length and height from the bounding box, wheels from circle fits.
 
-    Take the lowest filled pixel of every column (the bottom contour). Its median is the sill
-    line, because the body's underside is most of the car's length. The wheels are the two
-    widest runs of columns that reach below that line, and each wheel is the circle fitted to the
-    contour points of its run, so a tire the arch hides in part still gives its true center and
-    radius. `wheelbase_px` is the distance between the two centers, `wheel_radius_px` the mean
-    radius.
+    Take the lowest filled pixel of every column (the bottom contour). The body's underside is the
+    straight line most of that contour lies along (found by a robust line fit, so a rake, a
+    splitter or a wide lip doesn't move it). The wheels are the bumps of contour below that line:
+    each bump gets a RANSAC circle of wheel size, refined on the points that lie on it, and the
+    circle is kept only if it passes the residual, coverage and arc gates (the constants above
+    give each threshold and the reason for it). The two best-supported circles must agree in
+    radius. `wheelbase_px` is the distance
+    between their centers and `wheel_radius_px` their mean radius.
 
-    Raises SilhouetteError for an empty mask, for fewer than two wheel bumps, or for a bump that
-    is not an arc of a circle.
+    Never measures off a contour that isn't a circle: raises SilhouetteError("wheels not found:
+    ...") with the reason for every bump it turned down, and also for an empty mask.
     """
     import numpy as np
 
@@ -145,61 +209,258 @@ def measure_side(mask: NDArray[np.bool_]) -> SideMeasure:
 
     window = mask[:, left : right + 1]
     filled = window.any(axis=0)
-    # Index of the last True per column; the value for an empty column is masked out below.
+    # Index of the last True per column; the value for an empty column is dropped below.
     lowest = (mask.shape[0] - 1) - np.argmax(window[::-1, :], axis=0)
-    sill = float(np.median(lowest[filled]))
-    below = filled & (lowest > sill + _SILL_MARGIN_SHARE * height_px)
+    xs = np.arange(left, right + 1, dtype=np.float64)[filled]
+    edge = lowest[filled].astype(np.float64) + 0.5  # the edge under the lowest pixel
+    margin = max(_SILL_MARGIN_MIN_PX, _SILL_MARGIN_SHARE * height_px)
+    slope, intercept = _underside_line(xs, edge, margin)
+    depth = edge - (slope * xs + intercept)
 
-    padded = np.concatenate(([0], below.astype(np.int8), [0]))
+    padded = np.concatenate(([0], (depth > margin).astype(np.int8), [0]))
     edges = np.flatnonzero(np.diff(padded))
-    starts, stops = edges[0::2], edges[1::2]  # a run is columns start..stop-1
-    wide = np.flatnonzero(stops - starts >= _MIN_WHEEL_COLUMNS)
-    if wide.size < 2:
-        raise SilhouetteError("fewer than two wheel bumps below the sill line")
-    widest = wide[np.argsort(-(stops - starts)[wide], kind="stable")[:2]]
-    runs = sorted((int(starts[i]), int(stops[i])) for i in widest)
+    bumps = [(int(a), int(b)) for a, b in zip(edges[0::2], edges[1::2], strict=True)]  # a..b-1
+    bumps = [(a, b) for a, b in bumps if xs[b - 1] - xs[a] + 1 >= _MIN_RUN_SHARE * length_px]
+    bumps = sorted(bumps, key=lambda run: run[0] - run[1])[:_MAX_RUNS]  # the widest
 
-    fits = [
-        _fit_circle(
-            (np.arange(start, stop) + left).astype(np.float64),
-            lowest[start:stop].astype(np.float64) + 0.5,  # the edge under the lowest pixel
-            limit=height_px,
+    rng = np.random.default_rng(_SEED)
+    fits: list[WheelFit] = []
+    reasons: list[str] = []
+    for a, b in sorted(bumps):
+        outcome = _fit_wheel(xs, edge, (a, b), (slope, intercept), height_px, margin, rng)
+        if isinstance(outcome, WheelFit):
+            fits.append(outcome)
+        else:
+            reasons.append(outcome)
+    if len(fits) < 2:
+        found = f"{len(fits)} usable of {len(bumps)} bump(s) below the underside"
+        raise SilhouetteError("wheels not found: " + "; ".join([found, *reasons]))
+
+    best = sorted(fits, key=lambda fit: -fit.inliers)[:2]
+    front, rear = sorted(best, key=lambda fit: fit.center[0])
+    mean_radius = (front.radius_px + rear.radius_px) / 2
+    if abs(front.radius_px - rear.radius_px) > _MAX_RADIUS_SPREAD * mean_radius:
+        raise SilhouetteError(
+            f"wheels not found: the two best circles have radii {front.radius_px:.1f} and "
+            f"{rear.radius_px:.1f} px, more than {_MAX_RADIUS_SPREAD:.0%} apart"
         )
-        for start, stop in runs
-    ]
-    (front_x, front_y, front_r), (rear_x, rear_y, rear_r) = fits
     return SideMeasure(
         length_px=length_px,
         height_px=height_px,
-        wheelbase_px=float(np.hypot(rear_x - front_x, rear_y - front_y)),
-        wheel_radius_px=(front_r + rear_r) / 2,
-        front_center=(front_x, front_y),
-        rear_center=(rear_x, rear_y),
+        wheelbase_px=float(
+            np.hypot(rear.center[0] - front.center[0], rear.center[1] - front.center[1])
+        ),
+        wheel_radius_px=mean_radius,
+        front_center=front.center,
+        rear_center=rear.center,
+        wheels=(front, rear),
     )
 
 
-def _fit_circle(
-    xs: NDArray[np.float64], ys: NDArray[np.float64], *, limit: float
-) -> tuple[float, float, float]:
-    """Algebraic least-squares circle (Kasa): the `(x, y, radius)` that minimizes the squared
-    error of `x^2 + y^2 + D x + E y + F = 0` over the points. The points are centered first, so
-    pixel coordinates in the thousands don't cost precision.
+def _underside_line(
+    xs: NDArray[np.float64], ys: NDArray[np.float64], tol: float
+) -> tuple[float, float]:
+    """The `(slope, intercept)` of the straight line that most contour points lie within `tol` of.
 
-    Raises SilhouetteError when the points are collinear or the radius is not in `(0, limit]`.
+    A wheel bump, a splitter or a bumper corner is a minority of the columns, so it can't pull
+    this line the way it pulls a median or a mean. Every pair of a subsample of the points, far
+    enough apart to give a steady slope, is a candidate; the best is refined on its inliers.
     """
     import numpy as np
 
-    cx, cy = float(xs.mean()), float(ys.mean())
-    u, v = xs - cx, ys - cy
+    if xs.size < 8:
+        raise SilhouetteError("wheels not found: the silhouette is too narrow to have an underside")
+    pick = np.linspace(0, xs.size - 1, min(xs.size, _UNDERSIDE_POINTS)).astype(np.intp)
+    sx, sy = xs[pick], ys[pick]
+    first, second = np.triu_indices(sx.size, k=1)
+    span = sx[second] - sx[first]
+    far = span >= _UNDERSIDE_BASELINE * (xs[-1] - xs[0])
+    if not far.any():
+        raise SilhouetteError("wheels not found: the bottom contour has no underside to fit")
+    first, second, span = first[far], second[far], span[far]
+    slopes = (sy[second] - sy[first]) / span
+    heights = sy[first] - slopes * sx[first]
+    gap = np.abs(sy[None, :] - (slopes[:, None] * sx[None, :] + heights[:, None]))
+    best = int(np.argmax((gap <= tol).sum(axis=1)))
+    slope, intercept = float(slopes[best]), float(heights[best])
+    for _ in range(3):
+        near = np.abs(ys - (slope * xs + intercept)) <= tol
+        if int(near.sum()) < 2:
+            break
+        fit = np.polyfit(xs[near], ys[near], 1)
+        slope, intercept = float(fit[0]), float(fit[1])
+    return slope, intercept
+
+
+def _fit_wheel(
+    xs: NDArray[np.float64],
+    edge: NDArray[np.float64],
+    bump: tuple[int, int],
+    line: tuple[float, float],
+    height_px: float,
+    margin: float,
+    rng: np.random.Generator,
+) -> WheelFit | str:
+    """The wheel circle of one bump (columns `bump[0]..bump[1]-1` of `xs`), or the reason it is
+    not one. Judged against the whole contour, not only the bump's: the arc is where the circle
+    dips below the underside, and the contour there has to follow it."""
+    import numpy as np
+
+    a, b = bump
+    first, last = int(xs[a]), int(xs[b - 1])
+    label = f"bump {first}-{last} ({last - first + 1} columns wide)"
+    circle = _ransac_circle(
+        xs[a:b], edge[a:b], _MIN_RADIUS_SHARE * height_px, _MAX_RADIUS_SHARE * height_px, rng
+    )
+    if circle is None:
+        return (
+            f"{label}: no circle of wheel radius ({_MIN_RADIUS_SHARE * height_px:.0f} to "
+            f"{_MAX_RADIUS_SHARE * height_px:.0f} px) fits its contour"
+        )
+    cx, cy, radius = circle
+
+    slope, intercept = line
+    offset = xs - cx
+    arc = cy + np.sqrt(np.maximum(radius * radius - offset * offset, 0.0))
+    zone = (np.abs(offset) < radius) & (arc - (slope * xs + intercept) > margin)
+    if int(zone.sum()) < 3:
+        return f"{label}: the circle barely leaves the underside"
+    band = max(_BAND_MIN_PX, _BAND_SHARE * radius)
+    error = edge - arc
+    on = zone & (np.abs(error) <= band)
+    if not on.any():
+        return f"{label}: the contour is nowhere on the circle (coverage 0%)"
+    coverage = float(on.sum()) / float(zone.sum())
+    residual = float(np.sqrt(np.mean(error[on] ** 2))) / radius
+    angles = np.degrees(np.arctan2(xs[on] - cx, edge[on] - cy))  # 0 at the bottom of the circle
+    arc_deg = float(angles.max() - angles.min())
+
+    failed: list[str] = []
+    if residual > _MAX_RESIDUAL:
+        failed.append(f"residual {residual:.1%} of the radius, over {_MAX_RESIDUAL:.0%}")
+    if coverage < _MIN_COVERAGE:
+        failed.append(f"coverage {coverage:.0%} of the arc, under {_MIN_COVERAGE:.0%}")
+    if arc_deg < _MIN_ARC_DEG:
+        failed.append(f"arc of {arc_deg:.0f} degrees, under {_MIN_ARC_DEG:.0f}")
+    if failed:
+        return f"{label}: circle r={radius:.1f} px rejected: " + ", ".join(failed)
+    return WheelFit(
+        center=(cx, cy),
+        radius_px=radius,
+        residual=residual,
+        coverage=coverage,
+        arc_deg=arc_deg,
+        inliers=int(on.sum()),
+        columns=(first, last),
+    )
+
+
+def _ransac_circle(
+    xs: NDArray[np.float64],
+    ys: NDArray[np.float64],
+    min_radius: float,
+    max_radius: float,
+    rng: np.random.Generator,
+) -> tuple[float, float, float] | None:
+    """The circle of a wheel-sized radius that most of the contour points lie on, as `(x, y,
+    radius)`, or None. Candidates are the circles through random triples of points whose center
+    is above them (image y grows downward: a wheel's contour is the arc under its center). The few
+    with the most points within the band are each refined by a least-squares fit on their points,
+    repeated until the point set stops changing."""
+    import numpy as np
+
+    count = xs.size
+    if count < 8:
+        return None
+    ox, oy = float(xs.mean()), float(ys.mean())  # work around the mean, for precision
+    u, v = xs - ox, ys - oy
+    picks = rng.integers(0, count, size=(_TRIALS, 3))
+    ax, ay, bx, by, cx, cy = (
+        u[picks[:, 0]],
+        v[picks[:, 0]],
+        u[picks[:, 1]],
+        v[picks[:, 1]],
+        u[picks[:, 2]],
+        v[picks[:, 2]],
+    )
+    d = 2 * (ax * (by - cy) + bx * (cy - ay) + cx * (ay - by))
+    with np.errstate(divide="ignore", invalid="ignore"):
+        ux = (
+            (ax**2 + ay**2) * (by - cy) + (bx**2 + by**2) * (cy - ay) + (cx**2 + cy**2) * (ay - by)
+        ) / d
+        uy = (
+            (ax**2 + ay**2) * (cx - bx) + (bx**2 + by**2) * (ax - cx) + (cx**2 + cy**2) * (bx - ax)
+        ) / d
+        radius = np.hypot(ax - ux, ay - uy)
+    valid = (
+        (np.abs(d) > 1e-9)
+        & (radius >= min_radius)
+        & (radius <= max_radius)
+        & (uy < np.minimum(np.minimum(ay, by), cy))
+    )
+    if not valid.any():
+        return None
+    ux, uy, radius = ux[valid], uy[valid], radius[valid]
+    distance = np.hypot(u[None, :] - ux[:, None], v[None, :] - uy[:, None])
+    band = np.maximum(_BAND_MIN_PX, _BAND_SHARE * radius)[:, None]
+    members = (np.abs(distance - radius[:, None]) <= band) & (v[None, :] > uy[:, None])
+    # The hypotheses with the most points are each refined, and the one that keeps the most points
+    # after refinement wins: the very best raw hypothesis may be a circle that the flat part of the
+    # contour (a splitter, a shadow) pulled out of wheel size once it is fitted to its points.
+    best: tuple[float, float, float] | None = None
+    best_count = 0
+    for index in np.argsort(-members.sum(axis=1), kind="stable")[:_REFINED]:
+        if int(members[index].sum()) < 3:
+            break
+        refined = _refine(u, v, members[index], min_radius, max_radius)
+        if refined is not None and refined[1] > best_count:
+            best, best_count = refined
+    if best is None:
+        return None
+    return best[0] + ox, best[1] + oy, best[2]
+
+
+def _refine(
+    u: NDArray[np.float64],
+    v: NDArray[np.float64],
+    chosen: NDArray[np.bool_],
+    min_radius: float,
+    max_radius: float,
+) -> tuple[tuple[float, float, float], int] | None:
+    """Least-squares circle on the points in `chosen`, then on the points within the band of that
+    circle, until the set stops changing. Returns the circle and its point count, or None when a
+    fit is collinear or leaves the radius range."""
+    import numpy as np
+
+    circle: tuple[float, float, float] | None = None
+    for _ in range(5):
+        circle = _kasa(u[chosen], v[chosen])
+        if circle is None or not min_radius <= circle[2] <= max_radius:
+            return None
+        gap = np.abs(np.hypot(u - circle[0], v - circle[1]) - circle[2])
+        again = (gap <= max(_BAND_MIN_PX, _BAND_SHARE * circle[2])) & (v > circle[1])
+        if np.array_equal(again, chosen) or int(again.sum()) < 3:
+            break
+        chosen = again
+    if circle is None:
+        return None
+    return circle, int(chosen.sum())
+
+
+def _kasa(u: NDArray[np.float64], v: NDArray[np.float64]) -> tuple[float, float, float] | None:
+    """Algebraic least-squares circle: the `(x, y, radius)` that minimizes the squared error of
+    `x^2 + y^2 + D x + E y + F = 0` over the points, or None for collinear points."""
+    import numpy as np
+
     design = np.column_stack([u, v, np.ones_like(u)])
     solution, _, rank, _ = np.linalg.lstsq(design, -(u * u + v * v), rcond=None)
     if rank < 3:
-        raise SilhouetteError("a wheel bump is not an arc of a circle")
+        return None
     center_u, center_v = -float(solution[0]) / 2, -float(solution[1]) / 2
     radius_squared = center_u**2 + center_v**2 - float(solution[2])
-    if radius_squared <= 0 or radius_squared > limit**2:
-        raise SilhouetteError("a wheel bump is not an arc of a circle")
-    return center_u + cx, center_v + cy, float(np.sqrt(radius_squared))
+    if radius_squared <= 0:
+        return None
+    return center_u, center_v, float(np.sqrt(radius_squared))
 
 
 @dataclass(frozen=True)

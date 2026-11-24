@@ -11,7 +11,12 @@ It writes `<synth>/proportion.json`: the `ProportionReport` fields (`ok` among t
 while that digest equals the picture's, so a replaced image never inherits an old result. A picture
 that can't be measured (`SilhouetteError`, or a file that doesn't decode) gets `{"ok": false,
 "error": ..., "side_sha256": ...}` instead of the ratios. A report of an earlier run is removed
-before the new one is made, so a failure can't leave an old `ok: true` next to a new picture.
+right after the path guards, before anything else can fail (the data file, the picture), so no
+failure leaves an old `ok: true` next to a new picture or new data.
+
+The stage's messages carry what the measurement rests on (each wheel's center, radius, bump
+columns, fit residual, coverage and arc), because the report's keys are fixed by the plan and a
+rejected picture has to be told apart from a rejected detection.
 """
 
 import hashlib
@@ -32,6 +37,7 @@ from m3_pipeline.stages.lib.paths import (
 )
 from m3_pipeline.stages.lib.silhouette import (
     ProportionReport,
+    SideMeasure,
     SilhouetteError,
     check_proportions,
     mask_from_image,
@@ -44,23 +50,30 @@ _TOLERANCE = 0.02
 
 @register("proportion")
 def proportion(asset: AssetSpec, settings: Settings) -> StageResult:
+    # The order matters: the paths, then the guards, then the old report goes, and only then does
+    # anything that can fail for another reason (the data file, the picture) run. A rerun that
+    # stops early must not leave the report of a run that passed.
     try:
-        dims = load_dimensions(settings.repo_root, asset.generation, subject_body(asset.subject))
         synth = stage_dir(settings, asset.id, "synth")
         side = synth / "views" / "side.png"
         report_path = synth / "proportion.json"
         # The two guards take their arguments in opposite orders, so both get keywords.
         require_outside_repo(repo_root=settings.repo_root, path=side)
         require_write_target_outside_repo(dest=report_path, repo_root=settings.repo_root)
-    except ValueError as error:  # DimensionsError and the path guards are ValueErrors
+    except ValueError as error:  # the path guards raise ValueError
         return StageResult(False, [str(error)], [])
 
-    # An earlier report describes an earlier picture: drop it first, so no failure below leaves
-    # an `ok: true` that `synth_set_usable` could weigh against a new image.
+    # An earlier report describes an earlier picture and earlier data: drop it first, so no
+    # failure below leaves an `ok: true` that `synth_set_usable` could weigh against a new image.
     try:
         report_path.unlink(missing_ok=True)
     except OSError as error:
         return StageResult(False, [f"could not remove the old report {report_path}: {error}"], [])
+
+    try:
+        dims = load_dimensions(settings.repo_root, asset.generation, subject_body(asset.subject))
+    except ValueError as error:  # DimensionsError, and a subject that names no car body
+        return StageResult(False, [str(error)], [])
 
     try:
         data = side.read_bytes()
@@ -71,17 +84,17 @@ def proportion(asset: AssetSpec, settings: Settings) -> StageResult:
     digest = hashlib.sha256(data).hexdigest()
 
     try:
-        report = _measure(data, dims)
+        measure, report = _measure(data, dims)
     except SilhouetteError as error:
         body: dict[str, object] = {"ok": False, "error": str(error), "side_sha256": digest}
         message = f"the side view cannot be measured: {error}"
         return _finish(False, [message], report_path, body)
 
     body = {**asdict(report), "side_sha256": digest}
-    return _finish(report.ok, _messages(report), report_path, body)
+    return _finish(report.ok, _messages(report, measure), report_path, body)
 
 
-def _measure(data: bytes, dims: Dimensions) -> ProportionReport:
+def _measure(data: bytes, dims: Dimensions) -> tuple[SideMeasure, ProportionReport]:
     """Measure the picture in `data`. Anything wrong with the picture is a SilhouetteError."""
     from PIL import Image  # kept out of the module's imports: see silhouette.py
 
@@ -91,13 +104,15 @@ def _measure(data: bytes, dims: Dimensions) -> ProportionReport:
     except (OSError, ValueError, Image.DecompressionBombError) as error:
         raise SilhouetteError(f"could not decode the image: {error}") from error
     measure = measure_side(mask_from_image(image))
-    return check_proportions(measure, dims, _TOLERANCE)
+    return measure, check_proportions(measure, dims, _TOLERANCE)
 
 
-def _messages(report: ProportionReport) -> list[str]:
-    """One line per ratio, so a failure says which one is off and by how much."""
+def _messages(report: ProportionReport, measure: SideMeasure) -> list[str]:
+    """The verdict, one line per ratio (which one is off, and by how much), and one line per wheel
+    with what the measurement rests on, so a bad picture and a bad detection can be told apart.
+    The report file keeps its fixed shape; this detail is only in the stage's messages."""
     verdict = "ok" if report.ok else "not ok"
-    return [
+    lines = [
         f"proportions {verdict} (each error must be at most {_TOLERANCE:.0%})",
         (
             f"wheelbase/length {report.wheelbase_over_length:.4f}, expected "
@@ -109,6 +124,15 @@ def _messages(report: ProportionReport) -> list[str]:
             f"{report.expected_height_over_length:.4f}: height error {report.height_error:.2%}"
         ),
     ]
+    for name, wheel in zip(("front", "rear"), measure.wheels, strict=False):
+        first, last = wheel.columns
+        lines.append(
+            f"{name} wheel: center ({wheel.center[0]:.1f}, {wheel.center[1]:.1f}) px, "
+            f"radius {wheel.radius_px:.1f} px, bump columns {first}-{last} "
+            f"({last - first + 1} wide), residual {wheel.residual:.2%} of the radius, "
+            f"coverage {wheel.coverage:.0%}, arc {wheel.arc_deg:.0f} degrees"
+        )
+    return lines
 
 
 def _finish(ok: bool, messages: list[str], path: Path, body: dict[str, object]) -> StageResult:
