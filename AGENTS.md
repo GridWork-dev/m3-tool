@@ -83,6 +83,7 @@ Phase 1 adds `src/configurator/`, `tests/visual/` and `pipeline/blender/`.
 **Public repo hygiene**
 - No `Claude-Session` trailer and no session URL in commits or PR bodies. A `Co-Authored-By:` trailer is fine, and so is the "Generated with Claude Code" line.
 - Commits use Conventional Commits. Stage files by path: never `git add -A`.
+- Pin every GitHub Action to a full commit SHA with a `# vX.Y.Z` comment, and set `persist-credentials: false` on every checkout. `tests/unit/workflows.test.ts` enforces both.
 - `gitleaks` runs in CI and in the pre-push hook, which needs gitleaks on PATH (`mise install`). Never bypass the hook.
 - Don't track images, GLBs or `.env` files. Only `public/` and `tests/fixtures/` may hold media. `tests/unit/repo-hygiene.test.ts` enforces this.
 
@@ -96,7 +97,7 @@ Phase 1 adds `src/configurator/`, `tests/visual/` and `pipeline/blender/`.
 
 Zero approvals are required, because the repo has one maintainer who can't approve their own PR. The review happens before the merge instead. See `infra/github-ruleset.json`.
 
-**Deploys** run from GitHub Actions (`deploy.yml`), not Workers Builds ([ADR 0001](docs/decisions/0001-static-site-on-workers.md)). A push to `main` runs `wrangler deploy`, and each same-repo PR gets a preview at `pr-<n>-m3-tool.broken-wood-97a9.workers.dev`, posted as a PR comment that starts with `<!-- m3-tool-preview -->`. Run the deploy script as `pnpm run deploy`, because `pnpm deploy` is a pnpm built-in. Details are in [infra/README.md](infra/README.md).
+**Deploys** run from GitHub Actions (`deploy.yml`), not Workers Builds ([ADR 0001](docs/decisions/0001-static-site-on-workers.md), amended by [ADR 0011](docs/decisions/0011-deploy-pipeline-hardening.md)). Two jobs: `build` has no secrets, and builds, checks and uploads the site. `deploy` runs on a fresh runner with no checkout and a pinned `npx wrangler@<version>`, the only place the Cloudflare secrets exist. A push to `main` runs `wrangler deploy`, then a smoke test of the live site. Each same-repo PR that isn't from a bot gets a preview at `pr-<n>-m3-tool.broken-wood-97a9.workers.dev`, posted as a PR comment that starts with `<!-- m3-tool-preview -->`. The wrangler version in `deploy.yml` must equal package.json's, and a test checks it. Run the local deploy script as `pnpm run deploy`, because `pnpm deploy` is a pnpm built-in. Details are in [infra/README.md](infra/README.md).
 
 ## Model routing
 

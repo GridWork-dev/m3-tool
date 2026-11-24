@@ -14,6 +14,7 @@ Architecture decision records (ADRs): one short page for each choice that a late
 | [0008](0008-no-commerce-no-logos.md) | No commerce, no store links, no logos |
 | [0009](0009-citations-and-link-policy.md) | Citations render as text and link only to a short list of non-commercial hosts, and `check:links` parses HTML with parse5 |
 | [0010](0010-safety-advice-evidence.md) | Safety advice needs a Tier 1 or Tier 2 source: a maintenance item always, a known issue's optional fix when present |
+| [0011](0011-deploy-pipeline-hardening.md) | A secret-free build job and a deploy job that runs no project code, no deploy for forks or bots, a post-deploy smoke test, SHA-pinned actions, and Renovate gates for wrangler and Actions |
 | [0012](0012-asset-frames-structure-and-lods.md) | The ground check through the wheel anchors, frames per kind, unique names, empty-leaf anchors, validation stats and LOD files |
 | [0013](0013-model-choice-without-bake-off.md) | No model bake-off: research chooses the models, and OpenAI image generation runs on the subscription first |
 
