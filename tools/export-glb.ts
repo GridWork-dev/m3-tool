@@ -336,6 +336,26 @@ function rejectMorphTargets(doc: Document): void {
   )
 }
 
+// The export does not support skins either (ruling R73). The proxy is cut from the bind-pose
+// positions in the file, and a skin draws the mesh through its joints, wherever those sit (a joint
+// 1 m away draws the mesh 1 m away), so the proxy would describe a different shape than the GLB
+// renders and nothing would flag it. Neither the contract nor the pipeline's cars have a skin, so
+// any input with one is refused, naming each skin and the nodes that use it.
+function rejectSkins(doc: Document): void {
+  const skins = doc.getRoot().listSkins()
+  if (skins.length === 0) return
+  const names = skins.map((skin) => skin.getName() || '(unnamed skin)')
+  const nodes = doc
+    .getRoot()
+    .listNodes()
+    .filter((node) => node.getSkin() !== null)
+    .map((node) => node.getName() || '(unnamed node)')
+  const skinned = nodes.length > 0 ? `; skinned nodes: ${nodes.join(', ')}` : ''
+  throw new Error(
+    `input has ${skins.length} skin(s); the export does not support skinned meshes (skins: ${names.join(', ')}${skinned})`,
+  )
+}
+
 // quantize() scales a mesh through the matrix of the node that draws it. For a node with children
 // it moves the mesh to a new unnamed child instead, so the children are not scaled, which leaves
 // the named node (`trunk_lid` with an anchor under it) without its mesh, and a module swap hides
@@ -392,6 +412,7 @@ export async function exportGlb(
   const doc = await io.readBinary(input)
   rejectAnimations(doc)
   rejectMorphTargets(doc)
+  rejectSkins(doc)
   const before = contractStructure(sceneOf(doc), opts.kind)
   await doc.transform(
     weld(),
