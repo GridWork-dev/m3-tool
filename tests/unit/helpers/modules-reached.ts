@@ -10,7 +10,7 @@ const specifierText = (node: ts.Node | undefined): string => {
 }
 
 // The specifier of each static import, re-export with a `from`, `import x = require()`, dynamic
-// `import()` and `require()` call, in source order. A specifier that isn't a literal is returned as
+// `import()` and `require()` call, and type-level `import('x')`, in source order. A specifier that isn't a literal is returned as
 // its source text.
 export function modulesReached(source: string): string[] {
   const file = ts.createSourceFile('module.ts', source, ts.ScriptTarget.Latest, true)
@@ -23,6 +23,14 @@ export function modulesReached(source: string): string[] {
       ts.isExternalModuleReference(node.moduleReference)
     ) {
       found.push(specifierText(node.moduleReference.expression))
+    } else if (ts.isImportTypeNode(node)) {
+      // `type A = import('x').B` and `typeof import('x')`: erased at runtime, as `import type` is.
+      const argument = node.argument
+      found.push(
+        ts.isLiteralTypeNode(argument) && ts.isStringLiteralLike(argument.literal)
+          ? argument.literal.text
+          : argument.getText(),
+      )
     } else if (
       ts.isCallExpression(node) &&
       (node.expression.kind === ts.SyntaxKind.ImportKeyword ||

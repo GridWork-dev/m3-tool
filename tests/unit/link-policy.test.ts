@@ -186,6 +186,12 @@ describe('the check that a module imports nothing', () => {
     ["import fs = require('parse5')"],
     ["function f() { return import('parse5') }"],
     ["const m = [require('a'), 1]"],
+    // A type-level import() is erased at runtime, like `import type`, and counts the same.
+    ["type A = import('parse5').Token"],
+    ["let a: typeof import('parse5')"],
+    ["function f(a: import('parse5').Token): void {}"],
+    ["type G = Array<import('parse5').Token>"],
+    ['type T = typeof import(`parse5`)'],
   ])('sees %j', (source) => {
     expect(reachesAnotherModule(source)).toBe(true)
   })
@@ -221,6 +227,12 @@ describe('the check that a module imports nothing', () => {
       "import e = require('six')",
     ].join('\n')
     expect(modulesReached(source)).toEqual(['one', 'two', 'three', 'four', 'five', 'six'])
+  })
+
+  test('a type-level import() is reported like import type', () => {
+    expect(modulesReached("import type { A } from 'one'")).toEqual(['one'])
+    expect(modulesReached("type A = import('two').B")).toEqual(['two'])
+    expect(modulesReached("let a: typeof import('three')")).toEqual(['three'])
   })
 
   test('a specifier that is not a literal is reported as written, not skipped', () => {
