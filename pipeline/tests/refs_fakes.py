@@ -1,3 +1,4 @@
+from pathlib import Path
 from typing import Any
 
 import httpx
@@ -70,3 +71,22 @@ class FakeWikimedia:
         if offset + self.page_size < len(self.pages):
             response["continue"] = {"continue": "x", "offset": offset + self.page_size}
         return httpx.Response(200, json=response)
+
+
+class FakeObjectStore:
+    def __init__(self, *, fail_after_puts: int | None = None) -> None:
+        self.objects: dict[str, bytes] = {}
+        self.put_order: list[str] = []
+        self.fail_after_puts = fail_after_puts
+
+    def list_keys(self, prefix: str = "") -> set[str]:
+        return {key for key in self.objects if key.startswith(prefix)}
+
+    def put_file(self, key: str, path: Path) -> None:
+        if self.fail_after_puts is not None and len(self.put_order) >= self.fail_after_puts:
+            raise OSError("interrupted upload")
+        self.objects[key] = path.read_bytes()
+        self.put_order.append(key)
+
+    def get_file(self, key: str, dest: Path) -> None:
+        dest.write_bytes(self.objects[key])

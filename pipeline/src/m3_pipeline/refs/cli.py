@@ -7,15 +7,21 @@ import httpx
 import typer
 
 from m3_pipeline.config import load_settings
+from m3_pipeline.refs.classify import LabelImportError, export_batches, import_labels
 from m3_pipeline.refs.commons import CommonsClient
 from m3_pipeline.refs.crawl.engine import crawl_pages
 from m3_pipeline.refs.crawl.fetchers import MissingCredentials, open_fetcher
 from m3_pipeline.refs.crawl.robots import RobotsCache
+from m3_pipeline.refs.credits import render_credits
+from m3_pipeline.refs.cutouts import BackgroundRemovalUnavailable, load_remover, make_cutouts
+from m3_pipeline.refs.dedupe import apply_dedupe
 from m3_pipeline.refs.importer import import_directory
 from m3_pipeline.refs.sources import SubjectSources, load_sources
 from m3_pipeline.refs.store import RefStore
 from m3_pipeline.refs.subjects import parse_subject
+from m3_pipeline.refs.sync import R2Store, SyncError, make_r2_client, pull, push
 from m3_pipeline.refs.throttle import Throttle
+from m3_pipeline.refs.viewsets import ViewSet, write_viewset
 
 refs_app = typer.Typer(help="Reference photo collection and curation")
 
@@ -152,3 +158,110 @@ def crawl(
             typer.echo(f"{key}={value}")
     if backend == "browserbase":
         typer.echo("browserbase sessions used: 1")
+
+
+classify_app = typer.Typer(help="Export classification batches and import labels")
+refs_app.add_typer(classify_app, name="classify")
+
+
+@classify_app.command("export")
+def classify_export(
+    subject: Annotated[str, typer.Option("--subject")],
+    batch_size: Annotated[int, typer.Option(min=1)] = 40,
+) -> None:
+    """Write image batches and instructions for a vision-capable harness."""
+    result = export_batches(RefStore(load_settings()), subject, batch_size=batch_size)
+    typer.echo(f"images={result.images} batches={len(result.batches)} directory={result.directory}")
+
+
+@classify_app.command("import")
+def classify_import(path: Annotated[Path, typer.Argument(exists=True, dir_okay=False)]) -> None:
+    """Validate every line before changing any labels."""
+    try:
+        result = import_labels(RefStore(load_settings()), path)
+    except LabelImportError as exc:
+        for error in exc.errors:
+            typer.echo(error, err=True)
+        raise typer.Exit(1) from None
+    typer.echo(f"labeled={result.labeled} relabeled={result.relabeled}")
+
+
+@refs_app.command()
+def dedupe(subject: Annotated[str | None, typer.Option("--subject")] = None) -> None:
+    """Recompute perceptual duplicates, keeping the largest images."""
+    report = apply_dedupe(RefStore(load_settings()), subject)
+    typer.echo(f"duplicates={report.duplicates} changed={report.changed}")
+
+
+@refs_app.command()
+def cutouts(subject: Annotated[str, typer.Option("--subject")]) -> None:
+    """Remove backgrounds from accepted labeled images."""
+    store = RefStore(load_settings())
+    try:
+        remover = load_remover(models_dir=store.work_dir / "refs/models")
+    except BackgroundRemovalUnavailable as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(1) from None
+    report = make_cutouts(store, subject, remover)
+    typer.echo(f"created={report.created} existing={report.existing} failed={report.failed}")
+
+
+viewsets_app = typer.Typer(help="Select reference views")
+refs_app.add_typer(viewsets_app, name="viewsets")
+
+
+@viewsets_app.command("build")
+def viewsets_build(subject: Annotated[str, typer.Option("--subject")]) -> None:
+    """Build and store a ranked view set."""
+    store = RefStore(load_settings())
+    vs = write_viewset(store, subject, store.work_dir / "refs/viewsets" / f"{subject}.json")
+    for entry in vs.entries():
+        typer.echo(
+            f"{entry.view}: {entry.image_id} score={entry.score} mirrored={entry.mirrored} "
+            f"contains_text_risk={entry.contains_text_risk} license={entry.license_short}"
+        )
+    typer.echo(f"missing={','.join(vs.missing)}")
+    typer.echo(f"all_cc_or_pd={vs.all_cc_or_pd}")
+    for reason, count in sorted(vs.rejected.items()):
+        typer.echo(f"rejected {reason}={count}")
+
+
+@refs_app.command()
+def credits(subject: Annotated[str, typer.Option("--subject")]) -> None:
+    """Print credits from a previously built view set."""
+    parse_subject(subject)
+    path = load_settings().work_dir / "refs/viewsets" / f"{subject}.json"
+    if not path.exists():
+        typer.echo("run `pipeline refs viewsets build --subject <id>` first", err=True)
+        raise typer.Exit(1)
+    typer.echo(render_credits(ViewSet.model_validate_json(path.read_text())), nl=False)
+
+
+sync_app = typer.Typer(help="Sync the private store with R2")
+refs_app.add_typer(sync_app, name="sync")
+
+
+@sync_app.command("push")
+def sync_push(force: Annotated[bool, typer.Option("--force")] = False) -> None:
+    """Upload missing images, then publish the manifest last."""
+    try:
+        report = push(RefStore(load_settings()), R2Store(make_r2_client(os.environ)), force=force)
+    except SyncError as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(1) from None
+    typer.echo(
+        f"uploaded={report.uploaded} downloaded={report.downloaded} skipped={report.skipped}"
+    )
+
+
+@sync_app.command("pull")
+def sync_pull() -> None:
+    """Verify missing images before merging remote records."""
+    try:
+        report = pull(RefStore(load_settings()), R2Store(make_r2_client(os.environ)))
+    except SyncError as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(1) from None
+    typer.echo(
+        f"uploaded={report.uploaded} downloaded={report.downloaded} skipped={report.skipped}"
+    )

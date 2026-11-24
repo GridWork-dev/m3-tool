@@ -11,12 +11,16 @@ dependencies = [
     "imagehash==4.3.2",
     "httpx==0.28.1",
     "playwright==1.65.2",
+    "boto3==1.44.9",
 ]
 
 [project.scripts]
 pipeline = "m3_pipeline.cli:app"
 
 [dependency-groups]
+bg = [
+    "rembg[cpu]==2.0.87",
+]
 dev = [
     "ruff==0.17.6",
     "pyright==1.1.414",
