@@ -47,8 +47,9 @@
 # Interiors are empty on purpose: the only per-market source for the European coupe's upholstery
 # is the registry (Tier 3), which has no Tier 1 or Tier 2 check for Europe, so none is recorded.
 # Unverified under data.md's rule (no Tier 1, fewer than two Tier 2 publishers): the end year of
-# the Competition Package, the widths and offsets of standard-18, the width and offset of the
-# optional-19 front, the offset of the Competition Package front (inferred from the US ZCP part)
+# the Competition Package, the widths and offsets of standard-18, the widths and offsets of the
+# optional-19 front and rear, the offset of the Competition Package front (inferred from the US
+# ZCP part)
 # and its rear offset (inferred as well: BimmerWorld alone calls part 36112282999 the ZCP rear),
 # and the tire sizes of standard-18 and optional-19 (no Euro source above Tier 3 states them;
 # the Competition Package's own 19-inch tires are Tier 1). Also unverified: the labels 'Style
@@ -224,7 +225,7 @@ sources:
     url: https://shop.bmw.co.uk/product/genuine-19-wheel-rim-light-alloy-19-inch-9-5jx19-et-27-36-11-2-282-999
     tier: 1
     accessed: 2026-11-23
-    note: "BMW's own UK parts shop (a manufacturer product page). A 9.5Jx19 ET:27 light-alloy wheel, part 36112282999, whose compatibility table lists E46 M3 coupes (BL91 1999-07 to 2006-05, BL92 2000-03 to 2006-05), E46 M3 convertibles (BR91 2000-04 to 2006-08, BR92 2000-10 to 2006-08) and the M3 CSL (BL95, BL96), all ECE. The page gives no front or rear position; that this part is the rear of the CSL-style pair comes from BimmerWorld (Tier 2), which calls part 36112282999 the ZCP/CSL rear. So it is Tier 1 for a 9.5Jx19 ET27 wheel that fits these bodies, including the convertible, and Tier 2 for its position and its use on the Competition Package and the CSL. The production codes start before BMW's debut dates (the convertible's in 2000, BMW says spring 2001), so they are not used for start years; the coupe's May 2006 and the convertible's August 2006 ends agree with the 2006 end."
+    note: "BMW's own UK parts shop (a manufacturer product page). A 9.5Jx19 ET:27 light-alloy wheel, part 36112282999, whose compatibility table lists E46 M3 coupes (BL91 1999-07 to 2006-05, BL92 2000-03 to 2006-05), E46 M3 convertibles (BR91 2000-04 to 2006-08, BR92 2000-10 to 2006-08) and the M3 CSL (BL95, BL96), all ECE. The page gives no front or rear position; that this part is the rear of the CSL-style pair comes from BimmerWorld (Tier 2), which calls part 36112282999 the ZCP/CSL rear. So it is Tier 1 for a 9.5Jx19 ET27 wheel that fits these bodies, including the convertible, and Tier 2 for its position and its use on the Competition Package and the CSL. It does not speak for the optional 19-inch wheel: BMW NA's 2006 kit calls that wheel the 'M Double Spoke forged & polished (design #67M)', not the M Cross Spoke that BimmerWorld ties to this part number, so the optional wheel's rear offset (and, for the European cars, its rear width) is unverified. The production codes start before BMW's debut dates (the convertible's in 2000, BMW says spring 2001), so they are not used for start years; the coupe's May 2006 and the convertible's August 2006 ends agree with the 2006 end."
   - title: "BMW M3 E46 [2000 .. 2006] wheel fitment, 3.2i (S54B32)"
     publisher: "Koleso.ee (Astela OÜ)"
     url: https://koleso.ee/en/valuveljed/bmw/m3/263/e46-2000-2006/544
@@ -248,7 +249,7 @@ sources:
     url: https://www.bimmerworld.com/About-Us/Wheel-Info-Tech/
     tier: 2
     accessed: 2026-11-23
-    note: "Specialist shop's tech page. Its E46 M3 row lists 19x8.0 ET47 front and 19x9.5 ET27 rear as stock, and gives no 18-inch stock size (its Track A and Track B columns list 18x9.5 ET35 and 18x10.0 ET25, but as aftermarket recommendations). It agrees with the 19-inch widths and offsets used here. It calls the 19-inch pair stock, while BMW's CSL press kit calls the 19-inch wheels an option on the M3 (the 18-inch wheel is the standard fitment), so the pair is recorded as the optional wheel. The optional wheel's 8J ET47 front rests on this shop alone at Tier 2 and is unverified under data.md's rule; the 9.5J ET27 rear also matches BMW's own parts listing for the same size."
+    note: "Specialist shop's tech page. Its E46 M3 row lists 19x8.0 ET47 front and 19x9.5 ET27 rear as stock, and gives no 18-inch stock size (its Track A and Track B columns list 18x9.5 ET35 and 18x10.0 ET25, but as aftermarket recommendations). It agrees with the 19-inch widths and offsets used here. It calls the 19-inch pair stock, while BMW's CSL press kit calls the 19-inch wheels an option on the M3 (the 18-inch wheel is the standard fitment), so the pair is recorded as the optional wheel. The optional wheel's 8J ET47 front and 9.5J ET27 rear rest on this shop alone at Tier 2 (Koleso.ee, Tier 3, agrees) and are unverified under data.md's rule: BMW's UK parts listing is for part 36112282999, a different design (see that listing's note)."
   - title: "Genuine BMW E46 M3 ZCP Style 163M 19x8 ET47 Front Wheel"
     publisher: "BimmerWorld"
     url: https://www.bimmerworld.com/BMW-Parts/Genuine-BMW-E46-M3-M-cross-spoke-163-Wheel-8x19-36112282895.html

@@ -28,9 +28,7 @@
 # to 08/2006; Steel Grey Metallic 400 09/2000 to 02/2003; Silver Grey Metallic A08 03/2003 to
 # 08/2006; Topaz Blue Metallic 364 09/2000 to 02/2003; Mystic Blue Metallic A07 02/2003 to
 # 08/2006; Oxford Green Metallic 430 09/2000 to 08/2004; Phoenix Yellow Metallic 445 09/2000 to
-# 02/2005. Doubt: the registry has ten colours for 2002, but a search-engine excerpt (not
-# opened) of BMW NA's 15 November 2001 release counted eight colours for 2002, six of them
-# metallic, so the registry's older colours may be too many for the US cars.
+# 02/2005. Doubt: the registry's 2002 palette (ten colours) has no Tier 1 or Tier 2 confirmation.
 # finish follows the paint's name: 'Metallic' in it means metallic. For Carbon Black Metallic,
 # Silver Grey Metallic, Phoenix Yellow Metallic that is BMW's own name (Tier 1). The metallic
 # finishes of Titanium Silver Metallic, Steel Grey Metallic, Topaz Blue Metallic, Mystic Blue
@@ -49,7 +47,8 @@
 # lookup. The registry's other two, Laguna Seca Blue and Kiwi, were 'Priority 1 only' for the US
 # (special order) and are left out.
 # Unverified under data.md's rule (no Tier 1, fewer than two Tier 2 publishers): the offsets of
-# standard-18 and the optional-19 front offset; every paint code (Tier 3 only); the seven paint
+# standard-18 and the offsets of the optional-19 front and rear; every paint code (Tier 3 only);
+# the seven paint
 # names no BMW document gives (Alpine White III, Jet Black, Titanium Silver Metallic, Steel Grey
 # Metallic, Topaz Blue Metallic, Mystic Blue Metallic, Oxford Green Metallic, Tier 3 only); the
 # solid finishes of Alpine White III, Jet Black, Imola Red, Laguna Seca Blue (inferred from
@@ -58,8 +57,9 @@
 # Metallic (they follow Tier 3 names); the availability of the eight paints BMW does not name
 # for the US M3s (the registry, Tier 3, alone) and the months of all twelve (the registry
 # alone), with the doubt about 2002 above; the four leather names (Tier 3 only). The optional-19
-# wheel rests on model-wide statements, and BMW's UK parts listing shows its 9.5J ET27 rear fits
-# the convertible.
+# wheel's place on the convertible rests on model-wide statements (R61); BMW's UK parts listing
+# shows a 9.5J ET27 wheel fits the convertible but is not this wheel's design, so it does not
+# support the rear offset.
 id: e46-us-convertible
 generation: e46
 name: "M3 Convertible (US)"
@@ -199,7 +199,7 @@ sources:
     url: https://shop.bmw.co.uk/product/genuine-19-wheel-rim-light-alloy-19-inch-9-5jx19-et-27-36-11-2-282-999
     tier: 1
     accessed: 2026-11-23
-    note: "BMW's own UK parts shop (a manufacturer product page). A 9.5Jx19 ET:27 light-alloy wheel, part 36112282999, whose compatibility table lists E46 M3 coupes (BL91 1999-07 to 2006-05, BL92 2000-03 to 2006-05), E46 M3 convertibles (BR91 2000-04 to 2006-08, BR92 2000-10 to 2006-08) and the M3 CSL (BL95, BL96), all ECE. The page gives no front or rear position; that this part is the rear of the CSL-style pair comes from BimmerWorld (Tier 2), which calls part 36112282999 the ZCP/CSL rear. So it is Tier 1 for a 9.5Jx19 ET27 wheel that fits these bodies, including the convertible, and Tier 2 for its position and its use on the Competition Package and the CSL. The production codes start before BMW's debut dates (the convertible's in 2000, BMW says spring 2001), so they are not used for start years; the coupe's May 2006 and the convertible's August 2006 ends agree with the 2006 end."
+    note: "BMW's own UK parts shop (a manufacturer product page). A 9.5Jx19 ET:27 light-alloy wheel, part 36112282999, whose compatibility table lists E46 M3 coupes (BL91 1999-07 to 2006-05, BL92 2000-03 to 2006-05), E46 M3 convertibles (BR91 2000-04 to 2006-08, BR92 2000-10 to 2006-08) and the M3 CSL (BL95, BL96), all ECE. The page gives no front or rear position; that this part is the rear of the CSL-style pair comes from BimmerWorld (Tier 2), which calls part 36112282999 the ZCP/CSL rear. So it is Tier 1 for a 9.5Jx19 ET27 wheel that fits these bodies, including the convertible, and Tier 2 for its position and its use on the Competition Package and the CSL. It does not speak for the optional 19-inch wheel: BMW NA's 2006 kit calls that wheel the 'M Double Spoke forged & polished (design #67M)', not the M Cross Spoke that BimmerWorld ties to this part number, so the optional wheel's rear offset (and, for the European cars, its rear width) is unverified. The production codes start before BMW's debut dates (the convertible's in 2000, BMW says spring 2001), so they are not used for start years; the coupe's May 2006 and the convertible's August 2006 ends agree with the 2006 end."
   - title: "Buyer's Guide: BMW E46 M3"
     publisher: "BMWBLOG"
     url: https://www.bmwblog.com/2022/04/18/buyers-guide-bmw-e46-m3/
@@ -247,13 +247,13 @@ sources:
     url: https://www.bimmerworld.com/About-Us/Wheel-Info-Tech/
     tier: 2
     accessed: 2026-11-23
-    note: "Specialist shop's tech page. Its E46 M3 row lists 19x8.0 ET47 front and 19x9.5 ET27 rear as stock, and gives no 18-inch stock size (its Track A and Track B columns list 18x9.5 ET35 and 18x10.0 ET25, but as aftermarket recommendations). It agrees with the 19-inch widths and offsets used here. It calls the 19-inch pair stock, while BMW's CSL press kit calls the 19-inch wheels an option on the M3 (the 18-inch wheel is the standard fitment), so the pair is recorded as the optional wheel. The optional wheel's ET47 front offset rests on this shop alone at Tier 2 and is unverified under data.md's rule (BMW NA's 2006 kit, Tier 1, gives the 8.0 and 9.5 widths); the 9.5J ET27 rear also matches BMW's own parts listing for the same size."
+    note: "Specialist shop's tech page. Its E46 M3 row lists 19x8.0 ET47 front and 19x9.5 ET27 rear as stock, and gives no 18-inch stock size (its Track A and Track B columns list 18x9.5 ET35 and 18x10.0 ET25, but as aftermarket recommendations). It agrees with the 19-inch widths and offsets used here. It calls the 19-inch pair stock, while BMW's CSL press kit calls the 19-inch wheels an option on the M3 (the 18-inch wheel is the standard fitment), so the pair is recorded as the optional wheel. The optional wheel's ET47 front offset rests on this shop alone at Tier 2 and is unverified under data.md's rule (BMW NA's 2006 kit, Tier 1, gives the 8.0 and 9.5 widths); its 9.5J ET27 rear offset rests on this shop alone at Tier 2 as well, because BMW's UK parts listing is for part 36112282999, a different design (see that listing's note)."
   - title: "BMW M3 CSL press kit (3/2003), Press Kit for BMW M3 CSL at the Geneva Motor Show 2003"
     publisher: "BMW Group"
     url: https://newsroom.bmwgroup.com/americas/press-kit-for-bmw-m3-csl-at-the-geneva-motor-show-2003
     tier: 1
     accessed: 2026-11-23
-    note: "BMW's M3 CSL press kit (3/2003, PDF 'AG030228 M3 CSL Press Kit_GB_finalversion.pdf' linked from this page). Calls the 19-inch wheels 'available as an option on the M3' and describes them as forged ('the forged 19-inch wheels featured on the standard M3'), which is why the 19-inch pair is listed as an option and the 18-inch wheel as the standard fitment. For the CSL itself see e46-csl-coupe. For the convertible, this and the wheel sources above are model-wide statements that cover it (R61), and BMW NA's 2006 kit lists the 19-inch option for both bodies; BMW's UK parts listing also shows the 9.5Jx19 ET27 rear fits it."
+    note: "BMW's M3 CSL press kit (3/2003, PDF 'AG030228 M3 CSL Press Kit_GB_finalversion.pdf' linked from this page). Calls the 19-inch wheels 'available as an option on the M3' and describes them as forged ('the forged 19-inch wheels featured on the standard M3'), which is why the 19-inch pair is listed as an option and the 18-inch wheel as the standard fitment. For the CSL itself see e46-csl-coupe. For the convertible, this and the wheel sources above are model-wide statements that cover it (R61), and BMW NA's 2006 kit lists the 19-inch option for both bodies; BMW's UK parts listing shows a 9.5Jx19 ET27 wheel (part 36112282999, not the optional wheel's design) fits it."
   - title: "PRESS KIT: 2006 BMW M3 (description, highlights, options and features, pricing)"
     publisher: "BMW Group"
     url: https://newsroom.bmwgroup.com/americas/press-kit-2006-bmw-m3

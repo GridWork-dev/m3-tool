@@ -1,10 +1,15 @@
 # BMW M3 CSL (E46), 2003-2004. Every value below was checked against the sources cited here on
 # 2026-11-23. The module asset ids below are planned names for the 3D lane; the front bumper id
 # is a pick, because the docs name only the trunk lid and roof ids. The years run from the 2003
-# launch to 2004. The 2004 end is unverified: no source states when sales or production ended
-# (Auto Express labels its CSL specifications '(2004)', carsales.com.au says the car became
-# available in Australia in 2004, and BMW Group Classic's AI-written page (Tier 3) gives
-# 01/2004).
+# launch to 2004. The 2004 end is unverified. Two Tier 3 sources state an end of production and
+# differ by a month: the BMW M Registry says 'BL95: European-spec CSL coupe (LHD): 05/2003
+# through 12/2003', 'BL96 ... (RHD): 06/2003 through 12/2003' and 'A total of 1,383 E46 M3 CSLs
+# were produced to European specification between June and December of 2003' (it counts the
+# prototypes built from September 2002 to February 2003 separately), while BMW Group Classic's
+# AI-written page gives 09/2002 to 01/2004. Both put the end of production at the turn of 2003
+# and 2004, so 2004 can only be a sales-year end: Auto Express labels its CSL specifications
+# '(2004)' and carsales.com.au says the car became available in Australia in 2004, and neither
+# states an end.
 # Model-wide statements (docs/standards/data.md, ruling R61): nothing in this file rests on one,
 # because BMW's CSL press kit speaks for the CSL's gearbox, wheels and colours.
 # Paints. BMW's CSL press kit (Tier 1) says the car 'comes in only two exterior colours, Silver
@@ -21,8 +26,9 @@
 # Interiors are empty on purpose: the kit says the front bucket seats and the rear seats are
 # upholstered in 'a combination of Amaretta and fabric' and gives no colour. The registry's
 # 'Anthracite' is Tier 3 only, so it is not recorded.
-# Also unverified under data.md's rule: the optional-19 front width and offset, and the
-# optional-19 tire sizes (only Koleso.ee, Tier 3); the 'Style 163M' label (BimmerWorld alone;
+# Also unverified under data.md's rule: the optional-19 widths and offsets, front and rear, and
+# the optional-19 tire sizes (only Koleso.ee, Tier 3); the 'Style 163M' label (BimmerWorld
+# alone;
 # BMW's kit does not number the wheel); the two paint codes (Tier 3 only); Black Sapphire
 # Metallic's months (the registry, Tier 3, alone).
 id: e46-csl-coupe
@@ -118,7 +124,7 @@ sources:
     url: https://www.bmwgroup-classic.com/en/models/bmw-classics/product-description-page.ad-1005-1.bmw-m3-csl-e46.html
     tier: 3
     accessed: 2026-11-23
-    note: "Rated Tier 3: the page states 'This content was created using AI', and BMW Group Classic's own E46 M3 convertible pages disagree with each other on production dates. Gives production '09/2002 - 01/2004', 'Only 1,383 examples were produced', 360 hp (265 kW) at 7,900 rpm and a kerb weight of 1,460 kg (1,385 plus 75). It is the only source I opened that gives 01/2004 as an end, at Tier 3, so the 2004 end year is unverified. This page also corroborates the 1,383 count. The 1,460 kg is not used (see the press kit note) and the 09/2002 start is not used: BMW presented the CSL in February 2003 and the years start with that launch."
+    note: "Rated Tier 3: the page states 'This content was created using AI', and BMW Group Classic's own E46 M3 convertible pages disagree with each other on production dates. Gives production '09/2002 - 01/2004', 'Only 1,383 examples were produced', 360 hp (265 kW) at 7,900 rpm and a kerb weight of 1,460 kg (1,385 plus 75). It is the only source I opened that gives 01/2004 as an end, at Tier 3; the BMW M Registry (Tier 3) gives 12/2003 for the end of production, so the two differ by a month and the 2004 end year is unverified (2004 can only be a sales-year end). This page also corroborates the 1,383 count. The 1,460 kg is not used (see the press kit note) and the 09/2002 start is not used: the registry puts the pre-production prototypes at September 2002 to February 2003 and the production run at 05/2003 to 12/2003, and BMW presented the CSL in February 2003, so the years start with that launch."
   - title: "40 Years of the BMW M3"
     publisher: "BMW Group"
     url: https://newsroom.bmwgroup.com/global/40-years-of-the-bmw-m3
@@ -136,13 +142,13 @@ sources:
     url: https://shop.bmw.co.uk/product/genuine-19-wheel-rim-light-alloy-19-inch-9-5jx19-et-27-36-11-2-282-999
     tier: 1
     accessed: 2026-11-23
-    note: "BMW's own UK parts shop (a manufacturer product page). A 9.5Jx19 ET:27 light-alloy wheel, part 36112282999, whose compatibility table lists E46 M3 coupes (BL91 1999-07 to 2006-05, BL92 2000-03 to 2006-05), E46 M3 convertibles (BR91 2000-04 to 2006-08, BR92 2000-10 to 2006-08) and the M3 CSL (BL95, BL96), all ECE. The page gives no front or rear position; that this part is the rear of the CSL-style pair comes from BimmerWorld (Tier 2), which calls part 36112282999 the ZCP/CSL rear. So it is Tier 1 for a 9.5Jx19 ET27 wheel that fits these bodies, including the convertible, and Tier 2 for its position and its use on the Competition Package and the CSL. The production codes start before BMW's debut dates (the convertible's in 2000, BMW says spring 2001), so they are not used for start years; the coupe's May 2006 and the convertible's August 2006 ends agree with the 2006 end."
+    note: "BMW's own UK parts shop (a manufacturer product page). A 9.5Jx19 ET:27 light-alloy wheel, part 36112282999, whose compatibility table lists E46 M3 coupes (BL91 1999-07 to 2006-05, BL92 2000-03 to 2006-05), E46 M3 convertibles (BR91 2000-04 to 2006-08, BR92 2000-10 to 2006-08) and the M3 CSL (BL95, BL96), all ECE. The page gives no front or rear position; that this part is the rear of the CSL-style pair comes from BimmerWorld (Tier 2), which calls part 36112282999 the ZCP/CSL rear. So it is Tier 1 for a 9.5Jx19 ET27 wheel that fits these bodies, including the convertible, and Tier 2 for its position and its use on the Competition Package and the CSL. It does not speak for the optional 19-inch wheel: BMW NA's 2006 kit calls that wheel the 'M Double Spoke forged & polished (design #67M)', not the M Cross Spoke that BimmerWorld ties to this part number, so the optional wheel's rear offset (and, for the European cars, its rear width) is unverified. The production codes start before BMW's debut dates (the convertible's in 2000, BMW says spring 2001), so they are not used for start years; the coupe's May 2006 and the convertible's August 2006 ends agree with the 2006 end."
   - title: "BMW M3 E46 [2000 .. 2006] wheel fitment, 3.2i (S54B32)"
     publisher: "Koleso.ee (Astela OÜ)"
     url: https://koleso.ee/en/valuveljed/bmw/m3/263/e46-2000-2006/544
     tier: 3
     accessed: 2026-11-23
-    note: "Rated Tier 3: a tire retailer's fitment lookup is neither a specialist retailer's tech article nor one of its own product listings, the two retailer pages data.md's Tier 2 covers. Its '3.2i CSL' block lists the OEM front as 235/35R19 on 8.5J ET44 and the OEM rear as 265/30R19 on 9.5J ET27, which matches the press kit. It also lists the standard M3's 19-inch pair (225/40R19 on 8J ET47, 255/35R19 on 9.5J ET27) for the CSL, the basis for listing the optional 19-inch wheel (whose front width and offset are unverified under data.md's rule); it is also the only source of that wheel's tire sizes, at Tier 3, so those are unverified."
+    note: "Rated Tier 3: a tire retailer's fitment lookup is neither a specialist retailer's tech article nor one of its own product listings, the two retailer pages data.md's Tier 2 covers. Its '3.2i CSL' block lists the OEM front as 235/35R19 on 8.5J ET44 and the OEM rear as 265/30R19 on 9.5J ET27, which matches the press kit. It also lists the standard M3's 19-inch pair (225/40R19 on 8J ET47, 255/35R19 on 9.5J ET27) for the CSL, the basis for listing the optional 19-inch wheel (whose widths and offsets are unverified under data.md's rule); it is also the only source of that wheel's tire sizes, at Tier 3, so those are unverified."
   - title: "Genuine BMW E46 M3 CSL Style 163M 19x8.5 ET44 Front Wheel"
     publisher: "BimmerWorld"
     url: https://www.bimmerworld.com/Wheels-Tires/Wheels/BMW-E46-M3-CSL-Style-163M-19x85-ET44-Front-Wheel.html
@@ -160,7 +166,7 @@ sources:
     url: https://www.bimmerworld.com/About-Us/Wheel-Info-Tech/
     tier: 2
     accessed: 2026-11-23
-    note: "Specialist shop's tech page. Its E46 M3 row lists 19x8.0 ET47 front and 19x9.5 ET27 rear as stock; for the optional 19-inch wheel listed here that is the only Tier 2 source for the 8J ET47 front."
+    note: "Specialist shop's tech page. Its E46 M3 row lists 19x8.0 ET47 front and 19x9.5 ET27 rear as stock; for the optional 19-inch wheel listed here that is the only Tier 2 source for its 8J ET47 front and 9.5J ET27 rear."
   - title: "Choose your Automotive paint color for your 2002 BMW M3"
     publisher: "AutomotiveTouchup"
     url: https://automotivetouchup.com/touch-up-paint/bmw/2002/m3
@@ -178,7 +184,7 @@ sources:
     url: https://bmwmregistry.com/model_faq.php?id=19
     tier: 3
     accessed: 2026-11-23
-    note: "Rated Tier 3: the FAQ page of an owners' registry, with no author and no BMW citation. Its charts list 'all regularly available' E46 M3 paints with their code, the BMW model codes that had them and the months: BL91 and BL92 (European coupe, left and right-hand drive), BL93 (North American coupe), BR91 and BR92 (European convertible), BR93 (North American convertible) and BL95 and BL96 (CSL). The European and CSL model codes agree with the compatibility table on BMW's UK parts listing (Tier 1, ECE cars only). It says Interlagos Blue Metallic (A30) was 'ZCP only' on BL91 and BL93 and 'CS only' on BL92 (12/2004 to 05/2006), and the CSL's colours were 'limited to Silver Grey metallic (A08) and Black Sapphire metallic (475)'. It also lists a Fern Green metallic (386) for the BL91 only, 09/2000 to 01/2001, which no other source lists and which is not recorded. It names 405 'Imola Red II', 668 'Jet Black' and 430 'Oxford Green II metallic'. For the CSL the chart's rows are BL95 and BL96, and the Black Sapphire Metallic row gives 05/2003 through 12/2003; its upholstery chart lists 'Anthracite Reflex cloth + Anthracite Amaretta' (ADAT) for them, which is not recorded."
+    note: "Rated Tier 3: the FAQ page of an owners' registry, with no author and no BMW citation. Its charts list 'all regularly available' E46 M3 paints with their code, the BMW model codes that had them and the months: BL91 and BL92 (European coupe, left and right-hand drive), BL93 (North American coupe), BR91 and BR92 (European convertible), BR93 (North American convertible) and BL95 and BL96 (CSL). The European and CSL model codes agree with the compatibility table on BMW's UK parts listing (Tier 1, ECE cars only). It says Interlagos Blue Metallic (A30) was 'ZCP only' on BL91 and BL93 and 'CS only' on BL92 (12/2004 to 05/2006), and the CSL's colours were 'limited to Silver Grey metallic (A08) and Black Sapphire metallic (475)'. It also lists a Fern Green metallic (386) for the BL91 only, 09/2000 to 01/2001, which no other source lists and which is not recorded. It names 405 'Imola Red II', 668 'Jet Black' and 430 'Oxford Green II metallic'. For the CSL the chart's rows are BL95 and BL96, and the Black Sapphire Metallic row gives 05/2003 through 12/2003. Its Production Versions list says 'BL95: European-spec CSL coupe (LHD): 05/2003 through 12/2003' and 'BL96: European-spec CSL coupe (RHD): 06/2003 through 12/2003', and its CSL text says 'A total of 1,383 E46 M3 CSLs were produced to European specification between June and December of 2003' (841 left-hand and 542 right-hand drive, which its production table repeats) and 'This figure excludes an additional series of at least a dozen pre-production M3 CSL prototypes built between September of 2002 and February of 2003', which explains the 09/2002 start on BMW Group Classic's page. So it states a production end of 12/2003, against Classic's 01/2004. Its upholstery chart lists 'Anthracite Reflex cloth + Anthracite Amaretta' (ADAT) for the CSL, which is not recorded."
   - title: "BMW E46 M3 paint codes, color options"
     publisher: "BIMMERtips.com"
     url: https://bimmertips.com/bmw-e46-m3-paint-codes-color-options/
