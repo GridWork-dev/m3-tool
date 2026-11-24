@@ -1,5 +1,6 @@
 import hashlib
 import json
+import os
 from pathlib import Path
 from typing import Any, Literal
 
@@ -512,3 +513,50 @@ def test_main_refuses_a_work_dir_inside_the_repo_spelled_in_another_case(
     assert main([str(odd_case_work), "e46-coupe", "base-car", str(toml)]) == 1
     assert "inside the repo" in capsys.readouterr().err
     assert _written_files(repo) == []
+
+
+@pytest.mark.parametrize("victim_exists", [False, True])
+def test_a_planted_temp_file_symlink_into_the_repo_is_not_followed(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, victim_exists: bool
+) -> None:
+    # The destination check passes, but a predictable `<destination>.tmp` that is already a link
+    # into the repo would be opened through the link: the photo would land in the repo, or
+    # overwrite a repo file, and the link would then be renamed over the destination.
+    repo = tmp_path / "repo"
+    (repo / "inside").mkdir(parents=True)
+    victim = repo / "inside" / "stolen.bin"
+    if victim_exists:
+        victim.write_bytes(b"repo file")
+    _repo_env(monkeypatch, repo)
+    work, src = tmp_path / "work", tmp_path / "src"
+    photo = _photo(src, "a.jpg")
+    image = work / f"refs/images/{_sha(photo)[:2]}/{_sha(photo)}.jpg"
+    viewset = work / "refs/viewsets/e46-coupe.json"
+    for dest in (image, viewset):
+        dest.parent.mkdir(parents=True)
+        dest.with_name(dest.name + ".tmp").symlink_to(victim)
+    before = sorted(p.name for p in (repo / "inside").iterdir())
+
+    path = build_handmade_viewset(work, "e46-coupe", "base-car", [_pick(photo, "front")])
+
+    assert sorted(p.name for p in (repo / "inside").iterdir()) == before
+    assert not victim.exists() or victim.read_bytes() == b"repo file"
+    for dest in (image, viewset):
+        assert dest.is_file() and not dest.is_symlink()
+    assert image.read_bytes() == photo.read_bytes() and path == viewset
+    assert load_viewset(work, "e46-coupe").views[0].image_id == _sha(photo)
+
+
+def test_a_failed_write_leaves_no_temp_file_and_no_half_written_destination(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    def refuse(src: object, dst: object) -> None:
+        raise OSError("disk full")
+
+    monkeypatch.setattr(os, "replace", refuse)
+    work = tmp_path / "work"
+    pick = _pick(_photo(tmp_path / "src", "a.jpg"), "front")
+    with pytest.raises(OSError, match="disk full"):
+        build_handmade_viewset(work, "e46-coupe", "base-car", [pick])
+    assert _written_files(work) == []
+    assert not (work / "refs/viewsets/e46-coupe.json").exists()

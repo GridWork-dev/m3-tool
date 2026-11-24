@@ -15,6 +15,7 @@ import json
 import os
 import re
 import sys
+import tempfile
 import tomllib
 from collections.abc import Sequence
 from dataclasses import dataclass
@@ -291,11 +292,27 @@ def _entry(pick: Pick, sha: str, image_rel: str, cutout_rel: str | None) -> dict
 
 
 def _write_atomic(dest: Path, data: bytes) -> None:
-    """Write through a temp file in the same folder, so a crash never leaves half a file."""
+    """Write `data` to `dest` through a temp file in the same folder, so a crash never leaves
+    half a file.
+
+    The temp file is created exclusively (`mkstemp`: O_CREAT | O_EXCL, a name nobody planned), so
+    it can never be an existing file or a link that a predictable `<dest>.tmp` could have been
+    pointed at: the bytes only ever go where the destination check looked. It is flushed and
+    fsynced before the rename, and removed again if anything fails. The file is created owner-only
+    (0600), which suits a private cache.
+    """
     dest.parent.mkdir(parents=True, exist_ok=True)
-    temp = dest.with_name(dest.name + ".tmp")
-    temp.write_bytes(data)
-    os.replace(temp, dest)
+    fd, name = tempfile.mkstemp(dir=dest.parent, prefix=f".{dest.name}.", suffix=".tmp")
+    temp = Path(name)
+    try:
+        with os.fdopen(fd, "wb") as handle:
+            handle.write(data)
+            handle.flush()
+            os.fsync(handle.fileno())
+        os.replace(temp, dest)
+    except BaseException:
+        temp.unlink(missing_ok=True)
+        raise
 
 
 if __name__ == "__main__":
