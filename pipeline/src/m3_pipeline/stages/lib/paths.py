@@ -1,5 +1,6 @@
 """Where a stage keeps its files, and how a subject id names its car body."""
 
+import os
 import re
 from pathlib import Path
 
@@ -10,30 +11,61 @@ from m3_pipeline.config import Settings
 _SUBJECT = re.compile(r"^[a-z0-9]+-(?P<body>coupe|convertible|sedan)(?:-interior)?$")
 
 
-def require_work_dir_outside_repo(settings: Settings) -> None:
-    """Raise ValueError if `settings.work_dir` is the repo or inside it.
+def is_inside_repo(repo_root: Path, path: Path) -> bool:
+    """True if `path` is the repo or inside it, wherever its spelling and links lead.
 
-    Photos, generator output and renders never enter the repo (docs/standards/legal.md). Both
-    paths are resolved first, so a symlink or `..` can't hide the overlap.
+    `path` need not exist. It is resolved first (symlinks followed, `..` folded), so a link
+    in the middle of the path shows where the file would really go. A name comparison alone
+    is not enough on a volume that ignores case (the macOS default): `/users/x/Repo` and
+    `/Users/x/repo` are one folder, and resolve() keeps whichever spelling it was given. So
+    the folders on the way up are also compared by identity (`samefile`).
     """
-    if settings.work_dir.resolve().is_relative_to(settings.repo_root.resolve()):
+    resolved = path.resolve()
+    root = repo_root.resolve()
+    if resolved.is_relative_to(root):
+        return True
+    for folder in (resolved, *resolved.parents):
+        try:
+            if os.path.samefile(folder, root):
+                return True
+        except OSError:
+            continue  # this ancestor, or the repo itself, does not exist (yet)
+    return False
+
+
+def require_outside_repo(repo_root: Path, path: Path) -> None:
+    """Raise ValueError if writing at `path` would put a file in the repo.
+
+    Photos, generator output and renders never enter the repo (docs/standards/legal.md). Call
+    it with the full destination of every write and every directory creation, not only with
+    the work dir: a child folder of a work dir outside the repo can be a link into it.
+    """
+    if is_inside_repo(repo_root, path):
         raise ValueError(
-            f"work_dir {settings.work_dir} is inside the repo {settings.repo_root}; "
-            "set M3_WORK_DIR to a folder outside it"
+            f"{path} resolves to {path.resolve()}, inside the repo {repo_root}; photos, "
+            "generator output and renders never enter the repo (set M3_WORK_DIR to a folder "
+            "outside it and remove links into the repo)"
         )
+
+
+def require_work_dir_outside_repo(settings: Settings) -> None:
+    """Raise ValueError if `settings.work_dir` is the repo or inside it."""
+    require_outside_repo(settings.repo_root, settings.work_dir)
 
 
 def stage_dir(settings: Settings, asset_id: str, stage: str) -> Path:
     """`<work_dir>/assets/<asset_id>/<stage>`, created if absent.
 
-    Raises ValueError for a work_dir inside the repo, and for an id or stage name that is not a
-    single path segment (so it can't point outside its folder).
+    Raises ValueError for a destination inside the repo (the work dir itself, or a link
+    anywhere along the way), and for an id or stage name that is not a single path segment (so
+    it can't point outside its folder). Nothing is created when it raises.
     """
     require_work_dir_outside_repo(settings)
     for label, name in (("asset id", asset_id), ("stage", stage)):
         if not name or name in {".", ".."} or "/" in name or "\\" in name:
             raise ValueError(f"{label} {name!r} is not a single path segment")
     path = settings.work_dir / "assets" / asset_id / stage
+    require_outside_repo(settings.repo_root, path)
     path.mkdir(parents=True, exist_ok=True)
     return path
 

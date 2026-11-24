@@ -428,3 +428,87 @@ def test_main_reports_a_bad_picks_file_and_a_bad_command_line(
     assert main([str(tmp_path / "work"), "e46-coupe", "product", "picks.toml"]) == 2
     assert main([str(tmp_path / "work"), "e46-coupe"]) == 2
     assert "usage" in capsys.readouterr().err
+
+
+def _link_dir_into_repo(tmp_path: Path, where: str) -> tuple[Path, Path]:
+    """A work dir outside the repo whose child `where` is a symlink to a folder in the repo."""
+    repo = tmp_path / "repo"
+    (repo / "inside").mkdir(parents=True)
+    work = tmp_path / "work"
+    link = work / where
+    link.parent.mkdir(parents=True)
+    link.symlink_to(repo / "inside", target_is_directory=True)
+    return repo, work
+
+
+def _written_files(directory: Path) -> list[Path]:
+    return sorted(p for p in directory.rglob("*") if p.is_file())
+
+
+@pytest.mark.parametrize("where", ["refs", "refs/images", "refs/cutouts", "refs/viewsets"])
+def test_build_refuses_a_child_folder_that_is_a_symlink_into_the_repo(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, where: str
+) -> None:
+    # The work dir is outside the repo, so a check on the work dir alone passes, and the
+    # photos would be copied into the repo through the link.
+    repo, work = _link_dir_into_repo(tmp_path, where)
+    _repo_env(monkeypatch, repo)
+    src = tmp_path / "src"
+    pick = _pick(_photo(src, "a.jpg"), "front", mask=_photo(src, "a-mask.png"))
+    with pytest.raises(HandmadeError, match="inside the repo"):
+        build_handmade_viewset(work, "e46-coupe", "base-car", [pick])
+    assert _written_files(repo) == []
+    # Every destination is checked before the first write, so nothing was copied elsewhere.
+    assert _written_files(work) == []
+
+
+def test_build_still_writes_through_a_link_that_leaves_the_repo_alone(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    _repo_env(monkeypatch, repo)
+    bigdisk = tmp_path / "bigdisk"
+    bigdisk.mkdir()
+    work = tmp_path / "work"
+    work.mkdir()
+    (work / "refs").symlink_to(bigdisk, target_is_directory=True)
+    pick = _pick(_photo(tmp_path / "src", "a.jpg"), "front")
+    path = build_handmade_viewset(work, "e46-coupe", "base-car", [pick])
+    assert path.is_file() and (bigdisk / "viewsets" / "e46-coupe.json").is_file()
+    assert _written_files(repo) == []
+
+
+def test_main_refuses_a_child_folder_that_is_a_symlink_into_the_repo(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    repo, work = _link_dir_into_repo(tmp_path, "refs")
+    _repo_env(monkeypatch, repo)
+    photo = _photo(tmp_path / "spike", "a.jpg")
+    toml = _toml(
+        tmp_path / "spike/picks.toml",
+        f'[[pick]]\nfile = "{photo.name}"\nview = "front"\nlicense_short = "CC0"\npage_url = "u"\n',
+    )
+    assert main([str(work), "e46-coupe", "base-car", str(toml)]) == 1
+    assert "inside the repo" in capsys.readouterr().err
+    assert _written_files(repo) == []
+
+
+def test_main_refuses_a_work_dir_inside_the_repo_spelled_in_another_case(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    (tmp_path / "CaseProbe").mkdir()
+    if not (tmp_path / "caseprobe").exists():
+        pytest.skip("case-sensitive filesystem: an odd-cased path names a different folder")
+    repo = tmp_path / "Repo"
+    repo.mkdir()
+    _repo_env(monkeypatch, repo)
+    photo = _photo(tmp_path / "spike", "a.jpg")
+    toml = _toml(
+        tmp_path / "spike/picks.toml",
+        f'[[pick]]\nfile = "{photo.name}"\nview = "front"\nlicense_short = "CC0"\npage_url = "u"\n',
+    )
+    odd_case_work = tmp_path / "rEPO" / "work"
+    assert main([str(odd_case_work), "e46-coupe", "base-car", str(toml)]) == 1
+    assert "inside the repo" in capsys.readouterr().err
+    assert _written_files(repo) == []

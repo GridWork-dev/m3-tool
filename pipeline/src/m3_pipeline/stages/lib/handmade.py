@@ -22,7 +22,11 @@ from pathlib import Path
 from typing import Literal, cast
 
 from m3_pipeline.config import Settings, load_settings
-from m3_pipeline.stages.lib.paths import require_work_dir_outside_repo, subject_body
+from m3_pipeline.stages.lib.paths import (
+    require_outside_repo,
+    require_work_dir_outside_repo,
+    subject_body,
+)
 from m3_pipeline.stages.lib.viewset_io import viewset_path
 
 Kind = Literal["base-car", "interior"]
@@ -94,22 +98,26 @@ def build_handmade_viewset(work_dir: Path, subject: str, kind: Kind, picks: Sequ
 
     Images are stored by content hash (`refs/images/<sha[:2]>/<sha>.<ext>`) and masks as
     `refs/cutouts/<sha>.png`, so running this again with the same picks changes nothing, and two
-    picks of identical bytes share one file. Everything is checked before anything is written.
-    Returns the view-set path. Raises HandmadeError for a pick that doesn't fit.
+    picks of identical bytes share one file. Everything is checked before anything is written,
+    the real location of every destination included: no photo may land in the repo, even
+    through a link inside `work_dir` (the repo root comes from `load_settings()`).
+    Returns the view-set path. Raises HandmadeError for a pick that doesn't fit or a destination
+    in the repo.
     """
     _check_subject(subject, kind)
     ordered = _check_picks(kind, picks)
+    writes: dict[Path, bytes] = {}  # destination -> content, in write order (view set last)
     entries: list[dict[str, object]] = []
     for pick in ordered:
         data = pick.file.read_bytes()
         sha = hashlib.sha256(data).hexdigest()
         ext = _EXTENSIONS[pick.file.suffix.lower()]
         image_rel = f"refs/images/{sha[:2]}/{sha}.{ext}"
-        _write_atomic(work_dir / image_rel, data)
+        writes[work_dir / image_rel] = data
         cutout_rel = None
         if pick.mask is not None:
             cutout_rel = f"refs/cutouts/{sha}.png"
-            _write_atomic(work_dir / cutout_rel, pick.mask.read_bytes())
+            writes[work_dir / cutout_rel] = pick.mask.read_bytes()
         entries.append(_entry(pick, sha, image_rel, cutout_rel))
 
     if kind == "base-car":
@@ -135,7 +143,15 @@ def build_handmade_viewset(work_dir: Path, subject: str, kind: Kind, picks: Sequ
         "rejected": {},
     }
     dest = viewset_path(work_dir, subject)
-    _write_atomic(dest, (json.dumps(doc, indent=2) + "\n").encode("utf-8"))
+    writes[dest] = (json.dumps(doc, indent=2) + "\n").encode("utf-8")
+    repo_root = load_settings().repo_root
+    try:
+        for path in writes:
+            require_outside_repo(repo_root, path)
+    except ValueError as error:
+        raise HandmadeError(str(error)) from error
+    for path, data in writes.items():
+        _write_atomic(path, data)
     return dest
 
 
