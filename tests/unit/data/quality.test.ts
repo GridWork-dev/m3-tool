@@ -478,7 +478,9 @@ describe('cross-file checks against the generation', () => {
   })
 })
 
-describe('dates that are not after today', () => {
+// "Not after today" has a day of slack: a contributor east of UTC writes their own date in the
+// early morning, while it is still yesterday in UTC.
+describe('dates that are not more than a day after today (UTC)', () => {
   const TODAY = new Date('2026-11-23') // injected, so the tests do not depend on the clock
   const day = (iso: string) => new Date(iso)
   const issuesAt = (set: DataSet, today: Date = TODAY) =>
@@ -488,26 +490,47 @@ describe('dates that are not after today', () => {
     expect(checkDataSet(fresh(), { today: TODAY })).toEqual([])
   })
 
-  test('a source accessed today passes, and one accessed tomorrow is refused', () => {
+  test('a source accessed today or tomorrow passes, and one accessed the day after is refused', () => {
     const set = fresh()
     const source = find(set.parts, 'fixture-wheel').data.sources[0]
     if (!source) throw new Error('fixture has a source')
-    source.accessed = day('2026-11-23')
+    source.accessed = day('2026-11-23') // today
     expect(issuesAt(set)).toEqual([])
-    source.accessed = day('2026-11-24')
+    source.accessed = day('2026-11-24') // tomorrow: still today somewhere east of UTC
+    expect(issuesAt(set)).toEqual([])
+    source.accessed = day('2026-11-25') // two days ahead: a typo, not a time zone
     const issues = issuesAt(set)
     expect(issues).toHaveLength(1)
     expect(issues[0]?.file).toBe('parts/e46/fixture-wheel.yaml')
-    expect(issues[0]?.message).toContain('2026-11-24')
+    expect(issues[0]?.message).toContain('2026-11-25')
     expect(issues[0]?.message).toContain('2026-11-23')
+    expect(issues[0]?.message).toMatch(/more than a day/)
   })
 
-  test('a price checked tomorrow is refused, on a part and on an option', () => {
+  test('the slack is one day across a month and a year boundary', () => {
+    const set = fresh()
+    const source = find(set.parts, 'fixture-wheel').data.sources[0]
+    if (!source) throw new Error('fixture has a source')
+    for (const [today, ok, bad] of [
+      ['2026-11-30', '2026-12-01', '2026-12-02'],
+      ['2026-12-31', '2027-01-01', '2027-01-02'],
+      ['2028-02-28', '2028-02-29', '2028-03-01'],
+    ] as const) {
+      source.accessed = day(ok)
+      expect(issuesAt(set, day(today)), `${ok} after ${today}`).toEqual([])
+      source.accessed = day(bad)
+      expect(issuesAt(set, day(today)), `${bad} after ${today}`).toHaveLength(1)
+    }
+  })
+
+  test('a price checked a day ahead passes, and two days ahead is refused, on a part and an option', () => {
     const set = fresh()
     const coil = find(set.parts, 'fixture-coilovers').data
     const price = coil.prices?.[0]
     if (!price) throw new Error('fixture has a part price')
     price.checked = day('2026-11-24')
+    expect(issuesAt(set)).toEqual([])
+    price.checked = day('2026-11-25')
     expect(issuesAt(set).map((issue) => issue.file)).toEqual(['parts/e46/fixture-coilovers.yaml'])
 
     const optioned = fresh()
@@ -562,8 +585,9 @@ describe('dates that are not after today', () => {
   })
 
   test('today moves with the clock that is passed in', () => {
-    const set = fresh()
-    expect(issuesAt(set, day('2026-11-22'))).not.toEqual([])
+    const set = fresh() // its dates are 2026-11-23
+    expect(issuesAt(set, day('2026-11-21'))).not.toEqual([])
+    expect(issuesAt(set, day('2026-11-22'))).toEqual([]) // 11-23 is a day ahead of 11-22
     expect(issuesAt(set, day('2026-11-23'))).toEqual([])
     expect(issuesAt(set, day('2030-01-01'))).toEqual([])
   })
@@ -584,7 +608,8 @@ describe('dates that are not after today', () => {
     source.accessed = day('2026-11-23')
     expect(issuesAt(set, new Date('2026-11-23T00:00:00.000Z'))).toEqual([])
     expect(issuesAt(set, new Date('2026-11-23T23:59:59.999Z'))).toEqual([])
-    expect(issuesAt(set, new Date('2026-11-22T23:59:59.999Z'))).not.toEqual([])
+    expect(issuesAt(set, new Date('2026-11-22T23:59:59.999Z'))).toEqual([]) // today is the 22nd
+    expect(issuesAt(set, new Date('2026-11-21T23:59:59.999Z'))).not.toEqual([]) // today is the 21st
   })
 })
 

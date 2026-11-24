@@ -65,6 +65,8 @@ const directoryOf = (file: string): string | undefined => {
 export interface CheckOptions {
   // The date that source and price dates may not pass. Defaults to the clock; tests inject one.
   // Only its calendar date in UTC counts, because data dates are calendar dates at UTC midnight.
+  // A date may be one day ahead of it: a contributor east of UTC writes their own date in the
+  // early morning, while it is still yesterday in UTC.
   today?: Date
 }
 
@@ -344,24 +346,31 @@ function checkAgainstGeneration(set: DataSet, add: Add): void {
   }
 }
 
-// A source cannot have been accessed, and a price cannot have been checked, after today. Every
-// date is compared as a calendar date: data dates are UTC midnights.
+// A source cannot have been accessed, and a price cannot have been checked, after today, with a
+// day of slack for time zones east of UTC. Every date is compared as a calendar date: data dates
+// are UTC midnights.
 function checkDates(set: DataSet, now: Date, add: Add): void {
+  const DAY = 24 * 60 * 60 * 1000
   const today = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate())
-  const limit = isoDay(new Date(today))
+  const latest = today + DAY
   const flag = (file: string, what: string, date: Date) => {
-    if (date.getTime() > today) {
-      add(file, 'future-date', `${what} is dated ${isoDay(date)}, after today (${limit})`)
+    if (date.getTime() > latest) {
+      add(
+        file,
+        'future-date',
+        `${what} is dated ${isoDay(date)}, more than a day after today (${isoDay(new Date(today))})`,
+      )
     }
   }
-  const sources = (file: string, owner: string, list: readonly Source[]) => {
-    for (const source of list) {
+  const sources = (file: string, owner: string, entries: readonly Source[]) => {
+    for (const source of entries) {
       flag(file, `source "${source.title}" of ${owner} (accessed)`, source.accessed)
     }
   }
-  const prices = (file: string, owner: string, list: readonly PriceObservation[] = []) => {
-    for (const price of list)
+  const prices = (file: string, owner: string, entries: readonly PriceObservation[] = []) => {
+    for (const price of entries) {
       flag(file, `price from ${price.seller} on ${owner} (checked)`, price.checked)
+    }
   }
 
   for (const { file, data } of set.generations) {
