@@ -24,8 +24,8 @@ from typing import Literal, cast
 
 from m3_pipeline.config import Settings, load_settings
 from m3_pipeline.stages.lib.paths import (
-    require_outside_repo,
     require_work_dir_outside_repo,
+    require_write_target_outside_repo,
     subject_body,
 )
 from m3_pipeline.stages.lib.viewset_io import viewset_path
@@ -148,7 +148,7 @@ def build_handmade_viewset(work_dir: Path, subject: str, kind: Kind, picks: Sequ
     repo_root = load_settings().repo_root
     try:
         for path in writes:
-            require_outside_repo(repo_root, path)
+            require_write_target_outside_repo(path, repo_root)
     except ValueError as error:
         raise HandmadeError(str(error)) from error
     for path, data in writes.items():

@@ -3,7 +3,12 @@ from pathlib import Path
 import pytest
 
 from m3_pipeline.config import Settings
-from m3_pipeline.stages.lib.paths import require_outside_repo, stage_dir, subject_body
+from m3_pipeline.stages.lib.paths import (
+    require_outside_repo,
+    require_write_target_outside_repo,
+    stage_dir,
+    subject_body,
+)
 
 
 def _settings(tmp_path: Path) -> Settings:
@@ -126,6 +131,70 @@ def test_require_outside_repo_names_where_the_path_really_points(tmp_path: Path)
         require_outside_repo(repo, tmp_path / "out" / "refs" / "images")
     assert str(repo.resolve() / "refs" / "images") in str(info.value)
     require_outside_repo(repo, tmp_path / "elsewhere" / "refs")
+
+
+def _folder_in_repo_with_link_out(tmp_path: Path) -> tuple[Path, Path, Path]:
+    """`repo/inside/name` is a link to `outside/target`, and `repo/inside` is a real repo folder."""
+    repo = tmp_path / "repo"
+    (repo / "inside").mkdir(parents=True)
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    (repo / "inside" / "name").symlink_to(outside / "target")
+    return repo, repo / "inside" / "name", outside / "target"
+
+
+def test_write_target_check_refuses_a_file_name_that_is_a_link_out_of_a_repo_folder(
+    tmp_path: Path,
+) -> None:
+    # Following the link ends outside the repo, but a temp file created next to it, and the rename
+    # over it, happen in the repo folder: the place the write really lands is checked too.
+    repo, dest, target = _folder_in_repo_with_link_out(tmp_path)
+    require_outside_repo(repo, dest)  # the followed-target check alone is fooled
+    with pytest.raises(ValueError, match="inside the repo") as info:
+        require_write_target_outside_repo(dest, repo)
+    assert str(repo.resolve() / "inside" / "name") in str(info.value)
+    assert not target.exists()
+
+
+def test_write_target_check_refuses_a_destination_whose_link_leads_into_the_repo(
+    tmp_path: Path,
+) -> None:
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    folder = tmp_path / "folder"
+    folder.mkdir()
+    dest = folder / "name"
+    dest.symlink_to(repo / "stolen")
+    with pytest.raises(ValueError, match="inside the repo"):
+        require_write_target_outside_repo(dest, repo)
+
+
+def test_write_target_check_accepts_a_destination_outside_the_repo(tmp_path: Path) -> None:
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    folder = tmp_path / "folder"
+    folder.mkdir()
+    require_write_target_outside_repo(folder / "new.jpg", repo)  # absent file, absent folder below
+    require_write_target_outside_repo(folder / "later" / "deeper" / "new.jpg", repo)
+    existing = folder / "old.jpg"
+    existing.write_bytes(b"x")
+    require_write_target_outside_repo(existing, repo)
+
+
+def test_stage_dir_refuses_a_stage_folder_that_is_a_link_out_of_a_repo_folder(
+    tmp_path: Path,
+) -> None:
+    repo = tmp_path / "repo"
+    (repo / "inside" / "e46-coupe-body").mkdir(parents=True)
+    outside = tmp_path / "outside"
+    (outside / "export-dir").mkdir(parents=True)
+    (repo / "inside" / "e46-coupe-body" / "export").symlink_to(outside / "export-dir")
+    work = tmp_path / "work"
+    work.mkdir()
+    (work / "assets").symlink_to(repo / "inside", target_is_directory=True)
+    with pytest.raises(ValueError, match="inside the repo"):
+        stage_dir(Settings(repo_root=repo, work_dir=work), "e46-coupe-body", "export")
+    assert list((outside / "export-dir").iterdir()) == []
 
 
 @pytest.mark.parametrize(

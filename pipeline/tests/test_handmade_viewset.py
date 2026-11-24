@@ -560,3 +560,69 @@ def test_a_failed_write_leaves_no_temp_file_and_no_half_written_destination(
         build_handmade_viewset(work, "e46-coupe", "base-car", [pick])
     assert _written_files(work) == []
     assert not (work / "refs/viewsets/e46-coupe.json").exists()
+
+
+def _snapshot(directory: Path) -> dict[str, str]:
+    """What is in a folder tree, links not followed: path -> link target or file content."""
+    out: dict[str, str] = {}
+    for p in sorted(directory.rglob("*")):
+        rel = str(p.relative_to(directory))
+        if p.is_symlink():
+            out[rel] = f"-> {os.readlink(p)}"
+        elif p.is_file():
+            out[rel] = p.read_bytes().decode("latin-1")
+        else:
+            out[rel] = "<dir>"
+    return out
+
+
+def test_build_refuses_a_destination_that_is_a_link_back_out_of_a_repo_folder(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # The arrangement Codex reproduced: `work/refs/images` is a link into the repo, and the image's
+    # own file name inside it is a link back outside. Following that last link lands outside the
+    # repo, but mkstemp and os.replace act in the folder that is inside it.
+    repo = tmp_path / "repo"
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    src = tmp_path / "src"
+    photo = _photo(src, "a.jpg")
+    sha = _sha(photo)
+    folder = repo / "imgs" / sha[:2]
+    folder.mkdir(parents=True)
+    (folder / f"{sha}.jpg").symlink_to(outside / "target.jpg")
+    work = tmp_path / "work"
+    (work / "refs").mkdir(parents=True)
+    (work / "refs" / "images").symlink_to(repo / "imgs", target_is_directory=True)
+    _repo_env(monkeypatch, repo)
+    before = _snapshot(repo)
+
+    with pytest.raises(HandmadeError, match="inside the repo"):
+        build_handmade_viewset(work, "e46-coupe", "base-car", [_pick(photo, "front")])
+
+    assert _snapshot(repo) == before
+    assert list(outside.iterdir()) == []
+    assert _written_files(work) == []
+
+
+def test_build_refuses_a_view_set_file_that_is_a_link_back_out_of_a_repo_folder(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    repo = tmp_path / "repo"
+    (repo / "vs").mkdir(parents=True)
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    (repo / "vs" / "e46-coupe.json").symlink_to(outside / "e46-coupe.json")
+    work = tmp_path / "work"
+    (work / "refs").mkdir(parents=True)
+    (work / "refs" / "viewsets").symlink_to(repo / "vs", target_is_directory=True)
+    _repo_env(monkeypatch, repo)
+    before = _snapshot(repo)
+    pick = _pick(_photo(tmp_path / "src", "a.jpg"), "front")
+
+    with pytest.raises(HandmadeError, match="inside the repo"):
+        build_handmade_viewset(work, "e46-coupe", "base-car", [pick])
+
+    assert _snapshot(repo) == before
+    assert list(outside.iterdir()) == []
+    assert _written_files(work) == []  # the photo was not copied either: all checks come first

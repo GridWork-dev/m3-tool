@@ -48,6 +48,25 @@ def require_outside_repo(repo_root: Path, path: Path) -> None:
         )
 
 
+def require_write_target_outside_repo(dest: Path, repo_root: Path) -> None:
+    """Raise ValueError unless a file written at `dest` stays out of the repo, both ways.
+
+    Two places matter. Following every link in `dest` shows where the bytes would end up, and
+    that must be outside the repo. But a safe write creates a temp file in the folder of `dest`
+    and renames it over `dest`, which replaces a final link instead of following it, so the
+    place it really lands is the resolved folder plus the file name, and that folder must be
+    outside the repo too. A name that links out of a repo folder passes the first check and
+    fails the second. Call it for every file write, before any of them happens.
+    """
+    require_outside_repo(repo_root, dest)
+    landing = dest.parent.resolve() / dest.name
+    if is_inside_repo(repo_root, dest.parent):
+        raise ValueError(
+            f"{dest} would be written at {landing}, inside the repo {repo_root}; photos, "
+            "generator output and renders never enter the repo (remove the link into the repo)"
+        )
+
+
 def require_work_dir_outside_repo(settings: Settings) -> None:
     """Raise ValueError if `settings.work_dir` is the repo or inside it."""
     require_outside_repo(settings.repo_root, settings.work_dir)
@@ -65,7 +84,7 @@ def stage_dir(settings: Settings, asset_id: str, stage: str) -> Path:
         if not name or name in {".", ".."} or "/" in name or "\\" in name:
             raise ValueError(f"{label} {name!r} is not a single path segment")
     path = settings.work_dir / "assets" / asset_id / stage
-    require_outside_repo(settings.repo_root, path)
+    require_write_target_outside_repo(path, settings.repo_root)
     path.mkdir(parents=True, exist_ok=True)
     return path
 
