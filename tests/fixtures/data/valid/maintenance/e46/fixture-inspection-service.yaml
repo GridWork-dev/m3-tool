@@ -1,13 +1,14 @@
 # FIXTURE DATA. Invented values for tests; not a real service interval.
-# A service the source ties to Inspection II without giving a mileage, from a document for one
-# market. There is no cost because no source gives one, so the site shows "no sourced cost".
+# A service the source ties to two services (the break-in service and Inspection II) without giving
+# a mileage, from a document for one market. There is no cost because no source gives one, so the
+# site shows "no sourced cost".
 id: fixture-inspection-service
 generation: e46
 engine: FIXTURE-ENGINE
 markets: [us]
 title: Fixture inspection service
 interval:
-  trigger: inspection-ii
+  triggers: [break-in, inspection-ii]
 parts: [fixture filter]
 fluids: [fixture gear oil]
 inspectWhenBuying: false

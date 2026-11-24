@@ -527,9 +527,10 @@ const requireHowToCheck = (
 }
 
 // What a service is tied to when BMW gives no mileage or time for it. On the E46 the Service
-// Interval Indicator works out when each service is due, so most items have a trigger and no
+// Interval Indicator works out when each service is due, so most items have triggers and no
 // number. `data.md`, "Maintenance intervals", says what each value means.
 export const MAINTENANCE_TRIGGERS = [
+  'break-in',
   'oil-service',
   'inspection-i',
   'inspection-ii',
@@ -537,34 +538,67 @@ export const MAINTENANCE_TRIGGERS = [
   'condition-based',
 ] as const
 
+// These two say there is no scheduled service, so each stands alone in the list.
+const NO_SCHEDULE_TRIGGERS: readonly string[] = ['lifetime-fill', 'condition-based']
+
+// `markets` on a maintenance item or a known issue: absent means every market, and a repeated
+// market is an error. A document for one market supports that market only (data.md).
+const Markets = z.array(Market).min(1).optional()
+const requireDistinctMarkets = (
+  item: { markets?: readonly string[] | undefined },
+  ctx: z.RefinementCtx,
+) => {
+  if (item.markets !== undefined && new Set(item.markets).size !== item.markets.length) {
+    ctx.addIssue({
+      code: 'custom',
+      path: ['markets'],
+      message: 'markets names a market more than once',
+    })
+  }
+}
+
 export const MaintenanceItem = z
   .strictObject({
     id: Id,
     generation: Id,
     engine: Text.optional(),
-    // Absent means every market. A document for one market supports that market only (data.md).
-    markets: z.array(Market).min(1).optional(),
+    markets: Markets,
     title: Text,
-    // `miles` and `months` may sit beside a `trigger` only when the source gives both, and never
-    // beside `lifetime-fill`.
+    // One service can be due at more than one trigger, so `triggers` is a list (ruling R79): the
+    // microfilter is due at the Oil Service and Inspection I, and the gearbox oil at the
+    // 1200 Mile Service and Inspection II. `miles` and `months` may sit beside `triggers` only
+    // when the source gives both, and never beside `lifetime-fill`.
     interval: z
       .strictObject({
         miles: z.int().positive().optional(),
         months: z.int().positive().optional(),
-        trigger: z.enum(MAINTENANCE_TRIGGERS).optional(),
+        triggers: z.array(z.enum(MAINTENANCE_TRIGGERS)).min(1).optional(),
       })
       .refine(
         (interval) =>
           interval.miles !== undefined ||
           interval.months !== undefined ||
-          interval.trigger !== undefined,
-        'an interval needs at least one of miles, months or trigger',
+          interval.triggers !== undefined,
+        'an interval needs at least one of miles, months or triggers',
+      )
+      .refine((interval) => new Set(interval.triggers).size === (interval.triggers ?? []).length, {
+        message: 'triggers names a trigger more than once',
+        path: ['triggers'],
+      })
+      .refine(
+        (interval) =>
+          (interval.triggers ?? []).length < 2 ||
+          !(interval.triggers ?? []).some((trigger) => NO_SCHEDULE_TRIGGERS.includes(trigger)),
+        {
+          message: "'lifetime-fill' and 'condition-based' must be the only trigger",
+          path: ['triggers'],
+        },
       )
       // A lifetime fill has no scheduled change, so a number beside it would contradict it. A
       // shorter interval that specialists recommend goes in `notes`, not here.
       .refine(
         (interval) =>
-          interval.trigger !== 'lifetime-fill' ||
+          !(interval.triggers ?? []).includes('lifetime-fill') ||
           (interval.miles === undefined && interval.months === undefined),
         'a lifetime-fill interval has no miles or months',
       ),
@@ -581,13 +615,7 @@ export const MaintenanceItem = z
   })
   .superRefine((item, ctx) => {
     requireHowToCheck(item, ctx)
-    if (item.markets !== undefined && new Set(item.markets).size !== item.markets.length) {
-      ctx.addIssue({
-        code: 'custom',
-        path: ['markets'],
-        message: 'markets names a market more than once',
-      })
-    }
+    requireDistinctMarkets(item, ctx)
   })
 export type MaintenanceItem = z.infer<typeof MaintenanceItem>
 
@@ -596,6 +624,9 @@ export const KnownIssue = z
     id: Id,
     generation: Id,
     engine: Text.optional(),
+    // Absent means every market, as on a maintenance item. A fix that rests on a document for one
+    // market is a claim about that market only (data.md).
+    markets: Markets,
     title: Text,
     symptoms: z.array(Text).min(1),
     cause: Text,
@@ -615,5 +646,8 @@ export const KnownIssue = z
     sources: z.array(Source).min(1),
     verified: z.boolean(),
   })
-  .superRefine(requireHowToCheck)
+  .superRefine((issue, ctx) => {
+    requireHowToCheck(issue, ctx)
+    requireDistinctMarkets(issue, ctx)
+  })
 export type KnownIssue = z.infer<typeof KnownIssue>

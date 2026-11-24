@@ -20,9 +20,9 @@ const wheel = () => readFixture('parts/e46/fixture-wheel.yaml')
 const generic = () => readFixture('parts/e46/fixture-generic-wheels.yaml')
 const coilovers = () => readFixture('parts/e46/fixture-coilovers.yaml')
 const trunkLid = () => readFixture('parts/e46/fixture-trunk-lid.yaml')
-// Miles, months, a cost and no trigger or markets.
+// Miles, months, a cost and no triggers or markets.
 const maintenance = () => readFixture('maintenance/e46/fixture-oil-service.yaml')
-// A trigger and no miles, months or cost, for one market.
+// Two triggers (break-in and inspection-ii) and no miles, months or cost, for one market.
 const inspectionService = () => readFixture('maintenance/e46/fixture-inspection-service.yaml')
 // A lifetime-fill trigger alone, with no markets (every market).
 const lifetimeFluid = () => readFixture('maintenance/e46/fixture-lifetime-fluid.yaml')
@@ -48,7 +48,11 @@ describe('valid fixtures', () => {
     ['branded part with attributes', Part, coilovers],
     ['part that replaces a body module', Part, trunkLid],
     ['maintenance item', MaintenanceItem, maintenance],
-    ['maintenance item with a trigger, one market and no cost', MaintenanceItem, inspectionService],
+    [
+      'maintenance item with two triggers, one market and no cost',
+      MaintenanceItem,
+      inspectionService,
+    ],
     ['maintenance item with a lifetime-fill trigger alone', MaintenanceItem, lifetimeFluid],
     ['known issue without a fix', KnownIssue, issue],
     ['known issue with a fix and a cost', KnownIssue, issueWithFix],
@@ -584,14 +588,14 @@ describe('maintenance item and known issue', () => {
     ).toBe(true)
   })
 
-  test('rejects a maintenance interval with none of miles, months or trigger', () => {
+  test('rejects a maintenance interval with none of miles, months or triggers', () => {
     const none = MaintenanceItem.safeParse(edit(maintenance(), 'interval', {}))
     expect(none.success).toBe(false)
     expect(issuePaths(none)).toContain('interval')
-    expect(issueMessages(none).join(' ')).toMatch(/miles, months or trigger/)
+    expect(issueMessages(none).join(' ')).toMatch(/miles, months or triggers/)
     // A key that is present but undefined is as empty as no key.
     const undef = MaintenanceItem.safeParse(
-      edit(maintenance(), 'interval', { miles: undefined, months: undefined, trigger: undefined }),
+      edit(maintenance(), 'interval', { miles: undefined, months: undefined, triggers: undefined }),
     )
     expect(undef.success).toBe(false)
     expect(issuePaths(undef)).toContain('interval')
@@ -609,8 +613,26 @@ describe('maintenance item and known issue', () => {
     ).toBe(false)
   })
 
-  test('accepts each trigger on its own, and rejects a value outside the list', () => {
+  test('triggers is a non-empty list: an empty list or a bare string is rejected', () => {
+    const empty = MaintenanceItem.safeParse(edit(maintenance(), 'interval', { triggers: [] }))
+    expect(empty.success).toBe(false)
+    expect(issuePaths(empty)).toContain('interval.triggers')
+    // An empty list is not "a trigger" either, so it does not rescue an interval with a number.
+    const emptyBesideMiles = MaintenanceItem.safeParse(
+      edit(maintenance(), 'interval', { miles: 7500, triggers: [] }),
+    )
+    expect(emptyBesideMiles.success).toBe(false)
+    expect(issuePaths(emptyBesideMiles)).toContain('interval.triggers')
+    const bare = MaintenanceItem.safeParse(
+      edit(maintenance(), 'interval', { triggers: 'oil-service' }),
+    )
+    expect(bare.success).toBe(false)
+    expect(issuePaths(bare)).toContain('interval.triggers')
+  })
+
+  test('accepts each trigger alone in a one-item list, and rejects a value outside the list', () => {
     expect([...MAINTENANCE_TRIGGERS]).toEqual([
+      'break-in',
       'oil-service',
       'inspection-i',
       'inspection-ii',
@@ -619,25 +641,81 @@ describe('maintenance item and known issue', () => {
     ])
     for (const trigger of MAINTENANCE_TRIGGERS) {
       expect(
-        MaintenanceItem.safeParse(edit(maintenance(), 'interval', { trigger })).success,
+        MaintenanceItem.safeParse(edit(maintenance(), 'interval', { triggers: [trigger] })).success,
         trigger,
       ).toBe(true)
     }
-    for (const bad of ['Oil Service', 'oil_service', 'inspection-iii', 'annual', '']) {
-      const r = MaintenanceItem.safeParse(edit(maintenance(), 'interval', { trigger: bad }))
+    for (const bad of ['Oil Service', 'oil_service', 'inspection-iii', '1200-mile-service', '']) {
+      const r = MaintenanceItem.safeParse(edit(maintenance(), 'interval', { triggers: [bad] }))
       expect(r.success, bad).toBe(false)
-      expect(issuePaths(r), bad).toContain('interval.trigger')
+      expect(issuePaths(r), bad).toContain('interval.triggers.0')
     }
   })
 
-  test('miles and months may sit beside a trigger', () => {
-    const both = { miles: 60000, months: 48, trigger: 'inspection-ii' }
+  test('one item may have several triggers: the booklet ties items to two services', () => {
+    const lists = [
+      ['oil-service', 'inspection-i'],
+      ['break-in', 'inspection-ii'],
+      ['break-in', 'oil-service', 'inspection-i', 'inspection-ii'],
+      ['inspection-ii', 'break-in'],
+    ]
+    for (const triggers of lists) {
+      expect(
+        MaintenanceItem.safeParse(edit(maintenance(), 'interval', { triggers })).success,
+        triggers.join(),
+      ).toBe(true)
+    }
+    expect(inspectionService().interval).toEqual({ triggers: ['break-in', 'inspection-ii'] })
+  })
+
+  test('rejects a trigger named twice', () => {
+    const twice = MaintenanceItem.safeParse(
+      edit(maintenance(), 'interval', { triggers: ['oil-service', 'oil-service'] }),
+    )
+    expect(twice.success).toBe(false)
+    expect(issuePaths(twice)).toContain('interval.triggers')
+    expect(issueMessages(twice).join(' ')).toMatch(/more than once/)
+    const apart = MaintenanceItem.safeParse(
+      edit(maintenance(), 'interval', {
+        triggers: ['inspection-i', 'oil-service', 'inspection-i'],
+      }),
+    )
+    expect(apart.success).toBe(false)
+    expect(issuePaths(apart)).toContain('interval.triggers')
+  })
+
+  test('lifetime-fill and condition-based must be the only trigger', () => {
+    for (const alone of ['lifetime-fill', 'condition-based']) {
+      expect(
+        MaintenanceItem.safeParse(edit(maintenance(), 'interval', { triggers: [alone] })).success,
+        alone,
+      ).toBe(true)
+    }
+    const mixes = [
+      ['lifetime-fill', 'oil-service'],
+      ['oil-service', 'lifetime-fill'],
+      ['condition-based', 'inspection-i'],
+      ['inspection-ii', 'condition-based'],
+      ['lifetime-fill', 'condition-based'],
+      ['condition-based', 'lifetime-fill'],
+      ['break-in', 'inspection-i', 'lifetime-fill'],
+    ]
+    for (const triggers of mixes) {
+      const r = MaintenanceItem.safeParse(edit(maintenance(), 'interval', { triggers }))
+      expect(r.success, triggers.join()).toBe(false)
+      expect(issuePaths(r), triggers.join()).toContain('interval.triggers')
+      expect(issueMessages(r).join(' '), triggers.join()).toMatch(/only trigger/)
+    }
+  })
+
+  test('miles and months may sit beside triggers', () => {
+    const both = { miles: 60000, months: 48, triggers: ['inspection-ii'] }
     expect(MaintenanceItem.safeParse(edit(maintenance(), 'interval', both)).success).toBe(true)
-    const one = { miles: 60000, trigger: 'inspection-ii' }
+    const one = { miles: 60000, triggers: ['break-in', 'inspection-ii'] }
     expect(MaintenanceItem.safeParse(edit(maintenance(), 'interval', one)).success).toBe(true)
-    // The other interval rules still apply beside a trigger.
+    // The other interval rules still apply beside triggers.
     const zero = MaintenanceItem.safeParse(
-      edit(maintenance(), 'interval', { miles: 0, trigger: 'inspection-ii' }),
+      edit(maintenance(), 'interval', { miles: 0, triggers: ['inspection-ii'] }),
     )
     expect(zero.success).toBe(false)
     expect(issuePaths(zero)).toContain('interval.miles')
@@ -645,12 +723,12 @@ describe('maintenance item and known issue', () => {
 
   test('a lifetime-fill interval may not also carry miles or months', () => {
     expect(
-      MaintenanceItem.safeParse(edit(maintenance(), 'interval', { trigger: 'lifetime-fill' }))
+      MaintenanceItem.safeParse(edit(maintenance(), 'interval', { triggers: ['lifetime-fill'] }))
         .success,
     ).toBe(true)
     for (const extra of [{ miles: 100000 }, { months: 48 }, { miles: 100000, months: 48 }]) {
       const r = MaintenanceItem.safeParse(
-        edit(maintenance(), 'interval', { trigger: 'lifetime-fill', ...extra }),
+        edit(maintenance(), 'interval', { triggers: ['lifetime-fill'], ...extra }),
       )
       expect(r.success, JSON.stringify(extra)).toBe(false)
       expect(issuePaths(r), JSON.stringify(extra)).toContain('interval')
@@ -658,7 +736,7 @@ describe('maintenance item and known issue', () => {
     }
     // Every other trigger may still carry a number the source gives.
     for (const trigger of MAINTENANCE_TRIGGERS.filter((t) => t !== 'lifetime-fill')) {
-      const withNumbers = { trigger, miles: 60000, months: 48 }
+      const withNumbers = { triggers: [trigger], miles: 60000, months: 48 }
       expect(
         MaintenanceItem.safeParse(edit(maintenance(), 'interval', withNumbers)).success,
         trigger,
@@ -671,11 +749,16 @@ describe('maintenance item and known issue', () => {
     ).toBe(true)
   })
 
-  test('the interval takes no keys beyond miles, months and trigger', () => {
-    const r = MaintenanceItem.safeParse(
-      edit(maintenance(), 'interval', { trigger: 'oil-service', hours: 100 }),
+  test('the interval takes no keys beyond miles, months and triggers', () => {
+    const extra = MaintenanceItem.safeParse(
+      edit(maintenance(), 'interval', { triggers: ['oil-service'], hours: 100 }),
     )
-    expect(r.success).toBe(false)
+    expect(extra.success).toBe(false)
+    // The old single-valued key is gone: a lone `trigger` is an unknown key now.
+    const old = MaintenanceItem.safeParse(
+      edit(maintenance(), 'interval', { trigger: 'oil-service' }),
+    )
+    expect(old.success).toBe(false)
   })
 
   test('a maintenance cost is optional, and never defaults to zero', () => {
@@ -698,34 +781,16 @@ describe('maintenance item and known issue', () => {
     ).toBe(false)
   })
 
-  test('markets is optional, and absent means every market', () => {
-    expect('markets' in maintenance()).toBe(false)
-    expect('markets' in lifetimeFluid()).toBe(false)
-    expect(MaintenanceItem.safeParse(lifetimeFluid()).success).toBe(true)
-    expect(inspectionService().markets).toEqual(['us'])
-    for (const markets of [['us'], ['euro'], ['us', 'euro'], ['euro', 'us']]) {
-      expect(MaintenanceItem.safeParse(edit(maintenance(), 'markets', markets)).success).toBe(true)
-    }
-  })
-
-  test('rejects an empty markets list, an unknown market and a repeated market', () => {
-    const empty = MaintenanceItem.safeParse(edit(maintenance(), 'markets', []))
-    expect(empty.success).toBe(false)
-    expect(issuePaths(empty)).toContain('markets')
-    const unknown = MaintenanceItem.safeParse(edit(maintenance(), 'markets', ['uk']))
-    expect(unknown.success).toBe(false)
-    expect(issuePaths(unknown).join(' ')).toMatch(/markets/)
-    const twice = MaintenanceItem.safeParse(edit(maintenance(), 'markets', ['us', 'us']))
-    expect(twice.success).toBe(false)
-    expect(issuePaths(twice)).toContain('markets')
-    expect(issueMessages(twice).join(' ')).toMatch(/more than once/)
-    expect(MaintenanceItem.safeParse(edit(maintenance(), 'markets', 'us')).success).toBe(false)
-  })
-
   test('markets uses the same two values as a variant', () => {
     const variantMarket = Variant.safeParse(edit(variant(), 'market', 'uk'))
     expect(variantMarket.success).toBe(false)
     expect(Variant.safeParse(edit(variant(), 'market', 'euro')).success).toBe(true)
+  })
+
+  test('a maintenance item that names its markets keeps them', () => {
+    expect(inspectionService().markets).toEqual(['us'])
+    const parsed = MaintenanceItem.safeParse(inspectionService())
+    expect(parsed.success && parsed.data.markets).toEqual(['us'])
   })
 
   test('require sources, a sorted cost range and a known frequency', () => {
@@ -745,6 +810,45 @@ describe('maintenance item and known issue', () => {
     expect(KnownIssue.safeParse(edit(issueWithFix(), 'cost.diy', undefined)).success).toBe(true)
     expect(KnownIssue.safeParse(edit(issueWithFix(), 'cost.shop', [900, 500])).success).toBe(false)
     expect(KnownIssue.safeParse(edit(issueWithFix(), 'cost.currency', 'EUR')).success).toBe(false)
+  })
+})
+
+// `markets` is the same optional field, with the same rule, on both safety collections (R61): a
+// document for one market supports that market only, and absent means every market.
+describe.each([
+  ['maintenance item', MaintenanceItem, maintenance],
+  ['known issue', KnownIssue, issue],
+] as const)('markets on a %s', (_name, schema, read) => {
+  test('is optional, and absent stays absent: no market is filled in', () => {
+    expect('markets' in read()).toBe(false)
+    const parsed = schema.safeParse(read())
+    expect(parsed.success).toBe(true)
+    // Absent means every market. A default (such as ['us']) would turn it into a one-market claim.
+    expect(parsed.success && parsed.data.markets).toBeUndefined()
+    expect(parsed.success && 'markets' in parsed.data).toBe(false)
+  })
+
+  test('accepts one market or both, in either order', () => {
+    for (const markets of [['us'], ['euro'], ['us', 'euro'], ['euro', 'us']]) {
+      const parsed = schema.safeParse(edit(read(), 'markets', markets))
+      expect(parsed.success, markets.join()).toBe(true)
+      expect(parsed.success && parsed.data.markets, markets.join()).toEqual(markets)
+    }
+  })
+
+  test('rejects an empty list, an unknown market, a repeated market and a bare string', () => {
+    const empty = schema.safeParse(edit(read(), 'markets', []))
+    expect(empty.success).toBe(false)
+    expect(issuePaths(empty)).toContain('markets')
+    const unknown = schema.safeParse(edit(read(), 'markets', ['uk']))
+    expect(unknown.success).toBe(false)
+    expect(issuePaths(unknown).join(' ')).toMatch(/markets/)
+    const twice = schema.safeParse(edit(read(), 'markets', ['us', 'us']))
+    expect(twice.success).toBe(false)
+    expect(issuePaths(twice)).toContain('markets')
+    expect(issueMessages(twice).join(' ')).toMatch(/more than once/)
+    expect(schema.safeParse(edit(read(), 'markets', 'us')).success).toBe(false)
+    expect(schema.safeParse(edit(read(), 'markets', ['us', 'euro', 'us'])).success).toBe(false)
   })
 })
 

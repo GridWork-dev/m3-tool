@@ -17,7 +17,7 @@ Architecture decision records (ADRs): one short page for each choice that a late
 | [0011](0011-deploy-pipeline-hardening.md) | A secret-free build job and a deploy job that takes only static files from it, with its config from git and wrangler from a lockfile, no deploy for forks or bots, a smoke test that checks the deployed commit, SHA-pinned actions, and Renovate gates |
 | [0012](0012-asset-frames-structure-and-lods.md) | The ground check through the wheel anchors, frames per kind, unique names, empty-leaf anchors, validation stats and LOD files |
 | [0013](0013-model-choice-without-bake-off.md) | No model bake-off: research chooses the models, and OpenAI image generation runs on the subscription first |
-| [0016](0016-optional-costs-interval-triggers-and-markets.md) | Maintenance cost and a fix's cost are optional, an interval may be a trigger such as Inspection II instead of a number, and a maintenance item names the markets its sources cover |
+| [0016](0016-optional-costs-interval-triggers-and-markets.md) | Maintenance cost and a fix's cost are optional, an interval may be a list of triggers such as Inspection II instead of a number (a lifetime-fill claim needs a Tier 1 source), and maintenance items and known issues name the markets their sources cover |
 
 ## Format
 
