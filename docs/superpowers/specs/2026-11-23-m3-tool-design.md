@@ -198,7 +198,7 @@ YAML under `data/`, one entry per file, validated by the Zod schemas in `src/dat
 - `id`, `name`, `brand` (none for the generic tier), `category`, `visible` (whether it shows in 3D).
 - `fits { generation, years, body, transmission }` and `attributes`, used by the fitment rules (section 7.4).
 - `requires[]` and `conflicts[]`, for anything the attribute rules don't cover.
-- `labor { hours: [min, max], diy: easy | intermediate | pro }`.
+- `labor { hours: [min, max], diy: easy | intermediate | pro, estimated: boolean }`. `estimated` is required. `estimated: true` is an explicit estimate: it needs no source, and the UI labels the hours "estimated". `estimated: false` means the hours trace to the part's sources, so the part needs at least one. (amended 2026-11-23)
 - `prices[]`: real products only (see "price observation" below).
 - `model`:
   - `{ asset: <asset id>, params }` once the product's own model exists.
@@ -285,6 +285,7 @@ YAML under `data/`, one entry per file, validated by the Zod schemas in `src/dat
 - Maintenance intervals, and fixes for known issues, need one Tier 1 source or two independent Tier 2 sources to be marked `verified: true`.
 - Tier 3 alone is enough for symptoms and "how common". The entry stays `verified: false`, and the UI shows an "unverified" badge.
 - `verified` applies to parts too, under the same tier rule: one Tier 1 source, or two Tier 2 sources from distinct publishers. Manufacturer product pages are Tier 1. (amended 2026-11-23)
+- Labor marked `estimated: true` never counts toward `verified`: a part whose sizes and fitment rest on a Tier 1 product page can be verified with estimated labor. Labor marked `estimated: false` needs at least one source on the part. (amended 2026-11-23)
 
 **Safety advice needs evidence** (amended 2026-11-23)
 - Safety advice never rests on a forum post alone, whether or not the entry is marked `verified`.
@@ -301,7 +302,7 @@ YAML under `data/`, one entry per file, validated by the Zod schemas in `src/dat
 - A variant's body and years fit its generation's bodies and years. A part's `fits.years` and `fits.bodies` fit them too, and an empty `fits.bodies` or `fits.transmissions` is an error.
 - A maintenance item's or issue's `engine` is one of the generation's engine codes.
 - A source's `accessed` date and a price's `checked` date are not after today, with a day of slack for time zones east of UTC. Data years are 1900 to 2100.
-- The estimated driver eye point is the one sourceless exception the schema names. (amended 2026-11-23)
+- The estimated driver eye point and labor marked `estimated: true` are the sourceless exceptions the schema names. (amended 2026-11-23)
 
 **Dates**
 - All data dates are calendar dates (`YYYY-MM-DD`, no time of day). (amended 2026-11-23)

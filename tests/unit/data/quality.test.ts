@@ -211,6 +211,26 @@ describe('verification', () => {
     expect(codes(set)).toEqual([])
   })
 
+  test('estimated labor does not count against a verified part', () => {
+    // Tier 1 sizes plus estimated labor: verified follows the part's sources only.
+    const set = fresh()
+    const wheel = find(set.parts, 'fixture-wheel').data
+    expect(wheel.labor.estimated).toBe(true)
+    wheel.verified = true
+    expect(codes(set)).toEqual([])
+
+    // Estimated labor does not rescue a part whose sources fall short of the rule.
+    wheel.sources = [source(3, 'Forum')]
+    expect(codes(set)).toEqual(['verified-without-tier'])
+
+    // And labor that is not an estimate does not change the rule either.
+    const sourced = fresh()
+    const coilovers = find(sourced.parts, 'fixture-coilovers').data
+    expect(coilovers.labor.estimated).toBe(false)
+    coilovers.verified = true // the fixture's own source is a Tier 1 install guide
+    expect(codes(sourced)).toEqual([])
+  })
+
   test('an unverified part is not held to the rule', () => {
     const set = fresh()
     find(set.parts, 'fixture-wheel').data.sources = [source(3, 'Forum')]

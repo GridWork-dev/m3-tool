@@ -374,7 +374,15 @@ export const Part = z
       .optional(),
     requires: z.array(Id).optional(),
     conflicts: z.array(Id).optional(),
-    labor: z.strictObject({ hours: Range, diy: z.enum(['easy', 'intermediate', 'pro']) }),
+    // Install labor. `estimated: true` is an explicit estimate: it needs no source, it never counts
+    // toward `verified`, and the site labels the hours "estimated". `estimated: false` says the
+    // hours come from the part's own sources (an install guide, a published labor time), so the part
+    // needs at least one. Required, with no default, so every part says which one it is.
+    labor: z.strictObject({
+      hours: Range,
+      diy: z.enum(['easy', 'intermediate', 'pro']),
+      estimated: z.boolean(),
+    }),
     prices: z.array(PriceObservation).optional(),
     // `asset` once the product's own model exists; `standIn` (a style id) until then.
     model: z
@@ -419,6 +427,15 @@ export const Part = z
       part.options?.forEach((option, index) => {
         if (option.prices?.length) fail(['options', index, 'prices'], why)
       })
+    }
+
+    // Labor that is not an estimate traces to the part's sources, so it needs one. A generic part
+    // has none of its own, which makes its labor an estimate.
+    if (!part.labor.estimated && part.sources.length === 0) {
+      fail(
+        ['labor', 'estimated'],
+        'labor that is not an estimate needs at least one source on the part (a part with no sources, such as a generic one, has estimated labor); set estimated: true, or add a source',
+      )
     }
 
     if (part.visible && part.model === undefined) {

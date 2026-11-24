@@ -429,6 +429,42 @@ describe('part', () => {
   })
 })
 
+describe('part labor estimates (spec 7.3 and 7.6)', () => {
+  test('estimated labor needs no source', () => {
+    const noSources = edit(edit(wheel(), 'sources', []), 'labor.estimated', true)
+    expect(Part.safeParse(noSources).success).toBe(true)
+    expect(Part.safeParse(generic()).success).toBe(true) // no sources, estimated labor
+  })
+
+  test('labor that is not an estimate fails without a source on the part', () => {
+    const r = Part.safeParse(edit(edit(wheel(), 'sources', []), 'labor.estimated', false))
+    expect(r.success).toBe(false)
+    expect(issuePaths(r)).toEqual(['labor.estimated'])
+    expect(issueMessages(r).join(' ')).toMatch(/not an estimate needs at least one source/)
+  })
+
+  test('a generic part has no sources, so its labor has to be an estimate', () => {
+    const r = Part.safeParse(edit(generic(), 'labor.estimated', false))
+    expect(r.success).toBe(false)
+    expect(issuePaths(r)).toEqual(['labor.estimated'])
+  })
+
+  test('labor that is not an estimate passes with a source, whatever its tier', () => {
+    const sourced = edit(wheel(), 'labor.estimated', false)
+    expect(Part.safeParse(sourced).success).toBe(true)
+    const forum = edit(structuredClone(sourced), 'sources.0.tier', 3)
+    expect(Part.safeParse(forum).success).toBe(true)
+  })
+
+  test('estimated is required and has no default', () => {
+    const missing = Part.safeParse(edit(wheel(), 'labor.estimated', undefined))
+    expect(missing.success).toBe(false)
+    expect(issuePaths(missing)).toEqual(['labor.estimated'])
+    expect(Part.safeParse(edit(wheel(), 'labor.estimated', 'yes')).success).toBe(false)
+    expect(Part.safeParse(edit(wheel(), 'labor.estimated', null)).success).toBe(false)
+  })
+})
+
 describe('part body module swaps', () => {
   const model = (m: Record<string, unknown>) => edit(wheel(), 'model', m)
 

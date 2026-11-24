@@ -14,6 +14,7 @@ requires: [fixture-wheel]
 labor:
   hours: [4, 6]
   diy: pro
+  estimated: false
 prices:
   - amount: 900
     currency: USD

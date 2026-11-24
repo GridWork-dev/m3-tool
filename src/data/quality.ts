@@ -173,7 +173,9 @@ export function checkDataSet(set: DataSet, options: CheckOptions = {}): QualityI
 
   // Verified means one Tier 1 source or two independent Tier 2 sources (spec section 7.6), and it
   // means that on every collection that has a `verified` flag: parts as much as maintenance items
-  // and issues. A manufacturer product page is Tier 1.
+  // and issues. A manufacturer product page is Tier 1. Labor never counts toward it when it is
+  // marked `estimated: true`, so a part whose sizes rest on a Tier 1 page can be verified with
+  // estimated labor; the rule reads the part's sources only.
   const verifiable: [string, string, boolean, readonly Source[]][] = [
     ...set.parts.map(({ file, data }): [string, string, boolean, readonly Source[]] => [
       file,
