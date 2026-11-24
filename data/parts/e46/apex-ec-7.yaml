@@ -1,0 +1,344 @@
+# Apex EC-7 flow formed wheel (5x120 mm, 72.56 mm center bore) for the E46 M3. Sizes, offsets, bolt pattern, center
+# bore and weights come from archived copies of Apex's own pages (web.archive.org, Tier 1), opened on 2026-11-23.
+# Apex's own site sits behind a bot checkpoint, so the archived copies are the citation.
+# verified is false on purpose: labor is an estimate with no source (the schema requires a labor entry), and the
+# spoke count rests on one Tier 2 publisher. Everything else here is Tier 1. A source for labor flips the flag.
+# No prices are recorded: prices are optional on a part, and the scraping lane collects them.
+id: apex-ec-7
+name: EC-7
+brand: Apex Wheels
+category: wheels
+visible: true
+fits:
+  generation: e46
+  years: [2001, 2006]
+options:
+  - id: apex-ec-7-18x8-5-et35
+    label: "18x8.5 ET35"
+    attributes:
+      kind: wheel
+      diameterIn: 18
+      widthIn: 8.5
+      offsetMm: 35
+      boltPattern: 5x120
+      centerBoreMm: 72.56
+      axle: both
+  - id: apex-ec-7-18x9-et30
+    label: "18x9 ET30"
+    attributes:
+      kind: wheel
+      diameterIn: 18
+      widthIn: 9
+      offsetMm: 30
+      boltPattern: 5x120
+      centerBoreMm: 72.56
+      axle: both
+  - id: apex-ec-7-18x9-et31
+    label: "18x9 ET31"
+    attributes:
+      kind: wheel
+      diameterIn: 18
+      widthIn: 9
+      offsetMm: 31
+      boltPattern: 5x120
+      centerBoreMm: 72.56
+      axle: both
+  - id: apex-ec-7-18x9-5-et22
+    label: "18x9.5 ET22"
+    attributes:
+      kind: wheel
+      diameterIn: 18
+      widthIn: 9.5
+      offsetMm: 22
+      boltPattern: 5x120
+      centerBoreMm: 72.56
+      axle: both
+  - id: apex-ec-7-18x9-5-et28
+    label: "18x9.5 ET28"
+    attributes:
+      kind: wheel
+      diameterIn: 18
+      widthIn: 9.5
+      offsetMm: 28
+      boltPattern: 5x120
+      centerBoreMm: 72.56
+      axle: both
+  - id: apex-ec-7-18x9-5-et35
+    label: "18x9.5 ET35"
+    attributes:
+      kind: wheel
+      diameterIn: 18
+      widthIn: 9.5
+      offsetMm: 35
+      boltPattern: 5x120
+      centerBoreMm: 72.56
+      axle: both
+  - id: apex-ec-7-18x10-et25
+    label: "18x10 ET25"
+    attributes:
+      kind: wheel
+      diameterIn: 18
+      widthIn: 10
+      offsetMm: 25
+      boltPattern: 5x120
+      centerBoreMm: 72.56
+      axle: both
+  - id: apex-ec-7-18x10-5-et22
+    label: "18x10.5 ET22"
+    attributes:
+      kind: wheel
+      diameterIn: 18
+      widthIn: 10.5
+      offsetMm: 22
+      boltPattern: 5x120
+      centerBoreMm: 72.56
+      axle: rear
+  - id: apex-ec-7-18x11-et44
+    label: "18x11 ET44"
+    attributes:
+      kind: wheel
+      diameterIn: 18
+      widthIn: 11
+      offsetMm: 44
+      boltPattern: 5x120
+      centerBoreMm: 72.56
+      axle: both
+  - id: apex-ec-7-19x8-5-et35
+    label: "19x8.5 ET35"
+    attributes:
+      kind: wheel
+      diameterIn: 19
+      widthIn: 8.5
+      offsetMm: 35
+      boltPattern: 5x120
+      centerBoreMm: 72.56
+      axle: front
+  - id: apex-ec-7-19x9-et30
+    label: "19x9 ET30"
+    attributes:
+      kind: wheel
+      diameterIn: 19
+      widthIn: 9
+      offsetMm: 30
+      boltPattern: 5x120
+      centerBoreMm: 72.56
+      axle: front
+  - id: apex-ec-7-19x9-5-et22
+    label: "19x9.5 ET22"
+    attributes:
+      kind: wheel
+      diameterIn: 19
+      widthIn: 9.5
+      offsetMm: 22
+      boltPattern: 5x120
+      centerBoreMm: 72.56
+      axle: rear
+  - id: apex-ec-7-19x9-5-et33
+    label: "19x9.5 ET33"
+    attributes:
+      kind: wheel
+      diameterIn: 19
+      widthIn: 9.5
+      offsetMm: 33
+      boltPattern: 5x120
+      centerBoreMm: 72.56
+      axle: front
+  - id: apex-ec-7-19x9-5-et35
+    label: "19x9.5 ET35"
+    attributes:
+      kind: wheel
+      diameterIn: 19
+      widthIn: 9.5
+      offsetMm: 35
+      boltPattern: 5x120
+      centerBoreMm: 72.56
+      axle: front
+  - id: apex-ec-7-19x10-et25
+    label: "19x10 ET25"
+    attributes:
+      kind: wheel
+      diameterIn: 19
+      widthIn: 10
+      offsetMm: 25
+      boltPattern: 5x120
+      centerBoreMm: 72.56
+      axle: rear
+  - id: apex-ec-7-19x10-5-et22
+    label: "19x10.5 ET22"
+    attributes:
+      kind: wheel
+      diameterIn: 19
+      widthIn: 10.5
+      offsetMm: 22
+      boltPattern: 5x120
+      centerBoreMm: 72.56
+      axle: rear
+  - id: apex-ec-7-19x10-5-et25
+    label: "19x10.5 ET25"
+    attributes:
+      kind: wheel
+      diameterIn: 19
+      widthIn: 10.5
+      offsetMm: 25
+      boltPattern: 5x120
+      centerBoreMm: 72.56
+      axle: rear
+# labor is an estimate with no source: the schema requires it, and I found no Tier 1 or Tier 2 page for a bolt-on
+# wheel swap on this car. verified stays false until one is added.
+labor:
+  hours: [0.5, 1]
+  diy: easy
+model:
+  standIn: wheel-split-spoke
+  params:
+    spokeCount: 7
+    spokeStyle: split
+claims:
+  - "Apex lists the EC-7 in its Flow Formed Classic Line, says it uses 3 unique face profiles, gives a 1,550 lbs load rating on every size whose table I could open, and lists an independent VIA test (reference VIA-17-0645 on the 18x10 ET25)."
+  - "Apex's size pages for these sizes are titled 5x120mm / 72.56mm; the tables I could open give a 72.56 mm center bore and 'N/A Direct fit' (no centering ring), a 60 degree conical lug seat and a Gloss Black center cap, and the 18x10 ET25 table says it is designed to fit BMW 5x120 mm center caps."
+  - "Apex lists 20.1 lb for the 18x8.5 ET35 (face profile 1)."
+  - "Apex lists 20.8 lb for the 18x9 ET30 (face profile 2)."
+  - "Apex lists 21.25 lb for the 18x9 ET31 (face profile 2)."
+  - "Apex lists 21.8 lb for the 18x9.5 ET22 (face profile 3)."
+  - "Apex lists 22.2 lb for the 18x9.5 ET28 (face profile 2)."
+  - "Apex lists 21.7 lb for the 18x9.5 ET35 (face profile 2)."
+  - "Apex lists 22.45 lb for the 18x10 ET25 (face profile 3)."
+  - "Apex lists 22.6 lb for the 18x11 ET44 (face profile 3)."
+  - "Apex lists 21.9 lb for the 19x8.5 ET35 (face profile 1)."
+  - "Apex lists 22.3 lb for the 19x9 ET30 (face profile 2)."
+  - "Apex lists 22.9 lb for the 19x9.5 ET22 (face profile 3)."
+  - "Apex lists about 24 lb for the 19x9.5 ET33 (face profile 3)."
+  - "Apex lists 24.0 lb for the 19x9.5 ET35 (face profile 3)."
+  - "Apex lists 23.5 lb for the 19x10 ET25 (face profile 3)."
+  - "Apex lists 23.9 lb for the 19x10.5 ET22 (face profile 3)."
+  - "Apex lists no weight I could open for the 18x10.5 ET22 and the 19x10.5 ET25 (the archived 18x10.5 ET22 page shows another size's table, and I could not open an archived copy of the 19x10.5 ET25 page)."
+  - "Apex's E46 M3 fitment guide lists these EC-7 staggered setups, front / rear: 18x8.5 ET35 / 18x9.5 ET22 (OEM+); 19x8.5 ET35 / 19x9.5 ET22 (OEM+); 18x9 ET30 / 18x10 ET25 (aggressive street, and performance street and track); 18x9.5 ET35 / 18x10.5 ET22; 18x9.5 ET22 / 18x10.5 ET22; 19x9 ET30 / 19x10 ET25; 19x9.5 ET33 or ET35 / 19x10.5 ET22 or ET25 (aggressive street); 18x9.5 ET22 / 18x10 ET25 and 18x10 ET25 / 18x11 ET44 (race)."
+  - "Apex's E46 M3 fitment guide lists these EC-7 square setups, front and rear the same: 18x9 ET30 or ET31 (OEM+); 18x9.5 ET35, ET28 or ET22 and 18x10 ET25 (performance street and track); 18x10 ET25 and 18x11 ET44 with 20 mm or larger spacers (race); 18x8.5 ET35 for winter."
+sources:
+  - title: "EC-7 Wheels"
+    publisher: "Apex Wheels"
+    url: https://web.archive.org/web/20260812183651/https://apexwheels.com/wheels/flow-formed/classic-line/ec-7
+    tier: 1
+    accessed: 2026-11-23
+    note: "Archived copy (web.archive.org snapshot of 2026-08-12) of the manufacturer's EC-7 product page. Part of the Flow Formed Classic Line. Specification table for the size the page shows, 18x10 ET25: face profile 3, bolt pattern 5x120mm, center bore 72.56mm, centering ring 'N/A Direct fit', lug seat 60 Degree Conical, OEM cap compatible ('Designed to fit BMW 5x120mm center caps'), load rating 1,550 lbs, weight 22.45 lbs, tested by VIA (VIA-17-0645). The size list on the page covers every vehicle; the E46 M3 subset comes from the fitment guide. The 22.45 lbs disagrees with the 22.2 lbs on the older 18x10 ET25 size page below; the newer figure is used. The page also lists prices, which are not recorded."
+  - title: "BMW E46 M3 Wheel & Tire Fitment Guide"
+    publisher: "Apex Wheels"
+    url: https://web.archive.org/web/20260212140400/https://apexwheels.com/fitment-guides/bmw/m3/bmw-e46-m3-wheel-and-tire-fitment-guide
+    tier: 1
+    accessed: 2026-11-23
+    note: "Archived copy (web.archive.org snapshot of 2026-02-12) of Apex's E46 M3 guide. It addresses the '2001-2006 BMW E46 M3' (base car, competition package car and CSL) without separating coupe and convertible, so `bodies` is left out of `fits`. Every setup has an 'Available in' list; the flow formed EC-7 (not the forged EC-7RS or EC-7R) is in the lists for the staggered and square setups in the claims, and for the sizes recorded as options. Apex also lists 18x8.5 ET38 (ARC-8) and ET40, and 19x9 ET28, which the EC-7 size list does not offer, so those are not recorded. The axle on each option is where the guide uses the size: both when it appears on both axles (a square setup, or a rear in one setup and a front in another)."
+  - title: "BMW E46 M3 Wheels"
+    publisher: "Apex Wheels"
+    url: https://web.archive.org/web/20260812175415/https://apexwheels.com/vehicles/bmw/m3/e46-m3
+    tier: 1
+    accessed: 2026-11-23
+    note: "Archived copy (web.archive.org snapshot of 2026-08-12) of Apex's E46 M3 vehicle page: 'Lightweight forged & flow formed Apex wheels for your 2001-2006 BMW E46 M3'. Source for the 2001 to 2006 years. It lists the EC-7 among the flow formed Classic Line wheels; its size list is for all designs, and its specification table (shown for the VS-5RS) gives bolt pattern 5x120mm, center bore 72.56mm and centering ring 'N/A Direct fit' for the E46 M3 fitment, which agrees with the EC-7 tables."
+  - title: "Apex EC-7 18x8.5\" ET35 Wheels - 5x120mm / 72.56mm"
+    publisher: "Apex Wheels"
+    url: https://web.archive.org/web/20250919034039/https://apexwheels.com/wheels/apex-ec7-18x8-5-et35-wheels-5x120mm-72-56mm
+    tier: 1
+    accessed: 2026-11-23
+    note: "Archived copy (web.archive.org snapshot of 2025-09-19) of the manufacturer's page for this size. Specification table: wheel size 18x8.5\" ET35, face profile 1, bolt pattern 5x120mm, center bore 72.56mm, centering ring 'N/A Direct fit', load rating 1,550 lbs, weight 20.1 lbs."
+  - title: "Apex EC-7 18x9\" ET30 Wheels - 5x120mm / 72.56mm"
+    publisher: "Apex Wheels"
+    url: https://web.archive.org/web/20250919025756/https://apexwheels.com/wheels/apex-ec7-18x9-et30-wheels-5x120mm-72-56mm
+    tier: 1
+    accessed: 2026-11-23
+    note: "Archived copy (web.archive.org snapshot of 2025-09-19) of the manufacturer's page for this size. Specification table: wheel size 18x9\" ET30, face profile 2, bolt pattern 5x120mm, center bore 72.56mm, centering ring 'N/A Direct fit', load rating 1,550 lbs, weight 20.8 lbs."
+  - title: "Apex EC-7 18x9\" ET31 Wheels - 5x120mm / 72.56mm"
+    publisher: "Apex Wheels"
+    url: https://web.archive.org/web/20250918073504/https://apexwheels.com/wheels/apex-ec7-18x9-et31-wheels-5x120mm-72-56mm
+    tier: 1
+    accessed: 2026-11-23
+    note: "Archived copy (web.archive.org snapshot of 2025-09-18) of the manufacturer's page for this size. Specification table: wheel size 18x9\" ET31, face profile 2, bolt pattern 5x120mm, center bore 72.56mm, centering ring 'N/A Direct fit', load rating 1,550 lbs, weight 21.25 lbs."
+  - title: "Apex EC-7 18x9.5\" ET22 Wheels - 5x120mm / 72.56mm"
+    publisher: "Apex Wheels"
+    url: https://web.archive.org/web/20250917013939/https://apexwheels.com/wheels/apex-ec7-18x9-5-et22-wheels-5x120mm-72-56mm
+    tier: 1
+    accessed: 2026-11-23
+    note: "Archived copy (web.archive.org snapshot of 2025-09-17) of the manufacturer's page for this size. Specification table: wheel size 18x9.5\" ET22, face profile 3, bolt pattern 5x120mm, center bore 72.56mm, centering ring 'N/A Direct fit', load rating 1,550 lbs, weight 21.8 lbs."
+  - title: "Apex EC-7 18x9.5\" ET28 Wheels - 5x120mm / 72.56mm"
+    publisher: "Apex Wheels"
+    url: https://web.archive.org/web/20250913112523/https://apexwheels.com/wheels/apex-ec7-18x9-5-et28-wheels-5x120mm-72-56mm
+    tier: 1
+    accessed: 2026-11-23
+    note: "Archived copy (web.archive.org snapshot of 2025-09-13) of the manufacturer's page for this size. Specification table: wheel size 18x9.5\" ET28, face profile 2, bolt pattern 5x120mm, center bore 72.56mm, centering ring 'N/A Direct fit', load rating 1,550 lbs, weight 22.2 lbs."
+  - title: "Apex EC-7 18x9.5\" ET35 Wheels - 5x120mm / 72.56mm"
+    publisher: "Apex Wheels"
+    url: https://web.archive.org/web/20250920012646/https://apexwheels.com/wheels/apex-ec7-18x9-5-et35-wheels-5x120mm-72-56mm
+    tier: 1
+    accessed: 2026-11-23
+    note: "Archived copy (web.archive.org snapshot of 2025-09-20) of the manufacturer's page for this size. Specification table: wheel size 18x9.5\" ET35, face profile 2, bolt pattern 5x120mm, center bore 72.56mm, centering ring 'N/A Direct fit', load rating 1,550 lbs, weight 21.7 lbs."
+  - title: "Apex EC-7 18x10\" ET25 Wheels - 5x120mm / 72.56mm"
+    publisher: "Apex Wheels"
+    url: https://web.archive.org/web/20251008221143/https://apexwheels.com/wheels/apex-ec7-18x10-et25-wheels-5x120mm-72-56mm
+    tier: 1
+    accessed: 2026-11-23
+    note: "Archived copy (web.archive.org snapshot of 2025-10-08) of the manufacturer's page for this size. Specification table: wheel size 18x10\" ET25, face profile 3, bolt pattern 5x120mm, center bore 72.56mm, centering ring 'N/A Direct fit', load rating 1,550 lbs, weight 22.2 lbs. The newer EC-7 page above gives 22.45 lbs for this size; that figure is the one recorded."
+  - title: "Apex EC-7 18x11\" ET44 Wheels - 5x120mm / 72.56mm"
+    publisher: "Apex Wheels"
+    url: https://web.archive.org/web/20260217014040/https://apexwheels.com/wheels/apex-ec7-18x11-et44-wheels-5x120mm-72-56mm
+    tier: 1
+    accessed: 2026-11-23
+    note: "Archived copy (web.archive.org snapshot of 2026-02-17) of the manufacturer's page for this size. Specification table: wheel size 18x11\" ET44, face profile 3, bolt pattern 5x120mm, center bore 72.56mm, centering ring 'N/A Direct fit', load rating 1,550 lbs, weight 22.6 lbs."
+  - title: "Apex EC-7 19x8.5\" ET35 Wheels - 5x120mm / 72.56mm"
+    publisher: "Apex Wheels"
+    url: https://web.archive.org/web/20250918164549/https://apexwheels.com/wheels/apex-ec7-19x8-5-et35-wheels-5x120mm-72-56mm
+    tier: 1
+    accessed: 2026-11-23
+    note: "Archived copy (web.archive.org snapshot of 2025-09-18) of the manufacturer's page for this size. Specification table: wheel size 19x8.5\" ET35, face profile 1, bolt pattern 5x120mm, center bore 72.56mm, centering ring 'N/A Direct fit', load rating 1,550 lbs, weight 21.9 lbs."
+  - title: "Apex EC-7 19x9\" ET30 Wheels - 5x120mm / 72.56mm"
+    publisher: "Apex Wheels"
+    url: https://web.archive.org/web/20250919170612/https://apexwheels.com/wheels/apex-ec7-19x9-et30-wheels-5x120mm-72-56mm
+    tier: 1
+    accessed: 2026-11-23
+    note: "Archived copy (web.archive.org snapshot of 2025-09-19) of the manufacturer's page for this size. Specification table: wheel size 19x9\" ET30, face profile 2, bolt pattern 5x120mm, center bore 72.56mm, centering ring 'N/A Direct fit', load rating 1,550 lbs, weight 22.3 lbs."
+  - title: "Apex EC-7 19x9.5\" ET22 Wheels - 5x120mm / 72.56mm"
+    publisher: "Apex Wheels"
+    url: https://web.archive.org/web/20250919144231/https://apexwheels.com/wheels/apex-ec7-19x9-5-et22-wheels-5x120mm-72-56mm
+    tier: 1
+    accessed: 2026-11-23
+    note: "Archived copy (web.archive.org snapshot of 2025-09-19) of the manufacturer's page for this size. Specification table: wheel size 19x9.5\" ET22, face profile 3, bolt pattern 5x120mm, center bore 72.56mm, centering ring 'N/A Direct fit', load rating 1,550 lbs, weight 22.9 lbs."
+  - title: "Apex EC-7 19x9.5\" ET33 Wheels - 5x120mm / 72.56mm"
+    publisher: "Apex Wheels"
+    url: https://web.archive.org/web/20250918003357/https://apexwheels.com/wheels/apex-ec7-19x9-5-et33-wheels-5x120mm-72-56mm
+    tier: 1
+    accessed: 2026-11-23
+    note: "Archived copy (web.archive.org snapshot of 2025-09-18) of the manufacturer's page for this size. Specification table: wheel size 19x9.5\" ET33, face profile 3, bolt pattern 5x120mm, center bore 72.56mm, centering ring 'N/A Direct fit', load rating 1,550 lbs, weight ~24 lbs."
+  - title: "Apex EC-7 19x9.5\" ET35 Wheels - 5x120mm / 72.56mm"
+    publisher: "Apex Wheels"
+    url: https://web.archive.org/web/20250918150829/https://apexwheels.com/wheels/apex-ec7-19x9-5-et35-wheels-5x120mm-72-56mm
+    tier: 1
+    accessed: 2026-11-23
+    note: "Archived copy (web.archive.org snapshot of 2025-09-18) of the manufacturer's page for this size. Specification table: wheel size 19x9.5\" ET35, face profile 3, bolt pattern 5x120mm, center bore 72.56mm, centering ring 'N/A Direct fit', load rating 1,550 lbs, weight 24.0 lbs."
+  - title: "Apex EC-7 19x10\" ET25 Wheels - 5x120mm / 72.56mm"
+    publisher: "Apex Wheels"
+    url: https://web.archive.org/web/20250918100232/https://apexwheels.com/wheels/apex-ec7-19x10-et25-wheels-5x120mm-72-56mm
+    tier: 1
+    accessed: 2026-11-23
+    note: "Archived copy (web.archive.org snapshot of 2025-09-18) of the manufacturer's page for this size. Specification table: wheel size 19x10\" ET25, face profile 3, bolt pattern 5x120mm, center bore 72.56mm, centering ring 'N/A Direct fit', load rating 1,550 lbs, weight 23.5 lbs."
+  - title: "Apex EC-7 19x10.5\" ET22 Wheels - 5x120mm / 72.56mm"
+    publisher: "Apex Wheels"
+    url: https://web.archive.org/web/20250210164255/https://apexwheels.com/wheels/apex-ec7-19x10-5-et22-wheels-5x120mm-72-56mm
+    tier: 1
+    accessed: 2026-11-23
+    note: "Archived copy (web.archive.org snapshot of 2025-02-10) of the manufacturer's page for this size. Specification table: wheel size 19x10.5\" ET22, face profile 3, bolt pattern 5x120mm, center bore 72.56mm, centering ring 'N/A Direct fit', load rating 1,550 lbs, weight 23.9 lbs."
+  - title: "Apex Wheels EC-7 18x9.5 35 5x120 Anthracite"
+    publisher: "Martini Works"
+    url: https://martiniworks.com/products/wheels-tires/wheels/apex-wheels-ec-7-18x9-5-35-5x120-anthracite
+    tier: 2
+    accessed: 2026-11-23
+    note: "Specialist retailer's listing. Its specifications read 'Design: Windowed 7 Spoke' and 'Construction: Flow Formed' for the EC-7 (its EC-7 category page also reads 'Design: Windowed 7 Spoke'). The only source for the spoke count of 7; Apex's own pages that I could open state none, so the count is unverified under data.md's rule (one Tier 2 publisher, no Tier 1). BimmerWorld below calls the design split-spoke without a count."
+  - title: "Apex EC7 18x9.5 ET35 Wheel Set - E46 M3"
+    publisher: "BimmerWorld"
+    url: https://www.bimmerworld.com/Wheels-Tires/Wheels/Apex-EC7-18x95-ET35-Wheel-Set-E46-M3.html
+    tier: 2
+    accessed: 2026-11-23
+    note: "Specialist shop's set listing: 'Split-spoke design', flow-formed roll-forged barrel, fitment 'E46 (01-06) > M3', sold 'as race-fitment only' with rear wheel spacers 'strongly recommended'. It states no bolt pattern, center bore or weight. Its '01-06' agrees with Apex's 2001 to 2006; the shop's EC-7 product page below reads '99-05'."
+  - title: "APEX EC-7 Wheel"
+    publisher: "BimmerWorld"
+    url: https://www.bimmerworld.com/Wheels-Tires/Wheels/APEX-EC-7-Wheel.html
+    tier: 2
+    accessed: 2026-11-23
+    note: "Specialist shop's product page: 'Split-spoke design', flow-formed roll-forged barrel, a spoke profile 'designed with a curve to provide additional caliper clearance', and a fitment list that includes E46 M3 (its list reads '99-05', against '01-06' on its set page above and Apex's 2001 to 2006). It says 18-inch EC-7 wheels have a 1,550 lb load rating and 19-inch wheels 1,650 lb, while Apex's size pages give 1,550 lbs for the 19-inch sizes too; Apex's figure is used. It also says the wheels do not include BMW center caps, while Apex's tables list a Gloss Black center cap."
+verified: false
