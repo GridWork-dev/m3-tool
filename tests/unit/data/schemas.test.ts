@@ -28,12 +28,16 @@ const maintenance = () => readFixture('maintenance/e46/fixture-oil-service.yaml'
 const inspectionService = () => readFixture('maintenance/e46/fixture-inspection-service.yaml')
 // A lifetime-fill trigger alone, with no markets (every market).
 const lifetimeFluid = () => readFixture('maintenance/e46/fixture-lifetime-fluid.yaml')
+// A schedule for some model years only: modelYears [2001, 2003], with months and a note.
+const modelYearsService = () => readFixture('maintenance/e46/fixture-model-years-service.yaml')
 // A forum-only issue: no fix and no cost.
 const issue = () => readFixture('issues/e46/fixture-rod-bearings.yaml')
 // An issue with a fix, a cost and a Tier 2 source.
 const issueWithFix = () => readFixture('issues/e46/fixture-guide-wear.yaml')
 // An issue with a fix and a Tier 2 source, and no cost.
 const issueFixNoCost = () => readFixture('issues/e46/fixture-fix-without-cost.yaml')
+// An issue scoped to the last model years: modelYears [2005, 2007].
+const modelYearsIssue = () => readFixture('issues/e46/fixture-model-years-issue.yaml')
 
 // The unmutated fixtures must pass, so a failing mutation below is the mutation's doing.
 describe('valid fixtures', () => {
@@ -56,9 +60,11 @@ describe('valid fixtures', () => {
       inspectionService,
     ],
     ['maintenance item with a lifetime-fill trigger alone', MaintenanceItem, lifetimeFluid],
+    ['maintenance item scoped to model years', MaintenanceItem, modelYearsService],
     ['known issue without a fix', KnownIssue, issue],
     ['known issue with a fix and a cost', KnownIssue, issueWithFix],
     ['known issue with a fix and no cost', KnownIssue, issueFixNoCost],
+    ['known issue scoped to model years', KnownIssue, modelYearsIssue],
   ])('%s parses', (_name, schema, read) => {
     expect(schema.safeParse(read()).success).toBe(true)
   })
@@ -923,6 +929,68 @@ describe.each([
     expect(issueMessages(twice).join(' ')).toMatch(/more than once/)
     expect(schema.safeParse(edit(read(), 'markets', 'us')).success).toBe(false)
     expect(schema.safeParse(edit(read(), 'markets', ['us', 'euro', 'us'])).success).toBe(false)
+  })
+})
+
+// `modelYears` is the same optional field, with the same rule, on both safety collections (R86): a
+// booklet speaks for the model years it names, and absent means every model year the generation
+// covers. The schema checks the shape; quality.ts checks the range against the generation.
+describe.each([
+  ['maintenance item', MaintenanceItem, maintenance, modelYearsService],
+  ['known issue', KnownIssue, issue, modelYearsIssue],
+] as const)('modelYears on a %s', (_name, schema, read, readScoped) => {
+  test('is optional, and absent stays absent: no range is filled in', () => {
+    expect('modelYears' in read()).toBe(false)
+    const parsed = schema.safeParse(read())
+    expect(parsed.success).toBe(true)
+    // Absent means every model year. A default (such as the generation's years) would turn it
+    // into a claim about a range, and the schema can't see the generation anyway.
+    expect(parsed.success && parsed.data.modelYears).toBeUndefined()
+    expect(parsed.success && 'modelYears' in parsed.data).toBe(false)
+  })
+
+  test('a range written in a data file is kept as written', () => {
+    const parsed = schema.safeParse(readScoped())
+    expect(parsed.success).toBe(true)
+    expect(parsed.success && parsed.data.modelYears).toEqual(readScoped().modelYears)
+  })
+
+  test.each([[[2001, 2003]], [[2004, 2004]], [[1985, 2035]]])(
+    'accepts %j, both ends inclusive',
+    (modelYears) => {
+      const parsed = schema.safeParse(edit(read(), 'modelYears', modelYears))
+      expect(parsed.success, modelYears.join()).toBe(true)
+      expect(parsed.success && parsed.data.modelYears, modelYears.join()).toEqual(modelYears)
+    },
+  )
+
+  test.each([
+    ['from after to', [2004, 2001]],
+    ['one element', [2001]],
+    ['three elements', [2001, 2002, 2003]],
+    ['an empty list', []],
+    ['a non-integer year', [2001.5, 2003]],
+    ['a year below the Year bounds', [1984, 2003]],
+    ['a year above the Year bounds', [2003, 2036]],
+    ['years written as text', ['2001', '2003']],
+    ['a string', '2001-2003'],
+    ['a bare year', 2001],
+    ['null', null],
+  ])('rejects %s', (_label, modelYears) => {
+    const result = schema.safeParse(edit(read(), 'modelYears', modelYears))
+    expect(result.success).toBe(false)
+    // Every issue is about modelYears: the mutation was the only thing wrong with the entry.
+    const paths = issuePaths(result)
+    expect(paths.length).toBeGreaterThan(0)
+    expect(paths.every((path) => path === 'modelYears' || path.startsWith('modelYears.'))).toBe(
+      true,
+    )
+  })
+
+  test('says why when the first year is after the last', () => {
+    const result = schema.safeParse(edit(read(), 'modelYears', [2004, 2001]))
+    expect(issuePaths(result)).toEqual(['modelYears'])
+    expect(issueMessages(result).join(' ')).toMatch(/must not be after/)
   })
 })
 

@@ -36,6 +36,7 @@ export type QualityCode =
   | 'part-bodies-outside-generation'
   | 'fits-list-empty'
   | 'unknown-engine'
+  | 'model-years-outside-generation'
   | 'future-date'
   | 'unverified-path-missing'
   | 'unverified-path-duplicate'
@@ -285,8 +286,8 @@ const outside = (years: readonly [number, number], range: readonly [number, numb
   years[0] < range[0] || years[1] > range[1]
 
 // What a variant, part, maintenance item or issue says about the car must fit the generation it
-// belongs to: its body, its years and its engine. An entry whose generation does not exist is
-// skipped, because `unknown-generation` already covers it.
+// belongs to: its body, its years (or model years) and its engine. An entry whose generation does
+// not exist is skipped, because `unknown-generation` already covers it.
 function checkAgainstGeneration(set: DataSet, add: Add): void {
   const generations = new Map(set.generations.map(({ data }) => [data.id, data]))
 
@@ -343,12 +344,14 @@ function checkAgainstGeneration(set: DataSet, add: Add): void {
     }
   }
 
-  const engineOwners = [
+  // A maintenance item or an issue may narrow itself to one engine and to some model years.
+  const scopedOwners = [
     ...set.maintenance.map(({ file, data }) => ({
       file,
       id: data.id,
       generation: data.generation,
       engine: data.engine,
+      modelYears: data.modelYears,
       kind: 'maintenance item',
     })),
     ...set.issues.map(({ file, data }) => ({
@@ -356,18 +359,31 @@ function checkAgainstGeneration(set: DataSet, add: Add): void {
       id: data.id,
       generation: data.generation,
       engine: data.engine,
+      modelYears: data.modelYears,
       kind: 'known issue',
     })),
   ]
-  for (const { file, id, generation: generationId, engine, kind } of engineOwners) {
+  for (const { file, id, generation: generationId, engine, modelYears, kind } of scopedOwners) {
     const generation = generations.get(generationId)
-    if (!generation || engine === undefined) continue
-    const codes = generation.engines.map((candidate) => candidate.code)
-    if (!codes.includes(engine)) {
+    if (!generation) continue
+    if (engine !== undefined) {
+      const codes = generation.engines.map((candidate) => candidate.code)
+      if (!codes.includes(engine)) {
+        add(
+          file,
+          'unknown-engine',
+          `${kind} "${id}" names engine "${engine}", but generation "${generation.id}" has ${list(codes)}`,
+        )
+      }
+    }
+    // A model year can run one ahead of the calendar year of production, so the generation's last
+    // production year admits a model year one later (data.md, "Model years").
+    const [first, last] = generation.years
+    if (modelYears !== undefined && outside(modelYears, [first, last + 1])) {
       add(
         file,
-        'unknown-engine',
-        `${kind} "${id}" names engine "${engine}", but generation "${generation.id}" has ${list(codes)}`,
+        'model-years-outside-generation',
+        `${kind} "${id}" is scoped to model years ${modelYears[0]} to ${modelYears[1]}, outside generation "${generation.id}" (${first} to ${last}, plus one at the end for a model year that runs ahead)`,
       )
     }
   }

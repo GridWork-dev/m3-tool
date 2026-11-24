@@ -578,6 +578,80 @@ describe('cross-file checks against the generation', () => {
     })
   })
 
+  // R86: `modelYears` sits inside the generation's years, widened by one at the top, because a
+  // model year can run one ahead of the calendar year of production. The fixture generation runs
+  // 2000 to 2006, so the allowed model years are 2000 to 2007.
+  describe('model years', () => {
+    const owners = [
+      ['maintenance item', oil, 'maintenance/e46/fixture-oil-service.yaml'],
+      ['known issue', rod, 'issues/e46/fixture-rod-bearings.yaml'],
+    ] as const
+
+    describe.each(owners)('on a %s', (kind, owner, path) => {
+      test.each([
+        ['starts before the generation', [1999, 2003]],
+        ['ends two years after the last production year', [2004, 2008]],
+        ['is entirely outside it', [2010, 2012]],
+      ] as const)('a range that %s is refused', (_label, years) => {
+        const set = fresh()
+        owner(set).modelYears = [years[0], years[1]]
+        const issues = checkDataSet(set)
+        expect(issues.map((issue) => issue.code)).toEqual(['model-years-outside-generation'])
+        expect(issues[0]?.file).toBe(path)
+        expect(issues[0]?.message).toContain(kind)
+        expect(issues[0]?.message).toContain(`${years[0]} to ${years[1]}`)
+        expect(issues[0]?.message).toContain('2000 to 2006')
+      })
+
+      test.each([
+        ['one year past the last production year', [2001, 2007]],
+        ['the generation exactly', [2000, 2006]],
+        ['the widened range exactly', [2000, 2007]],
+        ['the first model year alone', [2000, 2000]],
+        ['the extra model year alone', [2007, 2007]],
+        ['a range inside the generation', [2003, 2004]],
+      ] as const)('a range that is %s passes', (_label, years) => {
+        const set = fresh()
+        owner(set).modelYears = [years[0], years[1]]
+        expect(codes(set)).toEqual([])
+      })
+
+      test('a missing range means every model year, and passes', () => {
+        const set = fresh()
+        expect(owner(set).modelYears).toBeUndefined()
+        expect(codes(set)).toEqual([])
+      })
+
+      test('the generation is looked up first: an unknown generation reports only that', () => {
+        const set = fresh()
+        owner(set).generation = 'e99'
+        owner(set).modelYears = [1990, 1991]
+        expect(codes(set)).toEqual(['unknown-generation'])
+      })
+
+      test('is measured against the generation it belongs to', () => {
+        const set = fresh()
+        find(set.generations, 'e46').data.years = [2007, 2013]
+        const here = (set: DataSet) =>
+          checkDataSet(set).filter(
+            (issue) => issue.file === path && issue.code === 'model-years-outside-generation',
+          )
+        owner(set).modelYears = [2001, 2007]
+        expect(here(set)).toHaveLength(1)
+        expect(here(set)[0]?.message).toContain('2007 to 2013')
+        owner(set).modelYears = [2008, 2014]
+        expect(here(set)).toEqual([])
+      })
+    })
+
+    test('an engine problem and a model-years problem on one entry are both reported', () => {
+      const set = fresh()
+      oil(set).engine = 'OTHER-ENGINE'
+      oil(set).modelYears = [1999, 2003]
+      expect(codes(set)).toEqual(['unknown-engine', 'model-years-outside-generation'])
+    })
+  })
+
   test('nothing is checked against a generation that does not exist, beyond unknown-generation', () => {
     const set = fresh()
     variant(set).generation = 'e99'

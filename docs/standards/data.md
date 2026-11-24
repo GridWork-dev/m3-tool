@@ -33,8 +33,8 @@ The schemas in [`src/data/schemas.ts`](../../src/data/schemas.ts) are the contra
 | `generations` | `Generation` | Chassis, production years, engines, bodies and their sources, dimensions per body, driver eye point, stock wheel fitment per axle, and which values are unverified |
 | `variants` | `Variant` | Market, body, transmissions, packages, paints, factory wheels, interiors, which assets render it (base car, interior, body modules), and which values are unverified |
 | `parts` | `Part` | A product or a generic tier, with fitment attributes, options, prices, labor, 3D model (and the body modules it replaces), sources |
-| `maintenance` | `MaintenanceItem` | A service with its interval (miles, months, triggers, or a mix), the markets its sources cover, parts, fluids, an optional cost range and a buyer's inspection note |
-| `issues` | `KnownIssue` | A known problem with the markets its sources cover, symptoms, cause, an optional fix, an optional cost range and how common it is |
+| `maintenance` | `MaintenanceItem` | A service with its interval (miles, months, triggers, or a mix), the markets and model years its sources cover, parts, fluids, an optional cost range and a buyer's inspection note |
+| `issues` | `KnownIssue` | A known problem with the markets and model years its sources cover, symptoms, cause, an optional fix, an optional cost range and how common it is |
 
 The schemas reject keys they don't list, so a typo like `brnad:` is an error instead of a silently dropped field. They also reject a few shapes the types alone allow:
 
@@ -44,7 +44,7 @@ The schemas reject keys they don't list, so a typo like `brnad:` is an error ins
 - A model's `replaces` names at least one body module, each at most once, and only from the four in `BODY_MODULES`. A variant's `render.modules` has only those four as keys.
 - A part's `attributes.kind` matches its category: `wheel` and `hub-ring` go with `wheels`, `tire` with `tires`, `brake-kit` with `brakes`, `suspension` with `suspension`.
 - `inspectWhenBuying: true` needs a non-empty `howToCheck`.
-- A maintenance interval has at least one of `miles`, `months` or `triggers`, and `triggers` is a non-empty list with no repeats (see "Maintenance intervals"). A maintenance item's or known issue's `markets`, when present, is a non-empty list of `us` or `euro` with no repeats (see "Markets").
+- A maintenance interval has at least one of `miles`, `months` or `triggers`, and `triggers` is a non-empty list with no repeats (see "Maintenance intervals"). A maintenance item's or known issue's `markets`, when present, is a non-empty list of `us` or `euro` with no repeats (see "Markets"). Their `modelYears`, when present, is a `[from, to]` pair of whole years from 1985 to 2035, with `from` not after `to` (see "Model years").
 - A measured driver eye point has sources. An estimated one may have none, and its `note` says it is an estimate. Labor estimates are another sourceless exception the schema names (see "Labor estimates"), and a paint's display colour (`baseColor`) is a third: it is a render value, not a fact about the car, so it needs no source, and the variant file's comment says how each value was picked (a paint's code, name and the markets and variants that offered it are facts and still need sources). (A generic part has no sources of its own either, because it is a computed tier, not a claim, and so its labor is an estimate.)
 - A part's `labor` always says whether it is an estimate: `estimated` is `true` or `false`, written out, with no default. Labor with `estimated: false` needs at least one source on the part.
 - Required text (names, titles, sellers, publishers) must not be empty or only whitespace. The value is kept as written, not trimmed.
@@ -217,6 +217,23 @@ A remedy that rests on a market-specific document splits the issue into one entr
 
 Leave `markets` out only when the evidence covers every market: either one source that applies to all of them (a document that is not for one market, such as an international BMW media release), or a source for each market. When the US and European schedules differ, write one item for each market, with its own `markets` and an id that names the market. The schema can't see which market a source is for, so the data verifier and the `safety` spot-check look at `markets` against the sources.
 
+### Model years
+
+`modelYears` names the model years a maintenance item's or a known issue's sources speak for: `[from, to]`, both inclusive, such as `[2001, 2003]`. One year is `[2004, 2004]`.
+
+A manufacturer booklet, checklist or bulletin speaks for the model years it names and for no others (ruling R86, the time counterpart of the one-market clause of R61 in "Markets"). A bulletin that gives a schedule for 2001 to 2003 says nothing about 2004. The range sits inside the generation's `years`, widened by one at the top, because a model year can run one ahead of the calendar year of production: for a generation with `years: [2000, 2006]`, `[2001, 2007]` is fine and `[1999, 2003]` isn't. `check-data` reports a range outside that as `model-years-outside-generation`.
+
+Leave `modelYears` out only when the sources cover every model year of the generation.
+
+When the schedule differs by year, write one entry for each year range, each with its own `modelYears` and an id that names the years. BMW changed the E46 coolant schedule mid-run: BMW NA SI B17 01 07 gives "Every 4 years, starting from the date of production" for model years 2001 to 2003, and "Long-Term, No Replacement Interval" from model year 2004. So the coolant is two items:
+
+| id | `modelYears` | `interval` |
+|---|---|---|
+| `e46-coolant-2001-2003` | `[2001, 2003]` | `months: 48`, with "from the date of production" in `notes` |
+| `e46-coolant-2004-2006` | `[2004, 2006]` | `triggers: [lifetime-fill]` |
+
+The schema can't see which model years a source covers, so the data verifier and the `safety` spot-check look at `modelYears` against the sources. It does enforce the shape: two whole years from 1985 to 2035, with `from` not after `to`.
+
 ### Costs that are absent
 
 `cost` is optional on a maintenance item and on a known issue. Leave it out when no Tier 1 or Tier 2 source gives a figure. A cost is published only under the label its source states (ruling R78): a shop price, meaning parts and labor, goes in `shop`, and a do-it-yourself price in `diy` and never in `shop`. `cost` requires `shop` (a maintenance `cost` requires both), so a DIY figure with no shop figure is not published. A figure whose source doesn't say what it covers is not a sourced cost, and a parts-only figure is never a `shop` price. In those cases leave `cost` out, even when the source is Tier 1 or Tier 2. The site then shows "no sourced cost", and never zero. Don't write `[0, 0]` for "unknown": nothing tells it from free. A `cost` that is given is still checked: USD, a sorted range, and for a maintenance item both `diy` and `shop`. Price collection is a separate lane (see "Prices"), so a figure from a retailer's product listing is not a sourced cost.
@@ -280,6 +297,7 @@ It prints one `<file>: <code>: <message>` line per problem, exits 1 if there are
 | `part-bodies-outside-generation` | A part's `fits.bodies` names a body its generation doesn't build | Fix the bodies |
 | `fits-list-empty` | A part's `fits.bodies` or `fits.transmissions` is `[]`, which fits nothing | List at least one, or leave the field out to fit all |
 | `unknown-engine` | A maintenance item or issue names an `engine` that isn't one of its generation's engine codes | Fix the code, or leave `engine` out for every engine |
+| `model-years-outside-generation` | A maintenance item's or issue's `modelYears` aren't within its generation's `years`, widened by one at the top | Fix the years |
 | `no-schedule-without-tier1` | A maintenance item with the `lifetime-fill` or `condition-based` trigger has no Tier 1 source | Add the Tier 1 source, or use the trigger the sources do support |
 | `future-date` | A source's `accessed` or a price's `checked` is more than a day after today (UTC) | Fix the date |
 | `unverified-path-missing` | A path in `unverified` doesn't point at a value: no such field, key or element; an optional field that isn't set in the file; an element named by position; a position or an element under a list with no key; a key under a fixed-length list; a position past its end; a path below a plain value; an element key shared by two elements (the path is ambiguous); or the `unverified` field itself | Fix the path; the message says where it stops |
