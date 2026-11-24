@@ -115,6 +115,34 @@ def test_extraction_rejects_shipping_and_from_prices(tmp_path: Path) -> None:
     assert extract_price('<span class="price">$0</span>', SELLER, storage_dir=None) is None
 
 
+def test_sale_page_uses_the_current_price_not_the_strikethrough() -> None:
+    html = '<del class="price">$199</del><span class="price">$149</span>'
+    found = extract_price(html, SELLER, storage_dir=None)
+    assert found is not None and found.amount == Decimal("149")
+
+
+def test_conflicting_price_candidates_are_rejected() -> None:
+    html = '<span class="price">$199</span><span class="price">$149</span>'
+    assert extract_price(html, SELLER, storage_dir=None) is None
+
+
+def test_numeric_price_with_foreign_currency_metadata_is_rejected() -> None:
+    # Default hint list (no calibrated selectors): the page's own currency metadata
+    # must agree with the seller's configured currency.
+    plain = SellerConfig("example", "https://example.test", "polite")
+    foreign = (
+        '<span itemprop="price" content="149.00"></span>'
+        '<meta itemprop="priceCurrency" content="EUR">'
+    )
+    assert extract_price(foreign, plain, storage_dir=None) is None
+    matching = (
+        '<span itemprop="price" content="149.00"></span>'
+        '<meta itemprop="priceCurrency" content="USD">'
+    )
+    found = extract_price(matching, plain, storage_dir=None)
+    assert found is not None and found.amount == Decimal("149.00")
+
+
 def test_price_jump_over_ten_x_is_flagged(price_env: Path) -> None:
     write_part(price_env, amount=1)
     with client() as http:

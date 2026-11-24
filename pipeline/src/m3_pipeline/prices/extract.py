@@ -42,6 +42,9 @@ def _candidate(node: Any, currency: str) -> Decimal | None:
     # Third-party selector objects are confined to this boundary.
     ancestor = node
     while ancestor is not None and ancestor.tag not in {"body", "html"}:
+        if ancestor.tag in {"del", "s", "strike"}:
+            # A struck-through price is a previous price, not the current one.
+            return None
         attrs = " ".join(str(ancestor.attrib.get(k, "")) for k in ("class", "id", "aria-label"))
         if re.search(r"shipping|delivery|related|recommend|installment|starting", attrs, re.I):
             return None
@@ -51,6 +54,20 @@ def _candidate(node: Any, currency: str) -> Decimal | None:
         return None
     content = str(node.attrib.get("content", ""))
     return _money(content or text, currency, numeric=bool(content))
+
+
+def _declared_currencies(parser: Any, seller_id: str) -> set[str]:
+    """The currencies the page itself declares for the product, if it declares any."""
+    declared: set[str] = set()
+    for node in parser.css(
+        'meta[itemprop="priceCurrency"], meta[property="product:price:currency"]',
+        identifier=f"{seller_id}:currency",
+        adaptive=False,
+    ):
+        value = str(node.attrib.get("content", "")).strip().upper()
+        if value:
+            declared.add(value)
+    return declared
 
 
 def extract_price(
@@ -73,6 +90,10 @@ def extract_price(
         adaptive=storage_dir is not None,
         storage_args=storage_args or None,
     )
+    declared = _declared_currencies(parser, seller.id)
+    if declared and seller.currency not in declared:
+        # The page prices the product in a currency this seller is not configured for.
+        return None
     hints = seller.price_selectors or (
         '[itemprop="price"]',
         ".price",
@@ -81,13 +102,19 @@ def extract_price(
     for adaptive in (False, True):
         for hint in hints:
             identifier = f"{seller.id}:{hint}"
+            # One hint must yield exactly one price: DOM order is not truth, and a
+            # sale page's struck-through price is filtered out as a previous price.
+            amounts: dict[Decimal, Any] = {}
             for node in parser.css(
                 hint, identifier=identifier, adaptive=adaptive and bool(storage_dir)
             ):
                 amount = _candidate(node, seller.currency)
-                if amount is not None:
-                    if storage_dir:
-                        # Save only validated prices, never a rejected shipping/related match.
-                        parser.save(node._root, identifier)
-                    return ExtractedPrice(amount, seller.currency)
+                if amount is not None and amount not in amounts:
+                    amounts[amount] = node
+            if len(amounts) == 1:
+                amount, node = next(iter(amounts.items()))
+                if storage_dir:
+                    # Save only validated prices, never a rejected shipping/related match.
+                    parser.save(node._root, identifier)
+                return ExtractedPrice(amount, seller.currency)
     return None
