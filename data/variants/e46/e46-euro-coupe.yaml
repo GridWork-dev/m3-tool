@@ -1,0 +1,162 @@
+# BMW M3 (E46) coupe, European market. Every value below was checked against the sources
+# cited here on 2026-11-23. paints and interiors are empty on purpose: no Tier 1 or Tier 2
+# source opened gives paint codes with a swatch colour or the upholstery colours. The Euro
+# Competition Package, which BMW UK sold as the M3 CS, is the competition-package entry,
+# as ZCP is on the US coupe. Right-hand-drive cars are not a separate variant.
+# Unverified under data.md's rule (no Tier 1, fewer than two Tier 2 publishers): the end year
+# of the Competition Package, the widths and offsets of standard-18, the width and offset of
+# the optional-19 front, the offset of the Competition Package front (inferred from the US
+# ZCP part), and the tire sizes of standard-18 and optional-19 (no Euro source above Tier 3
+# states them; the Competition Package's own 19-inch tires are Tier 1). The package has no
+# years field: its dates are in the summary only.
+id: e46-euro-coupe
+generation: e46
+name: "M3 Coupe (Euro)"
+market: euro
+body: coupe
+transmissions: [6mt, smg]
+years: [2000, 2006]
+packages:
+  - id: competition-package
+    name: "Competition Package (M3 CS in the UK)"
+    summary: "Available from December 2004 in Germany, and 'entering the year 2005' in BMW's media information; BMW UK sold it as the M3 CS. Per BMW: 19-inch wheels in the CSL's styling (225/40 R 19 on 8J at the front, 255/35 R 19 on 9.5J at the rear), retuned suspension, a 14.5:1 steering ratio (15.4:1 standard), the CSL's M Track mode and front brake discs, Alcantara on the steering wheel and handbrake lever, Alu Tec interior trim and Interlagos Blue Metallic as an exclusive paint. None of that is a body-module swap. The end year is unverified: evo's review covers 2005 to 2006, Supercars.net says 2005 only, and BMWBLOG describes a 2005 edition without naming an end. Wheels are listed under factoryWheels as competition-19-style-163m."
+paints: []
+factoryWheels:
+  - id: standard-18
+    name: "18-inch Double Spoke (Style 67)"
+    front:
+      diameterIn: 18
+      widthIn: 8
+      offsetMm: 47
+      tire: 225/45ZR18
+    rear:
+      diameterIn: 18
+      widthIn: 9
+      offsetMm: 26
+      tire: 255/40ZR18
+  - id: optional-19
+    name: "19-inch optional wheel"
+    front:
+      diameterIn: 19
+      widthIn: 8
+      offsetMm: 47
+      tire: 225/40ZR19
+    rear:
+      diameterIn: 19
+      widthIn: 9.5
+      offsetMm: 27
+      tire: 255/35ZR19
+  - id: competition-19-style-163m
+    name: "19-inch Competition Package wheel (Style 163M)"
+    front:
+      diameterIn: 19
+      widthIn: 8
+      offsetMm: 47
+      tire: 225/40ZR19
+    rear:
+      diameterIn: 19
+      widthIn: 9.5
+      offsetMm: 27
+      tire: 255/35ZR19
+interiors: []
+render:
+  baseAsset: e46-coupe-body
+  interiorAsset: e46-coupe-interior
+  note: "Renders the US-spec, left-hand-drive base car. Euro body details are not modelled yet, and right-hand-drive cars are not a separate variant. The Competition Package adds no body-module swap: BMW lists its contents as wheels, suspension, steering, M Track mode, brakes, interior trim and paint, and the CSL's carbon roof, rear lid and front air dam are not among them."
+sources:
+  - title: "International presskit: Twenty Years of the BMW M3"
+    publisher: "BMW Group"
+    url: https://newsroom.bmwgroup.com/emea/international-presskit--twenty-years-of-the-bmw-m3
+    tier: 1
+    accessed: 2026-11-23
+    note: "BMW Media Information 7/2007, with its six attached texts. Says towards the end of the year 2000 the E46-based M3 entered the market, based on the E46 coupé, and that production of the E46-based M3 ended in 2006. Its third-generation chapter gives 252 kW/343 hp (the ECE version; BMW's English text uses 'hp' for the 343 PS rating, and 252 kW converts to about 338 hp, which evo gives for the UK car), and says 'entering the year 2005, BMW introduced' the Competition Package. Its third-generation chapter mentions 'the BMW M3 equipped with SMG', and its technology chapter says the second-generation SMG is 'identical in technical terms with the regular manual gearbox on the BMW M3': the second source (after Motor1) for the Euro coupe's SMG."
+  - title: "40 Years of the BMW M3"
+    publisher: "BMW Group"
+    url: https://newsroom.bmwgroup.com/global/40-years-of-the-bmw-m3
+    tier: 2
+    accessed: 2026-11-23
+    note: "Rated Tier 2: a BMW-published retrospective article, which data.md's Tier 1 (technical documents, product pages) does not cover. Dated 9 October 2026. Says the third generation was 'arriving in the year 2000' with a 3.2-litre six-cylinder in-line engine developing 252 kW/343 hp."
+  - title: "Every BMW M3 Generation: Explained"
+    publisher: "Motor1.com"
+    url: https://www.motor1.com/features/787295/bmw-m3-generations/
+    tier: 2
+    accessed: 2026-11-23
+    note: "By Chris Tsui. The E46 section is headed 'E46 M3 (2000-2006)'. Says the E46 was only available as a coupe or convertible, with a six-speed manual or the six-speed SMG II automated manual."
+  - title: "Nouveau Package Compétition pour le Coupé BMW M3"
+    publisher: "BMW Group"
+    url: https://newsroom.bmwgroup.com/emea/fr/nouveau-package-competition-pour-le-coupe-bmw-m3
+    tier: 1
+    accessed: 2026-11-23
+    note: "BMW France, 25 November 2004. Package for the M3 Coupé 'disponible dès décembre 2004, en Allemagne': 19-inch wheels designed after the CSL's, 8J x 19 with 225/40 R 19 at the front and 9.5J x 19 with 255/35 R 19 at the rear, steering ratio 14.5:1 instead of 15.4:1, perforated front discs 20 mm larger from the CSL, M Track mode 'précédemment réservé au Coupé CSL', Alu Tec trim, Alcantara on the steering wheel and handbrake lever (and gear selector with the sequential M transmission), and the metallic Interlagos blue as an option. Source for the package contents and the Euro market. The only transmission it mentions is the optional sequential M gearbox."
+  - title: "New Competition Package for the BMW M3 Coupé. Attractive equipment for the exceptionally sportsminded driver."
+    publisher: "BMW Group"
+    url: https://newsroom.bmwgroup.com/americas/en-ca/new-competition-package-for-the-bmw-m3-coupe-attractive-equipment-for-the-exceptionally-sportsminded-driver/
+    tier: 1
+    accessed: 2026-11-23
+    note: "BMW Canada, 16 November 2004. The same package for the Canadian M3 Coupé, available from December 2004, with the same wheel sizes, steering ratio, M Track mode and brakes. Says Alu Tec trim and Interlagos Blue are 'available exclusively with the package' and adds a High Gloss Shadowline. BMW writes 'R 19'; the data uses the 'ZR' form that BMW's CSL press kit uses for its 19-inch tires."
+  - title: "Used BMW M3 CS (E46, 2005 - 2006) review - BMW M's forgotten modern classic"
+    publisher: "evo"
+    url: https://www.evo.co.uk/bmw/m3/6324/bmw-m3-cs-review
+    tier: 2
+    accessed: 2026-11-23
+    note: "By Jethro Bovingdon, 17 Apr 2025 (first published in evo 219, March 2016). Reviews the 'M3 CS (E46, 2005 - 2006)' and calls the CS pack 'known as the Competition Package in the US and Europe'. About the CS: CSL-style 19-inch alloys (half an inch narrower at the front than the CSL wheel), a faster rack, the CSL's M Track setting, revised spring rates, bigger discs, an Alcantara steering wheel; six-speed manual as standard, most cars with the SMG (a statement about the CS, not about the standard M3). Gives 338 bhp at 7,900 rpm, 269 lb ft at 5,000 rpm and 1,495 kg for the CS, which has the standard M3's engine; the weight is not recorded (no field). The tested car is Carbon Black, so Interlagos Blue was not the only colour. The title gives 2005 to 2006 and the body says the test car was 'the last registered in the UK in October '06' (a registration, not a build date); it is the only Tier 2 source for 2006 and nothing states the package's end, so that end year is unverified. The UK name 'M3 CS' in the package label also rests on this review at Tier 2 (BMWBLOG, Tier 3, agrees)."
+  - title: "21 Years Ago, BMW Built A Manual M3 CS Few Remember"
+    publisher: "BMWBLOG"
+    url: https://www.bmwblog.com/2026/05/23/2005-bmw-m3-e46-cs/
+    tier: 3
+    accessed: 2026-11-23
+    note: "Rated Tier 3: a blog. By Adrian Padeanu, 23 May 2026. Calls the CS 'Essentially the UK's version of the Competition Package available in the rest of Europe and the United States' and a 2005 run-out edition of the E46 sold in the UK, with an SMG option that most cars took. Gives roughly 250 to 275 UK cars (an estimate; no production number is recorded in the data), 338 hp, 269 lb-ft and 1,495 kg. It names no end year. It says the car did not carry a CS badge ('Although it did not have the CS badge')."
+  - title: "BMW E46 M3 Buyer's Guide: 10 Things You Need To Know"
+    publisher: "Supercars.net"
+    url: https://www.supercars.net/blog/bmw-e46-m3-buyers-guide/
+    tier: 3
+    accessed: 2026-11-23
+    note: "Sports Car Digest buyer's guide. Says 'Offered only in 2005, the CS model was a cross between the standard car and the rare M3 CSL', with the six-speed manual and SMG unchanged. It disagrees with evo's 2005 to 2006 on the end year, which is why the end year is unverified; BMW offered the package from December 2004 and E46 production ran to 2006."
+  - title: "Genuine 19\" Wheel Rim Light Alloy 19 Inch 9.5Jx19 ET:27 36 11 2 282 999"
+    publisher: "BMW Group (BMW Shop UK)"
+    url: https://shop.bmw.co.uk/product/genuine-19-wheel-rim-light-alloy-19-inch-9-5jx19-et-27-36-11-2-282-999
+    tier: 1
+    accessed: 2026-11-23
+    note: "BMW's own UK parts shop (a manufacturer product page). A 9.5Jx19 ET:27 light-alloy wheel, part 36112282999, whose compatibility table lists E46 M3 coupes (BL91 1999-07 to 2006-05, BL92 2000-03 to 2006-05), E46 M3 convertibles (BR91 2000-04 to 2006-08, BR92 2000-10 to 2006-08) and the M3 CSL (BL95, BL96), all ECE. The page gives no front or rear position; that this part is the rear of the CSL-style pair comes from BimmerWorld (Tier 2), which calls part 36112282999 the ZCP/CSL rear. So it is Tier 1 for a 9.5Jx19 ET27 wheel that fits these bodies, including the convertible, and Tier 2 for its position and its use on the Competition Package and the CSL. The production codes start before BMW's debut dates (the convertible's in 2000, BMW says spring 2001), so they are not used for start years; the coupe's May 2006 and the convertible's August 2006 ends agree with the 2006 end."
+  - title: "BMW M3 E46 [2000 .. 2006] wheel fitment, 3.2i (S54B32)"
+    publisher: "Koleso.ee (Astela OÜ)"
+    url: https://koleso.ee/en/valuveljed/bmw/m3/263/e46-2000-2006/544
+    tier: 3
+    accessed: 2026-11-23
+    note: "Rated Tier 3: a tire retailer's fitment lookup is neither a specialist retailer's tech article nor one of its own product listings, the two retailer pages data.md's Tier 2 covers. Fitment data for the E46 M3, without separating coupe and convertible. Lists the OEM front as 225/45R18 on 8Jx18 ET47 and the OEM rear as 255/40R18 on 9Jx18 ET26. It also lists a 19-inch pair, 225/40R19 on 8J ET47 and 255/35R19 on 9.5J ET27, without an OEM label. Second source for the widths and offsets of the 18-inch and optional 19-inch wheels."
+  - title: "ALY59367 BMW M3 Wheel/Rim Hyper Silver #36112229950"
+    publisher: "Hubcap Haven"
+    url: https://www.hubcaphaven.com/p/3015/aly59367-bmw-m3-wheel-hyper-silver-36112229950.html
+    tier: 2
+    accessed: 2026-11-23
+    note: "Retailer listing under OE part number 36112229950: style '10 Double Spoke (option code: Style 67)', 18x8, 5 lugs, 120 mm, offset 47 mm, fits the BMW M3 2001-2006 as a front wheel. Source for the 18-inch wheel's style name and, with the rear listing, its widths and offsets. This is the only Tier 2 publisher for the 18-inch widths and offsets, so those are unverified under data.md's rule."
+  - title: "ALY59368/59607 BMW M3 Wheel/Rim Hyper Silver #36112229960"
+    publisher: "Hubcap Haven"
+    url: https://www.hubcaphaven.com/p/1705/aly59368-59607-bmw-m3-wheel-hyper-silver-36112229960.html
+    tier: 2
+    accessed: 2026-11-23
+    note: "Retailer listing under OE part number 36112229960: style '10 Double Spoke (option code listed as Style 67)', 18x9, 5 lugs, 120 mm, offset 26 mm, fits the BMW M3 2001-2006 as a rear wheel."
+  - title: "BMW Wheel Info and Tech Tips"
+    publisher: "BimmerWorld"
+    url: https://www.bimmerworld.com/About-Us/Wheel-Info-Tech/
+    tier: 2
+    accessed: 2026-11-23
+    note: "Specialist shop's tech page. Its E46 M3 row lists 19x8.0 ET47 front and 19x9.5 ET27 rear as stock, and gives no 18-inch stock size (its Track A and Track B columns list 18x9.5 ET35 and 18x10.0 ET25, but as aftermarket recommendations). It agrees with the 19-inch widths and offsets used here. It calls the 19-inch pair stock, while BMW's CSL press kit calls the 19-inch wheels an option on the M3 (the 18-inch wheel is the standard fitment), so the pair is recorded as the optional wheel. The optional wheel's 8J ET47 front rests on this shop alone at Tier 2 and is unverified under data.md's rule; the 9.5J ET27 rear also matches BMW's own parts listing for the same size."
+  - title: "Genuine BMW E46 M3 ZCP Style 163M 19x8 ET47 Front Wheel"
+    publisher: "BimmerWorld"
+    url: https://www.bimmerworld.com/BMW-Parts/Genuine-BMW-E46-M3-M-cross-spoke-163-Wheel-8x19-36112282895.html
+    tier: 2
+    accessed: 2026-11-23
+    note: "US specialist shop's listing: 'the original BMW wheel as used on the E46 M3 Competition Package (ZCP)', 19x8, ET47, style 163M. Offset for the Competition Package front wheel. This is the US ZCP part; BMW's European and Canadian releases give only the width and tire, and evo's report that the CS wheel is the CSL style half an inch narrower in front fits it, so the same offset is used here. That is an inference: the front offset is unverified under data.md's rule."
+  - title: "Genuine BMW E46 M3 ZCP/CSL Style 163M 19x9.5 ET27 Rear Wheel"
+    publisher: "BimmerWorld"
+    url: https://www.bimmerworld.com/Wheels-Tires/Wheels/Genuine-BMW-E46-M3-M-cross-spoke-163-Wheel-95x19-36112282999.html
+    tier: 2
+    accessed: 2026-11-23
+    note: "US specialist shop's listing: 'the original BMW wheel as used on the E46 M3 Competition Package (ZCP) and CSL', 19x9.5, ET27, style 163M. Offset for the Competition Package rear wheel, which BMW's own UK parts listing confirms."
+  - title: "BMW M3 CSL press kit (3/2003), Press Kit for BMW M3 CSL at the Geneva Motor Show 2003"
+    publisher: "BMW Group"
+    url: https://newsroom.bmwgroup.com/americas/press-kit-for-bmw-m3-csl-at-the-geneva-motor-show-2003
+    tier: 1
+    accessed: 2026-11-23
+    note: "BMW's M3 CSL press kit (3/2003, PDF 'AG030228 M3 CSL Press Kit_GB_finalversion.pdf' linked from this page). Calls the 19-inch wheels 'available as an option on the M3' and describes them as forged ('the forged 19-inch wheels featured on the standard M3'), which is why the 19-inch pair is listed as an option and the 18-inch wheel as the standard fitment. For the CSL itself see e46-csl-coupe."

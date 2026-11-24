@@ -33,7 +33,7 @@ sources:
   - title: BMW M3 E46 [2000 .. 2006] wheel fitment, 3.2i (S54B32)
     publisher: Koleso.ee (Astela OÜ)
     url: https://koleso.ee/en/valuveljed/bmw/m3/263/e46-2000-2006/544
-    tier: 2
+    tier: 3
     accessed: 2026-11-23
     note: 'Tire retailer''s page. Lists generation "E46 [2000 .. 2006]", production 2000 - 2006, engine "3.2 L, S54B32, I6".'
 dimensions:
@@ -68,6 +68,12 @@ driverEyePoint:
 # as Style 67 at 18x8 (front) and 18x9 (rear). The sources also show 19-inch sizes (225/40 ZR 19 and
 # 255/35 ZR 19 in the owner's manual, 19x8 ET47 and 19x9.5 ET27 at BimmerWorld). Those are not
 # modelled.
+# Below data.md's verification rule (no Tier 1 source and fewer than two distinct Tier 2
+# publishers), now that Koleso.ee is Tier 3: the stock widthIn and offsetMm on both axles (Hubcap
+# Haven is the only Tier 2 publisher) and centerBoreMm 72.6 (BimmerWorld, which gives 72.56 mm, is
+# the only Tier 2 publisher). A generation has no verified field, so this comment is the record.
+# The stock tire sizes (owner's manual, Tier 1) and the 5x120 bolt pattern (Hubcap Haven and
+# BimmerWorld) still meet the rule.
 fitment:
   front:
     boltPattern: 5x120
@@ -97,7 +103,7 @@ fitment:
     - title: BMW M3 E46 [2000 .. 2006] wheel fitment, 3.2i (S54B32)
       publisher: Koleso.ee (Astela OÜ)
       url: https://koleso.ee/en/valuveljed/bmw/m3/263/e46-2000-2006/544
-      tier: 2
+      tier: 3
       accessed: 2026-11-23
       note: "Tire retailer's fitment data. Lists the OEM front as 225/45R18 on 8Jx18 ET47 and the OEM rear as 255/40R18 on 9Jx18 ET26, bolt pattern 5x120 and center bore 72.6 mm."
     - title: ALY59367 BMW M3 Wheel/Rim Hyper Silver #36112229950
