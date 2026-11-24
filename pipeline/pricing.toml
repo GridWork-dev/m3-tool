@@ -1,0 +1,37 @@
+user_agent = "m3-tool-refs/0.1 (+https://github.com/GridWork-dev/m3-tool)"
+
+[sellers.turner-motorsports]
+base_url = "https://www.turnermotorsport.com"
+tier = "polite"
+price_selectors = []
+note = "Selector hints await calibration on the first real run."
+
+[sellers.ecs-tuning]
+base_url = "https://www.ecstuning.com"
+tier = "polite"
+price_selectors = []
+note = "Selector hints await calibration on the first real run."
+
+[sellers.fcp-euro]
+base_url = "https://www.fcpeuro.com"
+tier = "polite"
+price_selectors = []
+note = "Selector hints await calibration on the first real run."
+
+[sellers.apexwheels]
+base_url = "https://apexwheels.com"
+tier = "unblock"
+price_selectors = []
+note = "Selector hints await calibration on the first real run."
+
+[sellers.ebay]
+base_url = "https://www.ebay.com"
+tier = "unblock"
+price_selectors = []
+note = "Selector hints await calibration on the first real run."
+
+[sellers.amazon]
+base_url = "https://www.amazon.com"
+tier = "unblock"
+price_selectors = []
+note = "Selector hints await calibration on the first real run."
