@@ -142,7 +142,7 @@ Tier 3 alone is enough for symptoms and "how common". The entry stays `verified:
 
 A model-wide statement in a Tier 1 source, or in two Tier 2 sources from different publishers, covers every variant it does not explicitly exclude, and a document for one market covers that market only.
 
-- **A value that a Tier 1 one-market document states covers every market** when an independent Tier 1 document that speaks for all markets says the thing the value names is the same across them (ruling R85). Example: BMW North America's service bulletin SI B 11 04 04 (a US document) names the engine code `S54B32`, and BMW Group's twenty-years press kit (an international document from another publisher) says "One engine for all countries." of the 3,246 cc straight-six, so the code is verified for every market.
+- **A value that a Tier 1 one-market document states covers every market** when an independent Tier 1 document that speaks for all markets says the thing the value names is the same across them (ruling R85). Example: BMW North America's service bulletin SI B 11 04 04 (a US document) names the engine code `S54B32`, and BMW Group's twenty-years press kit (an international document from another publisher) says "One engine for all countries." of the 3,246 cc straight-six, so the code is verified for every market. R85 covers values in generations and variants. It never widens `markets` on a maintenance item or a known issue: a schedule or a fault can differ by market even when the part is the same, so those follow "Markets".
 
 ### Unverified values in variants and generations
 
