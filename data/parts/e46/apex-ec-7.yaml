@@ -184,11 +184,15 @@ options:
       boltPattern: 5x120
       centerBoreMm: 72.56
       axle: rear
-# Labor is an estimate: the hours to bolt on a set of four wheels with the tires already mounted.
+# Labor is an estimate and rests on no source: no Apex or BMW page opened gives an install time, and nothing here comes
+# from a published labor time or install guide. The 0.5 to 1 hour range is the contributor's own allowance for bolting on a
+# set of four wheels with the tires already mounted.
 labor:
   hours: [0.5, 1]
   diy: easy
   estimated: true
+# standIn: wheel is provisional. No stand-in style is defined anywhere yet, so this id may change when the Phase 1 3D lane
+# defines the stand-in styles. The params below (seven spokes, split style) rest on Apex's Classic Line page (Tier 1).
 model:
   standIn: wheel
   params:
@@ -230,13 +234,13 @@ sources:
     url: https://web.archive.org/web/20260212140400/https://apexwheels.com/fitment-guides/bmw/m3/bmw-e46-m3-wheel-and-tire-fitment-guide
     tier: 1
     accessed: 2026-11-23
-    note: "Archived copy (web.archive.org snapshot of 2026-02-12) of Apex's E46 M3 guide. It addresses the '2001-2006 BMW E46 M3' (base car, competition package car and CSL) without separating coupe and convertible, so `bodies` is left out of `fits`. Every setup has an 'Available in' list; the flow formed EC-7 (not the forged EC-7RS or EC-7R) is in the lists for the staggered and square setups in the claims, and for the sizes recorded as options. Apex also lists 18x8.5 ET38 (ARC-8) and ET40, and 19x9 ET28, which the EC-7 size list does not offer, so those are not recorded. The axle on each option is where the guide uses the size: both when it appears on both axles (a square setup, or a rear in one setup and a front in another). The requirements the guide states per setup (spacers, camber, fender work) are in the claims, for example rear spacers of 20 mm or more and rolled or pulled fenders on the race staggered 18x10 ET25 / 18x11 ET44, and spacers, camber and fender work on both axles on the race square 18x11 ET44. The bolt pattern and center bore of 18x10.5 ET22 come from the 2024 Sizes & Prices table below, and those of 19x10.5 ET25 from this guide and the vehicle page, because no size table for it could be opened."
+    note: "Archived copy (web.archive.org snapshot of 2026-02-12) of Apex's E46 M3 guide. It addresses the '2001-2006 BMW E46 M3' (base car, competition package car and CSL) without separating coupe and convertible, so `bodies` is left out of `fits`. Every setup has an 'Available in' list; the flow formed EC-7 (not the forged EC-7RS or EC-7R) is in the lists for the staggered and square setups in the claims, and for the sizes recorded as options. Apex also lists 18x8.5 ET38 (ARC-8) and ET40, and 19x9 ET28, which the EC-7 size list does not offer, so those are not recorded. The axle on each option is where the guide uses the size: both when it appears on both axles (a square setup, or a rear in one setup and a front in another). The requirements the guide states per setup (spacers, camber, fender work) are in the claims, for example rear spacers of 20 mm or more and rolled or pulled fenders on the race staggered 18x10 ET25 / 18x11 ET44, and spacers, camber and fender work on both axles on the race square 18x11 ET44. The bolt pattern and center bore of 18x10.5 ET22 come from the 2024 Sizes & Prices table below. Those of 19x10.5 ET25 come from the vehicle page below only: no size page for it could be opened, and this guide lists the size without stating a bolt pattern or center bore."
   - title: "BMW E46 M3 Wheels"
     publisher: "Apex Wheels"
     url: https://web.archive.org/web/20260812175415/https://apexwheels.com/vehicles/bmw/m3/e46-m3
     tier: 1
     accessed: 2026-11-23
-    note: "Archived copy (web.archive.org snapshot of 2026-08-12) of Apex's E46 M3 vehicle page: 'Lightweight forged & flow formed Apex wheels for your 2001-2006 BMW E46 M3'. Source for the 2001 to 2006 years, which is Apex's range: the Euro coupe variant starts in 2000, and a 2000 car would take the wheel, so `fits.years` follows the source and not the car. It lists the EC-7 among the flow formed Classic Line wheels; its size list is for all designs, and its specification table (shown for the VS-5RS) gives bolt pattern 5x120mm, center bore 72.56mm and centering ring 'N/A Direct fit' for the E46 M3 fitment, which agrees with the EC-7 tables."
+    note: "Archived copy (web.archive.org snapshot of 2026-08-12) of Apex's E46 M3 vehicle page: 'Lightweight forged & flow formed Apex wheels for your 2001-2006 BMW E46 M3'. Source for the 2001 to 2006 years, which is Apex's range: the Euro coupe variant starts in 2000, and a 2000 car would take the wheel, so `fits.years` follows the source and not the car. It lists the EC-7 among the flow formed Classic Line wheels; its size list is for all designs, and its specification table (shown for the VS-5RS) gives bolt pattern 5x120mm, center bore 72.56mm and centering ring 'N/A Direct fit' for the E46 M3 fitment, which agrees with the EC-7 tables. It is also the source for the 19x10.5 ET25's bolt pattern and center bore, because no size page for that size could be opened; its table is shown for another wheel, so this is Apex's value for the E46 M3 fitment, not a table of the EC-7 19x10.5 ET25 itself."
   - title: "Classic Line Wheels"
     publisher: "Apex Wheels"
     url: https://web.archive.org/web/20260812172331/https://apexwheels.com/wheels/flow-formed/classic-line

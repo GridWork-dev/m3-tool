@@ -73,7 +73,8 @@ driverEyePoint:
 # Haven is the only Tier 2 publisher). A generation has no verified field, so this comment is the
 # record. The stock tire sizes (owner's manual, Tier 1), the 5x120 bolt pattern (Apex's E46 M3
 # page, Tier 1, and Hubcap Haven and BimmerWorld) and the 72.56 mm center bore (Apex's E46 M3
-# page, Tier 1, and BimmerWorld) meet the rule.
+# page, Tier 1, and BimmerWorld) meet the rule. Apex states the bore its own wheel is made with
+# ('N/A Direct fit'), not a BMW statement of the hub, and BimmerWorld independently gives 72.56.
 fitment:
   front:
     boltPattern: 5x120
@@ -99,7 +100,7 @@ fitment:
       url: https://web.archive.org/web/20260812175415/https://apexwheels.com/vehicles/bmw/m3/e46-m3
       tier: 1
       accessed: 2026-11-23
-      note: "Archived copy (web.archive.org snapshot of 2026-08-12) of the manufacturer's E46 M3 vehicle page, 'for your 2001-2006 BMW E46 M3'. Its specification table (shown for the VS-5RS) gives bolt pattern 5x120mm, center bore 72.56mm and centering ring 'N/A Direct fit' for the E46 M3 fitment, on front and rear. Source for the center bore of 72.56 mm and a Tier 1 source for the 5x120 bolt pattern. Apex's wheel sizes are not used here: the wheels in this block are the 18-inch factory ones."
+      note: "Archived copy (web.archive.org snapshot of 2026-08-12) of the manufacturer's E46 M3 vehicle page, 'for your 2001-2006 BMW E46 M3'. Its specification table (shown for the VS-5RS) gives bolt pattern 5x120mm, center bore 72.56mm and centering ring 'N/A Direct fit' for the E46 M3 fitment, on front and rear. Source for the center bore of 72.56 mm and a Tier 1 source for the 5x120 bolt pattern. Apex states the bore its own wheel is made with ('N/A Direct fit' means no centering ring), which is a manufacturer's statement about its wheel and not a BMW statement of the hub; BimmerWorld's table independently gives 72.56 for the E46. Apex's wheel sizes are not used here: the wheels in this block are the 18-inch factory ones."
     - title: "BMW M3 Owner's Manual, online edition for part no. 01 41 0 157 628 (09/03): Tire inflation pressure, p. 27"
       publisher: BMW AG
       url: https://archive.org/download/manualsonline-id-d3b68d3e-dade-4bda-875b-3716cdeabf3f/d3b68d3e-dade-4bda-875b-3716cdeabf3f.pdf
