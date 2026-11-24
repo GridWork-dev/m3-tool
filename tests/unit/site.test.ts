@@ -14,3 +14,7 @@ test('pageTitle treats a blank title as no title', () => {
   expect(pageTitle('   ')).toBe('m3-tool')
   expect(pageTitle('')).toBe('m3-tool')
 })
+
+test('pageTitle trims a padded title', () => {
+  expect(pageTitle('  About ')).toBe('About · m3-tool')
+})

@@ -38,8 +38,11 @@
   .tab-on:focus-visible {
     outline-color: var(--focus-ink);
   }
+  /* Tailwind's preflight resets links to `text-decoration: inherit`; the mock-up runs without it
+     and keeps the browser underline, which is what tells a link from the text around it. */
   a {
     color: var(--board);
+    text-decoration: underline;
     text-underline-offset: 3px;
   }
   a:hover {
@@ -84,6 +87,12 @@
     max-width: 1320px;
     margin: 0 auto;
     padding: 0 var(--s-5);
+  }
+  @media (max-width: 760px) {
+    .wrap {
+      padding-right: var(--g);
+      padding-left: var(--g);
+    }
   }
   .lede {
     color: var(--muted);

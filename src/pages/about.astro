@@ -1,19 +1,19 @@
 ---
 import Base from '../layouts/Base.astro'
+import { NOTICE } from '../lib/notice.ts'
 ---
 
-<Base title="About · M3 tool">
-  <h1 class="text-3xl font-bold">About</h1>
-  <p class="mt-4">
-    Independent fan project. Not affiliated with, endorsed by, or sponsored by BMW AG. BMW and M3
-    are trademarks of BMW AG, used here only to describe the cars.
-  </p>
-  <h2 class="mt-8 text-xl font-semibold">Licenses</h2>
-  <ul class="mt-2 list-disc pl-6">
-    <li>Code: <a class="underline" href="https://opensource.org/license/mit">MIT</a></li>
-    <li>Data: <a class="underline" href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a></li>
-    <li>3D models: license to be confirmed</li>
-  </ul>
-  <h2 class="mt-8 text-xl font-semibold">Credits</h2>
-  <p class="mt-2">Credits for reference photos appear here once 3D models are published.</p>
+<Base title="About">
+  <div class="wrap py-8">
+    <h1 class="text-(length:--fs-display)">About</h1>
+    <p class="lede text-text">{NOTICE}</p>
+    <h2 class="mt-8 text-(length:--fs-2xl)">Licenses</h2>
+    <ul class="mt-3 list-disc pl-6">
+      <li>Code: <a href="https://opensource.org/license/mit">MIT</a></li>
+      <li>Data: <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a></li>
+      <li>3D models: license to be confirmed</li>
+    </ul>
+    <h2 class="mt-8 text-(length:--fs-2xl)">Credits</h2>
+    <p class="mt-3">Credits for reference photos appear here once 3D models are published.</p>
+  </div>
 </Base>

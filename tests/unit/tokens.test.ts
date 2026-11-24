@@ -56,6 +56,11 @@ test('--edge on --floor is at least 3 (non-text contrast)', () => {
   expect(ratio('--edge', '--floor')).toBeGreaterThanOrEqual(3)
 })
 
+// Tailwind's own palette would let bg-white or text-neutral-500 compile to an off-design colour.
+test("theme.css drops Tailwind's default palette", () => {
+  expect(readFileSync('src/styles/theme.css', 'utf8')).toMatch(/^\s*--color-\*\s*:\s*initial;/m)
+})
+
 // Colours live in tokens.css and nowhere else; everything else reads a token.
 describe('no raw colour literals outside tokens.css', () => {
   const LITERAL = /(?<!&)#[0-9a-fA-F]{3,8}\b|\b(?:rgba?|hsl|hwb|oklch)\(/

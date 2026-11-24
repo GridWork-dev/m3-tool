@@ -1,8 +1,12 @@
 /* Tailwind theme: aliases onto the tokens in tokens.css, so the utilities (bg-floor, text-muted,
    border-line, rounded-md, shadow-card) read the same custom properties the CSS does. `inline` keeps
    the var() reference in the generated utility instead of copying the value. Spacing and the type
-   scale stay plain custom properties (--s-*, --fs-*). */
+   scale stay plain custom properties (--s-*, --fs-*). `--color-*: initial` drops Tailwind's default
+   palette, so a stray bg-white or text-neutral-500 compiles to nothing instead of an off-design
+   colour. Add a colour as a token in tokens.css, then alias it here. */
 @theme inline {
+  --color-*: initial;
+
   --color-floor-deep: var(--floor-deep);
   --color-floor: var(--floor);
   --color-wall: var(--wall);
