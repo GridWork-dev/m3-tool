@@ -301,7 +301,7 @@ YAML under `data/`, one entry per file, validated by the Zod schemas in `src/dat
 - A variant's body and years fit its generation's bodies and years. A part's `fits.years` and `fits.bodies` fit them too, and an empty `fits.bodies` or `fits.transmissions` is an error.
 - A maintenance item's or issue's `engine` is one of the generation's engine codes.
 - A source's `accessed` date and a price's `checked` date are not after today, with a day of slack for time zones east of UTC. Data years are 1900 to 2100.
-- The estimated driver eye point is the one spec value that may have no source.
+- The estimated driver eye point is the one sourceless exception the schema names. (amended 2026-11-23)
 
 **Dates**
 - All data dates are calendar dates (`YYYY-MM-DD`, no time of day). (amended 2026-11-23)
@@ -317,7 +317,7 @@ YAML under `data/`, one entry per file, validated by the Zod schemas in `src/dat
 ## 8. Hosting and infrastructure
 
 - **Site:** Cloudflare Workers static assets. Static requests are free and unlimited. The free plan allows 25 MiB per file and 20,000 files per version.
-- **Deploys:** GitHub Actions. `main` runs `wrangler deploy`. Each PR runs `wrangler versions upload` and gets its preview URL as a comment. (This replaced Workers Builds on 2026-11-23, by the user's choice: no GitHub app dependency, and the same Node 26 toolchain as CI.)
+- **Deploys:** GitHub Actions. `main` runs `wrangler deploy`. Each PR runs `wrangler versions upload` and gets its preview URL as a comment. (This replaced Workers Builds on 2026-11-23, by the user's choice: no GitHub app dependency, and the same Node 26 toolchain as CI.) The workflow is a build job with no secrets and a deploy job that takes only the built static files from it, skips forks and bots, and smoke-tests production after a deploy (ADR 0011). (amended 2026-11-23)
 - **Credentials:** Cloudflare tokens are minted through the API from the account's key-management token, one narrowly scoped token per purpose. Nothing is created by hand in the dashboard.
 - **R2 buckets:**
   - `<name>-models`: public, behind a custom domain, with content-hashed GLB names that can be cached forever.
@@ -415,7 +415,7 @@ Each visible product gets its own asset, built from its product photos and spec.
 - Export to GLB, then run glTF-Transform: weld, deduplicate, prune, meshopt geometry compression.
 - `prune` is `prune({ keepLeaves: true })`: the default deletes empty leaf nodes, and every anchor is one. (amended 2026-11-23)
 - KTX2 textures must be set explicitly. The `auto` default doesn't produce KTX2.
-- LODs for the Low preset. Each LOD is a separate file named `<id>.lod<N>.glb`, and each is validated on its own (`docs/standards/3d-assets.md`). Until a Phase 1 `contract` PR sets a LOD budget, a base-car LOD under the 100k-triangle floor fails `validate-asset`, and the pipeline's `validate` stage checks only `<id>.glb`. (amended 2026-11-23)
+- LODs for the Low preset. Each LOD is a separate file named `<id>.lod<N>.glb`, and each is validated on its own (`docs/standards/3d-assets.md`). A base-car LOD under the 100k-triangle floor fails `validate-asset` until a Phase 1 `contract` PR sets a triangle floor for LOD files. Separately, the pipeline's `validate` stage checks only `<id>.glb` today, and teaching it to check `.lod<N>.glb` files is Phase 1 pipeline work. (amended 2026-11-23)
 
 ### 9.6 Asset contract (enforced by `validate`)
 
@@ -542,7 +542,7 @@ Then it runs the Playwright end-to-end and visual tests on the build, then gitle
 
 **Merging to `main`** deploys to production. `main` is protected: the `check`, `e2e` and `gitleaks` checks must pass, and no approval is required, because the one maintainer can't approve their own PR. The review happens before the merge instead (section 12.3, ADR 0007). (amended 2026-11-23)
 
-**Renovate** groups dependency updates weekly. Patch and minor updates merge automatically when checks pass.
+**Renovate** groups dependency updates weekly, and waits three days after a release. Patch and minor updates merge automatically when checks pass, except `wrangler` and GitHub Actions updates, which are merged by hand (ADR 0011). (amended 2026-11-23)
 
 **3D assets** are built on the Mac. Blender isn't in CI for v1. `pipeline run <asset> --stage publish` uploads them and opens a PR.
 

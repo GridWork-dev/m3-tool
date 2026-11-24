@@ -1,8 +1,17 @@
 name: deploy
 
-# Production deploys from main and per-PR preview versions on Cloudflare Workers.
-# This workflow needs secrets, so it is not a required status check. The merge gate
-# stays check, e2e and gitleaks (see ci.yml).
+# Production deploys from main and per-PR preview versions on Cloudflare Workers (ADR 0011).
+# This workflow needs secrets, so it is not a required status check. The merge gate stays
+# check, e2e and gitleaks (see ci.yml).
+#
+# Two jobs, so the secrets never meet code a dependency could have changed:
+#   build   checks out the repo, installs its dependencies and builds. It has no secrets. All it
+#           hands on is dist/, the static files the site publishes.
+#   deploy  takes wrangler.jsonc and a wrangler lockfile from git, not from the build job, checks
+#           the config against an allowlist, installs wrangler from the lockfile with scripts off,
+#           and only then runs it. The Cloudflare secrets are set on the two wrangler steps. The
+#           deploy job runs no build-job output except the static files it publishes. Those files
+#           are trusted by design: a compromised build can still publish a malicious site.
 
 on:
   pull_request:
@@ -11,33 +20,118 @@ on:
 
 permissions:
   contents: read
-  pull-requests: write
 
 concurrency:
   group: deploy-${{ github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
-  deploy:
-    # Forks get no secrets, so only same-repo PRs and pushes to main run.
-    if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository
+  build:
+    # Forks get no secrets, and a bot's PR (Renovate, Dependabot) carries dependency changes that
+    # nobody has read, so neither gets a deploy. A push to main always does, even one a bot pushed
+    # (an automerge), so production doesn't go stale. The build job has the same condition as the
+    # deploy job, so a skipped deploy doesn't leave a build nobody uses.
+    if: >-
+      github.event_name == 'push' ||
+      (github.event.pull_request.head.repo.full_name == github.repository &&
+      !endsWith(github.actor, '[bot]') &&
+      !endsWith(github.event.pull_request.user.login, '[bot]'))
     runs-on: ubuntu-latest
-    # The Cloudflare secrets are set on the two wrangler steps only. Checkout, mise, install and
-    # build run third-party and dependency code and must never see them.
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    # No secrets here, at any level. This job runs dependency code (install, build).
     steps:
-      - uses: actions/checkout@v7
-      - uses: jdx/mise-action@v5
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: jdx/mise-action@90f833d396d0cc3674b631d2d225e306476c303a # v5.2.10
         with:
           install_args: node pnpm
       - run: pnpm install --frozen-lockfile
+      - run: pnpm check:data
       - run: pnpm build
+      - run: pnpm check:links
+      # The commit this site was built from, so the smoke test after a production deploy can tell
+      # the new version from the old one. It comes in through env, never inside the script.
+      - name: Record the commit in dist/version.txt
+        env:
+          GIT_SHA: ${{ github.sha }}
+        run: printf '%s\n' "$GIT_SHA" > dist/version.txt
+      # dist/ only. wrangler.jsonc is not uploaded: wrangler runs commands and ships code named in
+      # its config, so the deploy job gets that file from git instead.
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: site
+          path: dist/
+          if-no-files-found: error
+          include-hidden-files: true
+          overwrite: true # a re-run of all jobs uploads again under the same name
+          retention-days: 3
+
+  deploy:
+    needs: build
+    if: >-
+      github.event_name == 'push' ||
+      (github.event.pull_request.head.repo.full_name == github.repository &&
+      !endsWith(github.actor, '[bot]') &&
+      !endsWith(github.event.pull_request.user.login, '[bot]'))
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      pull-requests: write
+    # A fresh runner. The only things it takes from git are wrangler.jsonc and infra/deploy/ (the
+    # wrangler lockfile and two small scripts), at the commit that triggered the run. The only
+    # thing it takes from the build job is the static site, in site/. The Cloudflare secrets are on
+    # the two wrangler steps only, after the config is checked and wrangler is installed.
+    # tests/unit/workflows.test.ts pins these steps, in this order.
+    steps:
+      # First, because checkout empties the workspace. Non-cone mode, so exactly these paths.
+      - name: Check out wrangler.jsonc and the wrangler lockfile only
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+          sparse-checkout: |
+            /wrangler.jsonc
+            /infra/deploy/
+          sparse-checkout-cone-mode: false
+      - name: Download the built site
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: site
+          path: site
+      - name: Set up Node
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 26.13.1
+      # wrangler runs build.command from the config in a shell, and ships the main script. Only an
+      # assets-only config gets through. Plain node, no packages.
+      - name: Check wrangler.jsonc
+        run: node infra/deploy/check-config.ts wrangler.jsonc
+      # From infra/deploy/package-lock.json, with install scripts off, and with no secret in this
+      # step. The version is the one in infra/deploy/package.json, which a test keeps equal to the
+      # root package.json's.
+      - name: Install wrangler from its lockfile
+        working-directory: infra/deploy
+        run: npm ci --ignore-scripts --no-audit --no-fund
 
       - name: Deploy to production
         if: github.event_name == 'push'
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.M3_CF_DEPLOY_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.M3_CF_ACCOUNT_ID }}
-        run: pnpm wrangler deploy
+        run: ./infra/deploy/node_modules/.bin/wrangler deploy --config wrangler.jsonc --assets site
+
+      # After the production deploy: the live site must be this commit (version.txt), carry the
+      # notice, and answer 404 for an unknown path. See infra/deploy/smoke.sh. No secrets.
+      - name: Smoke test production
+        if: github.event_name == 'push'
+        timeout-minutes: 4 # the script gives up after 180 seconds; this is the backstop
+        env:
+          EXPECTED_SHA: ${{ github.sha }}
+        run: bash infra/deploy/smoke.sh
 
       - name: Upload preview version
         if: github.event_name == 'pull_request'
@@ -48,7 +142,7 @@ jobs:
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.M3_CF_ACCOUNT_ID }}
           PREVIEW_ALIAS: pr-${{ github.event.number }}
         run: |
-          pnpm wrangler versions upload --preview-alias "$PREVIEW_ALIAS" | tee wrangler-output.txt
+          ./infra/deploy/node_modules/.bin/wrangler versions upload --config wrangler.jsonc --assets site --preview-alias "$PREVIEW_ALIAS" | tee wrangler-output.txt
           url="$(awk '/^Version Preview Alias URL:/ { print $NF; exit }' wrangler-output.txt)"
           if [ -z "$url" ]; then
             echo "::error::wrangler did not print a 'Version Preview Alias URL' line"
