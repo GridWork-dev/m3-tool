@@ -66,6 +66,50 @@ def test_parse_verdict_never_raises_on_odd_input() -> None:
         assert parse_verdict(message).ok is False
 
 
+# A malformed outer object must never hand the verdict to an object nested inside it.
+@pytest.mark.parametrize(
+    "message",
+    [
+        '{"pass": false, "issues": [{"pass": true, "issues": []}',  # truncated outer
+        '{"pass": false, "issues": [{"pass": true, "issues": []}]',  # one brace short
+        '{"pass": false, "issues": [{"pass": true, "issues": []}, {"oops"',
+        '{"note": "draft", "x": {"pass": true, "issues": []}',  # the outer has no closing brace
+        '{"x": ] {"pass": true, "issues": []} }',  # a mismatched closer
+        '{oops {"pass": true, "issues": []}',  # a stray open brace before the verdict
+        '{"pass": false, "text": "unterminated {"pass": true, "issues": []}',
+        "```json\n" + '{"pass": false, "issues": [{"pass": true, "issues": []}' + "\n```",
+    ],
+)
+def test_an_object_nested_in_a_malformed_outer_object_is_never_the_verdict(message: str) -> None:
+    _assert_failed_with_no_valid_verdict(parse_verdict(message), message)
+
+
+def test_a_complete_verdict_after_a_balanced_junk_object_still_counts() -> None:
+    # `{hood}` is a closed region, so the scan resumes after it: only an unclosed one is fatal.
+    assert parse_verdict("The {hood} is fine.\n" + _verdict_json(True)).ok is True
+    assert parse_verdict("```\n{not json}\n```\n" + _verdict_json(True)).ok is True
+
+
+@pytest.mark.parametrize(
+    "message",
+    [
+        '{"pass": false, "pass": true, "issues": []}',
+        '{"pass": true, "pass": false, "issues": []}',
+        '{"pass": true, "issues": [{"severity": "blocker", "text": "t"}], "issues": []}',
+        '{"pass": true, "issues": [{"severity": "blocker", "severity": "minor", "text": "t"}]}',
+        '{"pass": true, "issues": [], "extra": {"a": 1, "a": 2}}',  # a duplicate at any level
+    ],
+)
+def test_duplicate_json_keys_are_a_failed_verdict(message: str) -> None:
+    _assert_failed_with_no_valid_verdict(parse_verdict(message), message)
+
+
+def test_a_duplicate_key_in_an_earlier_object_does_not_hide_a_later_good_verdict() -> None:
+    message = '{"pass": true, "pass": false}\n' + _verdict_json(True)
+    # The broken object voids nothing that came before it, and the later object is complete.
+    assert parse_verdict(message).ok is True
+
+
 def test_parse_verdict_rejects_a_missing_pass_field() -> None:
     message = json.dumps({"issues": []})
     _assert_failed_with_no_valid_verdict(parse_verdict(message), message)
@@ -225,6 +269,20 @@ def test_critic_prompt_states_the_fixed_rules(kind: Kind) -> None:
         assert field in prompt
     for severity in ("blocker", "major", "minor"):
         assert severity in prompt
+
+
+@pytest.mark.parametrize("kind", KINDS)
+def test_critic_prompt_example_is_a_consistent_verdict(kind: Kind) -> None:
+    # The example teaches the shape: `pass` must be false next to a blocker, or a critic that
+    # copies it literally contradicts the prompt's own rule.
+    lines = [line for line in critic_prompt(kind, ["x"]).splitlines() if line.startswith("{")]
+    assert len(lines) == 1
+    example = cast("dict[str, object]", json.loads(lines[0]))
+    entries = cast("list[dict[str, str]]", example["issues"])
+    has_blocker = any(entry["severity"] == "blocker" for entry in entries)
+    assert example["pass"] is (not has_blocker)
+    assert parse_verdict(lines[0]).raw == lines[0]
+    assert [i.severity for i in parse_verdict(lines[0]).issues] == [e["severity"] for e in entries]
 
 
 def test_critic_prompt_differs_by_kind() -> None:

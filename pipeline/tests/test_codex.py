@@ -56,7 +56,12 @@ class FakeRun:
         if self.raises is not None:
             raise self.raises
         if self.message is not None:
-            Path(cmd[list(cmd).index("-o") + 1]).write_text(self.message, "utf-8")
+            # Like Codex, resolve a relative `-o` path against the child's own working directory.
+            target = Path(cmd[list(cmd).index("-o") + 1])
+            if not target.is_absolute():
+                target = (cwd or Path.cwd()) / target
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_text(self.message, "utf-8")
         return subprocess.CompletedProcess(list(cmd), self.returncode, "headers\n", self.stderr)
 
 
@@ -176,17 +181,28 @@ def test_child_env_drops_openai_and_anthropic_api_keys() -> None:
     assert "OPENAI_API_KEY" in base  # the caller's mapping is left alone
 
 
+@pytest.mark.parametrize("name", ["CODEX_API_KEY", "CODEX_ACCESS_TOKEN"])
+def test_child_env_drops_the_codex_credential_overrides(name: str) -> None:
+    # `codex exec` calls the API with CODEX_API_KEY instead of the ChatGPT login (verified: a
+    # dummy value gave a 401), and CODEX_ACCESS_TOKEN is a second override.
+    base = {name: "secret", "OPENAI_API_KEY": "x", "HOME": "/home/x"}
+    assert child_env(base) == {"HOME": "/home/x"}
+
+
 def test_run_codex_hands_the_child_an_environment_without_the_api_keys(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     monkeypatch.setenv("OPENAI_API_KEY", "sk-openai")
     monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-anthropic")
+    monkeypatch.setenv("CODEX_API_KEY", "sk-codex")
+    monkeypatch.setenv("CODEX_ACCESS_TOKEN", "token")
     monkeypatch.setenv("M3_TEST_MARKER", "kept")
     fake = _install(monkeypatch, FakeRun())
     run_codex("p", [], cwd=tmp_path, last_message=tmp_path / "last.md")
     env = fake.calls[0]["env"]
     assert isinstance(env, dict)
-    assert "OPENAI_API_KEY" not in env and "ANTHROPIC_API_KEY" not in env
+    for name in ("OPENAI_API_KEY", "ANTHROPIC_API_KEY", "CODEX_API_KEY", "CODEX_ACCESS_TOKEN"):
+        assert name not in env
     assert env["M3_TEST_MARKER"] == "kept"
 
 
@@ -279,3 +295,23 @@ def test_run_codex_turns_a_timeout_into_a_codex_error(
     _install(monkeypatch, FakeRun(raises=subprocess.TimeoutExpired(["codex"], 7)))
     with pytest.raises(CodexError, match="timed out after 7s"):
         run_codex("p", [], cwd=tmp_path, last_message=tmp_path / "last.md", timeout_s=7)
+
+
+def test_run_codex_resolves_a_relative_last_message_once_for_cleanup_argv_and_read(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    ours = tmp_path / "ours"
+    theirs = tmp_path / "theirs"
+    ours.mkdir()
+    theirs.mkdir()
+    monkeypatch.chdir(ours)
+    fake = _install(monkeypatch, FakeRun(message="from the right file"))
+
+    answer = run_codex("p", [], cwd=theirs, last_message=Path("out/last.md"))
+
+    assert answer == "from the right file"
+    cmd = cast("list[str]", fake.calls[0]["cmd"])
+    passed = Path(cmd[cmd.index("-o") + 1])
+    assert passed.is_absolute()
+    assert passed.resolve() == (ours / "out" / "last.md").resolve()
+    assert not (theirs / "out").exists()  # Codex wrote where we read, not under its own cwd

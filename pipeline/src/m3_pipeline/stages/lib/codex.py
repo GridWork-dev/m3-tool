@@ -8,8 +8,9 @@ Facts about the CLI, each verified in this project, that shape the code below:
   `build_argv` puts the prompt before every `-i`.
 - Codex waits on an inherited stdin, so `run_codex` closes it.
 - Stdout carries headers, so the answer is read from the `-o` file.
-- The ChatGPT login is what is billed. An API key in the child's environment would flip it to API
-  billing, so `child_env` drops them.
+- The ChatGPT login is what is billed. An API key or access token in the child's environment would
+  flip it to API billing (`codex exec` calls the API with `CODEX_API_KEY` instead of falling back
+  to the login), so `child_env` drops them.
 """
 
 import os
@@ -27,8 +28,11 @@ Sandbox = Literal["read-only", "workspace-write"]
 _run = run_process
 
 _BINARY_ENV = "M3_CODEX_BIN"
-# Keys that would flip a tool from the subscription login to API billing (AGENTS.md).
-_DROPPED_ENV = frozenset({"OPENAI_API_KEY", "ANTHROPIC_API_KEY"})
+# Variables that would flip Codex from the subscription login to API billing (AGENTS.md). The
+# last two are Codex's own overrides: `codex exec` uses `CODEX_API_KEY` in place of the login.
+_DROPPED_ENV = frozenset(
+    {"OPENAI_API_KEY", "ANTHROPIC_API_KEY", "CODEX_API_KEY", "CODEX_ACCESS_TOKEN"}
+)
 _STDERR_TAIL_CHARS = 2000
 
 
@@ -53,8 +57,9 @@ def codex_binary(env: Mapping[str, str] | None = None) -> Path:
 
 
 def child_env(base: Mapping[str, str] | None = None) -> dict[str, str]:
-    """A copy of the environment for the Codex child, without `OPENAI_API_KEY` and
-    `ANTHROPIC_API_KEY`, so the CLI keeps using the ChatGPT login. `base` defaults to ours."""
+    """A copy of the environment for the Codex child, without `OPENAI_API_KEY`,
+    `ANTHROPIC_API_KEY`, `CODEX_API_KEY` and `CODEX_ACCESS_TOKEN`, so the CLI keeps using the
+    ChatGPT login. `base` defaults to ours."""
     source = os.environ if base is None else base
     return {key: value for key, value in source.items() if key not in _DROPPED_ENV}
 
@@ -99,12 +104,16 @@ def run_codex(
 ) -> str:
     """Run one `codex exec` in `cwd` and return the text of its last message, stripped.
 
-    Codex writes that message to `last_message` (`-o`). A file left there by an earlier run is
-    removed first, so a run that writes nothing can't return a stale answer. Raises CodexError
-    for every failure: a binary that can't start, a timeout, a nonzero exit (with the tail of
-    stderr) and an empty or missing last message.
+    Codex writes that message to `last_message` (`-o`; a relative path is made absolute against
+    our working directory, not `cwd`). A file left there by an earlier run is removed first, so a
+    run that writes nothing can't return a stale answer. Raises CodexError for every failure: a
+    binary that can't start, a timeout, a nonzero exit (with the tail of stderr) and an empty or
+    missing last message.
     """
     binary = codex_binary()
+    # Codex resolves `-o` against `cwd`, we resolve it against our own directory: make the path
+    # absolute once, so cleanup, `-o` and the read all name the same file.
+    last_message = last_message.absolute()
     argv = build_argv(binary, prompt, last_message, images, sandbox=sandbox)
     try:
         last_message.parent.mkdir(parents=True, exist_ok=True)

@@ -19,7 +19,21 @@ Severity = Literal["blocker", "major", "minor"]
 Kind = Literal["synth-view", "exterior", "interior", "product"]
 
 _NO_VALID_VERDICT = "critic returned no valid verdict"
-_DECODER = json.JSONDecoder()
+_CLOSER = {"{": "}", "[": "]"}
+
+
+def _reject_duplicate_keys(pairs: list[tuple[str, object]]) -> dict[str, object]:
+    """A JSON object with a repeated key is ambiguous (`{"pass": false, "pass": true}`: the
+    last would win), so it does not decode. Applies at every level."""
+    result: dict[str, object] = {}
+    for key, value in pairs:
+        if key in result:
+            raise ValueError(f"duplicate key {key!r}")
+        result[key] = value
+    return result
+
+
+_DECODER = json.JSONDecoder(object_pairs_hook=_reject_duplicate_keys)
 
 
 @dataclass(frozen=True)
@@ -40,13 +54,45 @@ def _failed(text: str, raw: str) -> Verdict:
     return Verdict(False, (Issue("blocker", text, ""),), raw)
 
 
+def _region_end(message: str, start: int) -> int | None:
+    """The index just past the bracket group that opens at `start`, or None if it never closes.
+
+    Quoted strings are skipped. A closer that does not match the innermost opener ends the
+    search with None: the group is too broken to say where it stops.
+    """
+    stack: list[str] = []
+    in_string = False
+    escaped = False
+    for index in range(start, len(message)):
+        char = message[index]
+        if in_string:
+            if escaped:
+                escaped = False
+            elif char == "\\":
+                escaped = True
+            elif char == '"':
+                in_string = False
+        elif char == '"':
+            in_string = True
+        elif char in _CLOSER:
+            stack.append(_CLOSER[char])
+        elif char in "}]":
+            if not stack or stack.pop() != char:
+                return None
+            if not stack:
+                return index + 1
+    return None
+
+
 def _last_object(message: str) -> dict[str, object] | None:
     """The last top-level JSON object in `message`, wherever it sits (bare, in a fence, in prose).
 
-    Scans every `{` and skips past an object once it decodes, so the objects nested inside an
-    `issues` list are never taken for the verdict. A `{` that does not decode voids any earlier
-    object: a half-formed object after a complete one means the final answer is broken, and a
-    gate must not pass on the earlier draft.
+    Only top-level candidates count. The scan decodes at each `{` and resumes after the object,
+    so the objects nested in an `issues` list are never taken for the verdict. A `{` that does
+    not decode voids any earlier object (a broken final answer must not pass on an earlier
+    draft) and the scan resumes after its closing brace, never inside it: a nested object in a
+    broken outer one is not a candidate. A broken group that never closes swallows the rest of
+    the message, so the result is None.
     """
     last: dict[str, object] | None = None
     start = message.find("{")
@@ -55,10 +101,13 @@ def _last_object(message: str) -> dict[str, object] | None:
             value, end = _DECODER.raw_decode(message, start)
         except ValueError, RecursionError:
             last = None
-            start = message.find("{", start + 1)
-            continue
-        if isinstance(value, dict):
-            last = cast("dict[str, object]", value)
+            closed = _region_end(message, start)
+            if closed is None:
+                return None
+            end = closed
+        else:
+            if isinstance(value, dict):
+                last = cast("dict[str, object]", value)
         start = message.find("{", end)
     return last
 
@@ -143,7 +192,7 @@ def critic_prompt(kind: Kind, checklist: Sequence[str]) -> str:
         *(f"- {item}" for item in checklist),
         "",
         "Reply with one JSON object and nothing else, in this shape:",
-        '{"pass": true, "issues": [{"severity": "blocker", "text": "what is wrong", '
+        '{"pass": false, "issues": [{"severity": "blocker", "text": "what is wrong", '
         '"fix": "the concrete change to make"}]}',
         '"severity" is one of "blocker" (fails the model on its own), "major" (a clear departure '
         'from the checklist) or "minor" (cosmetic). List every issue you find, with a fix for '
