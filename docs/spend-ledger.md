@@ -1,6 +1,6 @@
 # Spend ledger
 
-Every paid API call is logged here, such as 3D generation now and scraping later. Hosting stays on free tiers, so only these calls cost money.
+Every paid API call is logged here, such as 3D generation now and scraping later. Hosting stays on free tiers, so only these calls cost money. The table below must stay last: nothing may follow it, and every line after its header must be a table row, because the spend guard reads the ledger that way and denies every paid call on a line it cannot read.
 
 **Rules**
 - The user approves a cap at the start of each session. An earlier approval covers nothing.
