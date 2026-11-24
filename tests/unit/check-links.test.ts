@@ -85,3 +85,58 @@ test('checkLinks accepts a link to each citation host, and still flags a retaile
     { file: 'index.html', href: 'https://www.hubcaphaven.com/p/3015/x.html' },
   ])
 })
+
+test('checkLinks looks through entities, and reports the decoded href', async () => {
+  await write(
+    'index.html',
+    '<a href="&#104;ttps://shop.example">a</a><a href="https&#58;//shop.example/p">b</a>',
+  )
+  expect(await checkLinks(dist)).toEqual([
+    { file: 'index.html', href: 'https://shop.example' },
+    { file: 'index.html', href: 'https://shop.example/p' },
+  ])
+})
+
+test('checkLinks flags an area, a form action and an iframe, and names the element', async () => {
+  await write(
+    'index.html',
+    [
+      '<map name="m"><area href="https://shop.example/area" alt="x"></map>',
+      '<form action="https://shop.example/form"></form>',
+      '<iframe src="https://shop.example/frame"></iframe>',
+      '<form action="/search"></form>',
+    ].join(''),
+  )
+  expect(await checkLinks(dist)).toEqual([
+    { file: 'index.html', href: 'https://shop.example/area', source: 'area href' },
+    { file: 'index.html', href: 'https://shop.example/form', source: 'form action' },
+    { file: 'index.html', href: 'https://shop.example/frame', source: 'iframe src' },
+  ])
+})
+
+test('checkLinks flags any <base href>, including one that points at the site', async () => {
+  await write('a.html', '<head><base href="/"></head><a href="/about">x</a>')
+  await write('b.html', '<head><base href="https://x.example/"></head>')
+  expect(await checkLinks(dist)).toEqual([
+    { file: 'a.html', href: '/', source: 'base href' },
+    { file: 'b.html', href: 'https://x.example/', source: 'base href' },
+  ])
+})
+
+test('checkLinks reads a link inside <noscript> and a duplicate href like a browser', async () => {
+  await write(
+    'index.html',
+    '<noscript><a href="https://shop.example/ns">x</a></noscript><a href="/ok" href="https://shop.example/dup">y</a>',
+  )
+  expect(await checkLinks(dist)).toEqual([{ file: 'index.html', href: 'https://shop.example/ns' }])
+})
+
+test('the CLI names the element of a violation that is not an anchor', async () => {
+  await write(
+    'index.html',
+    '<head><base href="https://x.example/"></head><a href="//shop.example">a</a>',
+  )
+  const { code, stdout } = runCli(dist)
+  expect(code).toBe(1)
+  expect(stdout).toBe('index.html: https://x.example/ [base href]\nindex.html: //shop.example\n')
+})

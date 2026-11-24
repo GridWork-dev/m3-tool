@@ -1,9 +1,11 @@
 import type { Dirent } from 'node:fs'
 import { readdir, readFile } from 'node:fs/promises'
 import { join, relative } from 'node:path'
-import { findHrefs, isAllowedHref } from '../src/lib/link-policy.ts'
+import { findLinks, isLinkAllowed } from '../src/lib/link-policy.ts'
 
-export type LinkViolation = { file: string; href: string }
+// `source` names the element and attribute (`base href`, `form action`), and is left out for an
+// ordinary anchor.
+export type LinkViolation = { file: string; href: string; source?: string }
 
 // Returns one violation per disallowed href. Throws, rather than returning [], when there is
 // nothing to scan (no such directory, or no .html files in it) so an empty build can't pass.
@@ -29,8 +31,14 @@ export async function checkLinks(distDir: string): Promise<LinkViolation[]> {
   const violations: LinkViolation[] = []
   for (const path of files) {
     const html = await readFile(path, 'utf8')
-    for (const href of findHrefs(html)) {
-      if (!isAllowedHref(href)) violations.push({ file: relative(distDir, path), href })
+    for (const link of findLinks(html)) {
+      if (isLinkAllowed(link)) continue
+      const file = relative(distDir, path)
+      violations.push(
+        link.element === 'a'
+          ? { file, href: link.value }
+          : { file, href: link.value, source: `${link.element} ${link.attribute}` },
+      )
     }
   }
   return violations
@@ -45,7 +53,9 @@ if (import.meta.main) {
   }
   try {
     const violations = await checkLinks(distDir)
-    for (const { file, href } of violations) console.log(`${file}: ${href}`)
+    for (const { file, href, source } of violations) {
+      console.log(source === undefined ? `${file}: ${href}` : `${file}: ${href} [${source}]`)
+    }
     process.exitCode = violations.length > 0 ? 1 : 0
   } catch (error) {
     console.error(`check-links: ${error instanceof Error ? error.message : String(error)}`)
