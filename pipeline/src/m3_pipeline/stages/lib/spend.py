@@ -12,10 +12,13 @@ Rules, checked in this order:
 2. Exactly one ledger row carries the call's tag, and it is dated today.
 3. That row's cost covers the price.
 4. Its running-total cell equals the total recomputed from the rows (catches hand-math errors).
-5. The rows before it plus the price stay within the cap, and so does the sum of every row.
+5. The rows before it plus the price stay within the cap.
 6. The journal has not authorized the tag before: one tag, one call.
-7. Everything the journal has ever authorized, plus the price, stays within the cap too. The
-   ledger can lose a spent row (a bad merge, a tidy-up); the journal remembers it.
+7. The reconciled spend, with this call, stays within the cap. Each tag counts once, at the
+   higher of its ledger cost and what the journal authorized for it, and a ledger row without a
+   call tag counts at its cost. The ledger can lose a spent row (a bad merge, a tidy-up) and the
+   journal can miss spend that only the ledger records, so neither total is trusted alone:
+   two independent checks both pass while the sum of the two sources passes the cap.
 
 The cap is the smallest of the cap row's cell, the `cap` argument and `SPIKE_CAP_USD`.
 
@@ -65,6 +68,11 @@ _SESSION_CAP = re.compile(rf"\$({_AMOUNT})(?:\s+\(.*\))?")
 _COST = re.compile(_AMOUNT)
 _RUNNING = re.compile(rf"({_AMOUNT})\s*/\s*{_AMOUNT}")
 _SEPARATOR_CELL = re.compile(r":?-{3,}:?")
+# Vertical bars a paste or an editor can swap in for `|`: fullwidth, box drawing, broken bar,
+# divides, light vertical bar. A line with one is a row, not prose.
+_LOOKALIKE_BARS = "|\uff5c\u2502\u2503\u2551\u00a6\u2223\u2758\u23d0"
+_LEADING_DATE = re.compile(r"\s*[0-9]{4}-[0-9]{2}-[0-9]{2}")
+_DOLLAR_OR_DIGIT = re.compile(r"[$0-9]")
 _CALL_TAG = re.compile(r"spike:([a-z0-9]+(?:-[a-z0-9]+)*)(?:\s.*)?")
 _SESSION_LABEL = re.compile(r"cap approved by the user session:([a-z0-9-]+)(?:\s.*)?")
 
@@ -164,25 +172,42 @@ def _row(line_number: int, cells: list[str]) -> LedgerRow:
     )
 
 
+def _looks_like_a_row(line: str) -> bool:
+    """Whether a line outside the framed table still reads as a ledger row.
+
+    Skipping such a line as prose would drop its cost from the cap, so after the table has
+    started it is denied instead. A row can lose its frame three ways: its leading `|`, the
+    bars themselves (look-alike characters), or the bars and the frame together (a row pasted
+    with tabs or spaces, which still starts with its date or carries a tab and an amount).
+    """
+    return (
+        any(bar in line for bar in _LOOKALIKE_BARS)
+        or ("\t" in line and _DOLLAR_OR_DIGIT.search(line) is not None)
+        or _LEADING_DATE.match(line) is not None
+    )
+
+
 def parse_ledger(text: str) -> list[LedgerRow]:
     """The data rows of `docs/spend-ledger.md`.
 
     The first table line must be the exact header and the second the separator, so a column
     that moved cannot be misread silently. Prose lines are ignored, except that once the table
-    has started a line containing `|` must be a table row: a row that lost its leading `|` would
-    otherwise be skipped and its cost left out of the cap. Any malformed row raises `SpendDenied`
-    naming its line, because a row the guard cannot read is a row it cannot count.
+    has started a line that looks like a row (see `_looks_like_a_row`) must be a framed table
+    row: a row that lost its frame would otherwise be skipped and its cost left out of the cap.
+    Any malformed row raises `SpendDenied` naming its line, because a row the guard cannot read
+    is a row it cannot count.
     """
     rows: list[LedgerRow] = []
     expecting = "header"
     for number, line in enumerate(text.splitlines(), start=1):
         if not line.strip().startswith("|"):
-            if expecting != "header" and "|" in line:
+            if expecting != "header" and _looks_like_a_row(line):
                 # Skipping it as prose would drop its cost from the cap.
                 raise _bad(
                     number,
-                    "this line has a '|' but does not start with '|': it would be skipped as "
-                    "prose and its cost would escape the cap",
+                    "this line looks like a table row (a bar or look-alike, a tab and an "
+                    "amount, or a leading date) but does not start with '|': it would be "
+                    "skipped as prose and its cost would escape the cap",
                 )
             continue
         cells = _cells(number, line)
@@ -207,8 +232,8 @@ def _approve(
     today: dt.date,
     cap: Decimal,
 ) -> tuple[LedgerRow, Decimal]:
-    """Checks 1 to 5 over the parsed ledger. Returns the row that authorizes the call and the
-    cap that applies, for the journal checks that follow."""
+    """Checks 1 to 5, which need only the ledger. Returns the row that authorizes the call and
+    the cap that applies, for the journal checks that follow."""
     approved_caps = [
         row.session_cap
         for row in rows
@@ -260,10 +285,28 @@ def _approve(
         raise SpendDenied(
             f"{before} already spent plus the price {price} would pass the {limit:.2f} cap"
         )
-    total = sum((each.cost for each in rows), Decimal(0))
-    if total > limit:
-        raise SpendDenied(f"the ledger totals {total}, over the {limit:.2f} cap")
     return row, limit
+
+
+def _reconciled_spend(rows: list[LedgerRow], journal_prices: dict[str, Decimal]) -> Decimal:
+    """What has been spent, counting each tag once at the higher of its ledger cost (all of its
+    rows added) and its journal price, a missing side being zero. A row without a call tag has no
+    journal counterpart and counts at its cost.
+
+    Adding the ledger total to the journal total would count every spent tag twice, and checking
+    them separately lets spend recorded in only one of them hide behind the other.
+    """
+    spent = Decimal(0)
+    ledger_by_tag: dict[str, Decimal] = {}
+    for row in rows:
+        tag = call_tag(row.purpose)
+        if tag is None:
+            spent += row.cost
+        else:
+            ledger_by_tag[tag] = ledger_by_tag.get(tag, Decimal(0)) + row.cost
+    for tag in ledger_by_tag.keys() | journal_prices.keys():
+        spent += max(ledger_by_tag.get(tag, Decimal(0)), journal_prices.get(tag, Decimal(0)))
+    return spent
 
 
 def _read(path: Path, what: str) -> str:
@@ -273,18 +316,18 @@ def _read(path: Path, what: str) -> str:
         raise SpendDenied(f"could not read the {what} at {path}: {error}") from error
 
 
-def _read_journal(journal: Path) -> tuple[set[str], Decimal]:
-    """Every tag the journal mentions (outcomes included) and the sum of the prices it has
-    authorized. A failed call's price stays in the sum: the guard cannot tell a failed call
-    that cost nothing from one that was billed.
+def _read_journal(journal: Path) -> tuple[set[str], dict[str, Decimal]]:
+    """Every tag the journal mentions (outcomes included) and the price it authorized for each
+    tag. A failed call's price stays: the guard cannot tell a failed call that cost nothing from
+    one that was billed.
 
     A line that is not a JSON object with a string `tag`, or an authorization without a valid
     string `price`, denies everything: a torn or edited line must not hide a spent tag or price.
     """
     if not journal.exists():
-        return set(), Decimal(0)
+        return set(), {}
     tags: set[str] = set()
-    authorized = Decimal(0)
+    authorized: dict[str, Decimal] = {}
     for number, line in enumerate(_read(journal, "spend journal").splitlines(), start=1):
         if not line.strip():
             continue
@@ -304,14 +347,16 @@ def _read_journal(journal: Path) -> tuple[set[str], Decimal]:
                     f"{journal} line {number} is an authorization without a valid string "
                     "'price': repair it"
                 )
-            authorized += Decimal(price)
+            authorized[tag] = authorized.get(tag, Decimal(0)) + Decimal(price)
     return tags, authorized
 
 
 def _json_default(value: object) -> str:
     # Money goes into the journal as a string: JSON has no Decimal, and a float loses cents.
+    # Fixed-point, because `str(Decimal("20.00").normalize())` is "2E+1", which the journal
+    # reader rejects.
     if isinstance(value, Decimal):
-        return str(value)
+        return format(value, "f")
     if isinstance(value, dt.date):
         return value.isoformat()
     raise TypeError(f"{type(value).__name__} is not JSON serializable")
@@ -397,16 +442,17 @@ def authorize(
             # Read the ledger inside the lock: the row we check must be the one that exists now.
             rows = parse_ledger(_read(ledger, "ledger"))
             row, limit = _approve(rows, tag, price, session, today, cap)
-            tags, authorized = _read_journal(journal)
+            tags, authorized_prices = _read_journal(journal)
             if tag in tags:
                 raise SpendDenied(
                     f"tag {tag!r} is already authorized in {journal}: one tag authorizes one "
                     "call, so add a new row with a new tag"
                 )
-            if authorized + price > limit:
+            spent = _reconciled_spend(rows, {**authorized_prices, tag: price})
+            if spent > limit:
                 raise SpendDenied(
-                    f"the journal has already authorized {authorized} in total; plus the price "
-                    f"{price} would pass the {limit:.2f} cap, even if the ledger shows less"
+                    f"spend would reach {spent} against the {limit:.2f} cap (each tag counts "
+                    "once, at the higher of its ledger cost and its journal price)"
                 )
             entry: dict[str, object] = {
                 "tag": tag,

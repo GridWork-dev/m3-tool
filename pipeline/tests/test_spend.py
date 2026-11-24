@@ -195,7 +195,7 @@ def test_a_smaller_cap_cell_wins_over_the_hard_cap(tmp_path: Path) -> None:
 def test_total_of_all_rows_over_cap_is_denied_even_if_this_row_fits(tmp_path: Path) -> None:
     # A later row already pushed the ledger past the cap, so nothing more is authorized.
     rows = (cap_approval(), call("gen-1", "0.40"), call("later-1", "60.00"))
-    with pytest.raises(SpendDenied, match=r"totals 60\.40.*50\.00 cap"):
+    with pytest.raises(SpendDenied, match=r"would reach 60\.40 against the 50\.00 cap"):
         attempt(tmp_path, *rows)
 
 
@@ -370,6 +370,27 @@ def test_the_journal_records_the_authorization(tmp_path: Path) -> None:
     assert isinstance(entry["at"], str)
 
 
+def test_a_normalized_price_is_journaled_in_fixed_point_and_read_back(tmp_path: Path) -> None:
+    # Decimal("20.00").normalize() is Decimal("2E+1"); str() of it would be unreadable to the
+    # journal reader and deny everything afterwards.
+    normalized = Decimal("20.00").normalize()
+    assert str(normalized) == "2E+1"
+    ledger = write_ledger(tmp_path, cap_approval(), call("gen-a", "20.00"), call("gen-b", "5.00"))
+    journal = tmp_path / "j.jsonl"
+    authorize("gen-a", normalized, ledger=ledger, journal=journal, today=TODAY, session=SESSION)
+
+    (entry,) = journal_entries(journal)
+    assert entry["price"] == "20"
+    grant("gen-b", ledger, journal)  # reads the journal back: it must not be corrupt
+
+
+def test_record_outcome_writes_decimals_in_fixed_point(tmp_path: Path) -> None:
+    journal = tmp_path / "j.jsonl"
+    record_outcome(journal, "gen-1", cost=Decimal("1E+1"), tiny=Decimal("1E-7"))
+    (entry,) = journal_entries(journal)
+    assert (entry["cost"], entry["tiny"]) == ("10", "0.0000001")
+
+
 def test_authorize_creates_the_journal_directory(tmp_path: Path) -> None:
     journal = tmp_path / "state" / "m3-tool" / "j.jsonl"
     authorize(
@@ -407,8 +428,8 @@ def test_the_journal_total_caps_spend_when_a_spent_row_leaves_the_ledger(tmp_pat
         price="25.00",
     )
     # A bad conflict resolution drops gen-a's row: the ledger now totals 25.00 and gen-c fits
-    # it (49.00), but the journal says 45.00 was already authorized.
-    with pytest.raises(SpendDenied, match=r"journal.*45\.00.*would pass the 50\.00 cap"):
+    # it (49.00), but the journal remembers gen-a's 20.00, so spend would reach 69.00.
+    with pytest.raises(SpendDenied, match=r"would reach 69\.00 against the 50\.00 cap"):
         attempt(
             tmp_path,
             cap_approval(),
@@ -430,8 +451,74 @@ def test_a_failed_calls_authorized_price_still_counts_toward_the_cap(tmp_path: P
     attempt(tmp_path, cap_approval(), call("gen-a", "40.00"), tag="gen-a", price="40.00")
     record_outcome(tmp_path / "j.jsonl", "gen-a", status="failed")
     rows = (cap_approval(), call("gen-a", "0.00"), call("gen-b", "11.00"))  # gen-a corrected to 0
-    with pytest.raises(SpendDenied, match=r"journal.*40\.00.*would pass the 50\.00 cap"):
+    with pytest.raises(SpendDenied, match=r"would reach 51\.00 against the 50\.00 cap"):
         attempt(tmp_path, *rows, tag="gen-b", price="11.00")
+
+
+def test_ledger_only_spending_and_a_dropped_row_cannot_stack_past_the_cap(tmp_path: Path) -> None:
+    # 30.00 of earlier spending lives only in the ledger (no journal entry). gen-a takes the
+    # ledger to 50.00 and the journal to 20.00.
+    prior = call("prior-1", "30.00")
+    attempt(tmp_path, cap_approval(), prior, call("gen-a", "20.00"), tag="gen-a", price="20.00")
+    # gen-a's row is then lost. gen-b passes each total on its own (ledger 50.00, journal 40.00),
+    # but 30.00 + 20.00 + 20.00 has been spent, so the cap is passed.
+    rows = (cap_approval(), prior, call("gen-b", "20.00"))
+    with pytest.raises(SpendDenied, match=r"would reach 70\.00 against the 50\.00 cap"):
+        attempt(tmp_path, *rows, tag="gen-b", price="20.00")
+    assert [e["tag"] for e in journal_entries(tmp_path / "j.jsonl")] == ["gen-a"]
+
+
+@pytest.mark.parametrize(
+    ("authorized", "ledger_now", "next_price", "denial"),
+    [
+        # Corrected down from 20.00 to 5.00: the journal's higher figure counts, once.
+        ("20.00", "5.00", "5.00", None),
+        ("20.00", "5.00", "6.00", r"would reach 51\.00 against the 50\.00 cap"),
+        # Corrected up from 5.00 to 20.00: the ledger's higher figure counts, once (the
+        # ledger-only check sees it first, because the rows before gen-b already hold it).
+        ("5.00", "20.00", "5.00", None),
+        ("5.00", "20.00", "6.00", r"45\.00 already spent plus the price 6\.00 would pass"),
+    ],
+)
+def test_a_tag_in_both_ledger_and_journal_counts_once_at_the_higher_figure(
+    tmp_path: Path, authorized: str, ledger_now: str, next_price: str, denial: str | None
+) -> None:
+    prior = call("prior-1", "25.00")  # ledger only
+    attempt(
+        tmp_path, cap_approval(), prior, call("gen-a", authorized), tag="gen-a", price=authorized
+    )
+    rows = (cap_approval(), prior, call("gen-a", ledger_now), call("gen-b", next_price))
+    # Counted once at 20.00: 25.00 + 20.00 + next_price. Summed, or counted at the lower figure,
+    # this lands on a different side of the cap.
+    if denial is None:
+        attempt(tmp_path, *rows, tag="gen-b", price=next_price)
+    else:
+        with pytest.raises(SpendDenied, match=denial):
+            attempt(tmp_path, *rows, tag="gen-b", price=next_price)
+
+
+def test_a_ledger_row_without_a_call_tag_counts_at_its_cost(tmp_path: Path) -> None:
+    other = Spec(TODAY, "scrape run for the parts site", "49.80")  # after gen-1's row
+    with pytest.raises(SpendDenied, match=r"would reach 50\.20 against the 50\.00 cap"):
+        attempt(tmp_path, cap_approval(), call("gen-1", "0.40"), other)
+
+
+def test_every_ledger_row_of_a_tag_counts_not_just_the_largest(tmp_path: Path) -> None:
+    # `dup-1` has two rows, 25.00 each, and one journal entry for 25.00. Max over its rows, or
+    # the journal figure alone, would hide 25.00 of spend.
+    dup = (call("dup-1", "25.00"), call("dup-1", "25.00"))
+    journal = tmp_path / "j.jsonl"
+    record_outcome(journal, "dup-1", status="authorized", price="25.00")
+    with pytest.raises(SpendDenied, match=r"would reach 50\.40 against the 50\.00 cap"):
+        attempt(tmp_path, cap_approval(), call("gen-1", "0.40"), *dup)
+
+
+def test_every_journal_authorization_of_a_tag_counts(tmp_path: Path) -> None:
+    # A hand-edited journal with two authorizations for one tag: both prices were committed.
+    entry = '{"tag":"dup-1","status":"authorized","price":"25.00"}\n'
+    (tmp_path / "j.jsonl").write_text(entry * 2)
+    with pytest.raises(SpendDenied, match=r"would reach 50\.40 against the 50\.00 cap"):
+        attempt(tmp_path, cap_approval(), call("gen-1", "0.40"))
 
 
 @pytest.mark.parametrize(
@@ -846,8 +933,58 @@ def test_parse_ledger_denies_a_lost_pipe_row_between_the_header_and_the_separato
         parse_ledger(text)
 
 
+# A 60.00 row pasted in without its ASCII table frame. Each must be denied once the table has
+# started, or its cost escapes the cap.
+FIELDS = ["2026-11-24", "$50", "fal", "spike:big x", "1", "60.00", "60.40 / 50.00"]
+
+
+def barred(bar: str) -> str:
+    return f"{bar} " + f" {bar} ".join(FIELDS) + f" {bar}"
+
+
+BARS = {
+    "fullwidth bars": "\uff5c",
+    "box drawing bars": "\u2502",
+    "heavy box bars": "\u2503",
+    "double box bars": "\u2551",
+    "broken bars": "\u00a6",
+    "divides bars": "\u2223",
+    "light vertical bars": "\u2758",
+    "vertical line extension bars": "\u23d0",
+}
+UNFRAMED_ROWS = {
+    **{name: barred(bar) for name, bar in BARS.items()},
+    "tab separated": "\t".join(FIELDS),
+    "tab separated, no date": "\t".join(["—", *FIELDS[2:]]),
+    "space separated": "  ".join(FIELDS),
+}
+
+
+@pytest.mark.parametrize("row", UNFRAMED_ROWS.values(), ids=UNFRAMED_ROWS.keys())
+def test_parse_ledger_denies_a_row_in_another_shape_after_the_table_started(row: str) -> None:
+    with pytest.raises(SpendDenied, match=r"line 9: .*does not start with '\|'"):
+        parse_ledger(render(cap_approval(), call("gen-1", "0.40")) + row + "\n")
+
+
+@pytest.mark.parametrize("row", UNFRAMED_ROWS.values(), ids=UNFRAMED_ROWS.keys())
+def test_a_row_in_another_shape_does_not_slip_past_the_cap(tmp_path: Path, row: str) -> None:
+    ledger = tmp_path / "ledger.md"
+    ledger.write_text(render(cap_approval(), call("gen-1", "0.40")) + row + "\n")
+    with pytest.raises(SpendDenied, match=r"line 9: .*does not start with '\|'"):
+        authorize(
+            "gen-1",
+            Decimal("0.40"),
+            ledger=ledger,
+            journal=tmp_path / "j.jsonl",
+            today=TODAY,
+            session=SESSION,
+        )
+    assert not (tmp_path / "j.jsonl").exists()
+
+
 def test_parse_ledger_allows_pipe_free_prose_after_the_table() -> None:
-    rows = parse_ledger(render(cap_approval()) + "\nAll amounts are in USD.\n")
+    notes = "\nAll amounts are in USD.\nA tab\there, but no amount.\nSee row 3 for details.\n"
+    rows = parse_ledger(render(cap_approval()) + notes)
     assert len(rows) == 1
 
 
