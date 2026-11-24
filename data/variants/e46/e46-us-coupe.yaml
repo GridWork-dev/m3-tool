@@ -5,7 +5,8 @@
 # SMG reached the US in the 2002 model year; transmissions covers 2001 to 2006 as a whole.
 # Unverified under data.md's rule (no Tier 1, fewer than two Tier 2 publishers): the widths
 # and offsets of standard-18, the width and offset of the optional-19 front, and the offset
-# of the Competition Package front.
+# of the Competition Package front. The package has no years field: its dates are in the
+# summary only.
 id: e46-us-coupe
 generation: e46
 name: "M3 Coupe (US)"
@@ -16,7 +17,7 @@ years: [2001, 2006]
 packages:
   - id: zcp
     name: "Competition Package (ZCP)"
-    summary: "US option from 2005 (BMW's Canadian and German releases say the package was available from December 2004). Per BMW North America it started with the CSL's 19-inch wheels and Michelin Pilot Sport tires, larger brakes with cross-drilled rotors, a 14.5:1 steering rack (15.4:1 standard), an Alcantara-wrapped steering wheel and M Track Mode for DSC, and it carried the exclusive Interlagos Blue paint. Wheels are listed under factoryWheels as competition-19-style-163m."
+    summary: "US option from 2005 (BMW Canada's release says the package was available from December 2004). Per BMW North America it started with the CSL's 19-inch wheels, larger brakes with cross-drilled rotors, a 14.5:1 steering rack (15.4:1 standard), an Alcantara-wrapped steering wheel and M Track Mode for DSC, and it carried the exclusive Interlagos Blue paint. Wheels are listed under factoryWheels as competition-19-style-163m."
   - id: sunroof
     name: "Glass sunroof"
     summary: "Optional electric glass sunroof, listed as optional equipment in the US owner's manual. No roof module asset is assigned to it yet."
@@ -69,19 +70,25 @@ sources:
     url: https://archive.org/download/manualsonline-id-d3b68d3e-dade-4bda-875b-3716cdeabf3f/d3b68d3e-dade-4bda-875b-3716cdeabf3f.pdf
     tier: 1
     accessed: 2026-11-23
-    note: "Archive.org copy of the US-market M3 manual (power in hp, sizes in inches). The text describes a glass sunroof and never mentions a convertible top, so it is used for the coupe only. Engine data, p. 150: 333 hp at 7,900 rpm and 262 lb-ft at 4,900 rpm (the US rating; BMW's European rating is higher, see e46-euro-coupe). Weights, p. 152: curb weight 3,415 lb / 1,549 kg. P. 5 says an asterisk marks all optional equipment, and the electric glass sunroof (p. 41) and the Sequential M gearbox with Drivelogic (p. 67) carry it. Tire table, p. 27: 225/45 ZR 18 and 255/40 ZR 18 for the M3, and also 225/40 ZR 19 and 255/35 ZR 19. SMG reached the US in the 2002 model year (Cars.com: 'Later in the 2002 model year, a sequentially shifting manual transmission will become available'), and BMW's own release for the spring 2001 convertible mentions only a 6-speed. A variant's transmissions list cannot carry years, so [6mt, smg] covers 2001 to 2006 as a whole: cars from the 2001 launch had the manual only."
+    note: "Archive.org copy of the US-market M3 manual (power in hp, sizes in inches). The text describes a glass sunroof and never mentions a convertible top, so it is used for the coupe only. Engine data, p. 150: 333 hp at 7,900 rpm and 262 lb-ft at 4,900 rpm (the US rating; BMW's European rating is higher, see e46-euro-coupe). Weights, p. 152: curb weight 3,415 lb / 1,549 kg. P. 5 says an asterisk marks all optional equipment, and the electric glass sunroof (p. 41) and the Sequential M gearbox with Drivelogic (p. 67) carry it. Tire table, p. 27: 225/45 ZR 18 and 255/40 ZR 18 for the M3, and also 225/40 ZR 19 and 255/35 ZR 19. SMG reached the US in the 2002 model year (Cars.com: 'Later in the 2002 model year, a sequentially shifting manual transmission will become available'), so cars from the spring 2001 launch had the manual only. A variant's transmissions list cannot carry years, so [6mt, smg] covers 2001 to 2006 as a whole."
   - title: "ST041 M3 Complete Vehicle: E46 M3 Technical Data"
     publisher: "BMW Technical Training"
     url: https://archive.org/download/BMWTechnicalTrainingDocuments/ST041%20M3%20Complete%20Vehicle/1%20M3%20Complete%20Vehicle.pdf
     tier: 1
     accessed: 2026-11-23
     note: "BMW training module for the E46 M3 coupe (cover: Production Date 01/2001), copy hosted on archive.org; the file carries no publisher line. Gives 333 bhp at 7,900 rpm and 355 Nm at 4,900 rpm, a six-speed gearbox (Getrag) and a curb weight (DIN) of 1,495 kg. 01/2001 is the module's production date, not a launch date; it agrees with the 2001 start that Cars.com gives. The 1,495 kg disagrees with the owner's manual's 1,549 kg; a variant has no weight field, so neither is recorded in the data."
+  - title: "THE ALL-NEW BMW M3 CONVERTIBLE MAKES ITS NORTH AMERICAN DEBUT AT THE 2008 NEW YORK INTERNATIONAL AUTO SHOW"
+    publisher: "BMW Group"
+    url: https://newsroom.bmwgroup.com/americas/the-all-new-bmw-m3-convertible-makes-its-north-american-debut-at-the-2008-new-york-international-auto-show
+    tier: 1
+    accessed: 2026-11-23
+    note: "BMW of North America press release, 19 March 2008, about the 2008 M3 convertible; the sentence used here is a history aside inside a contemporaneous release, so it is rated Tier 1 like BMW's other releases. Says 'The most-recent version, available from 2001-2006 as either a coupe or convertible, again was offered with six-cylinder power, this time providing 333 hp from its 3.2 liters. This vehicle was BMW's first use of SMG (Sequential Manual Gearbox) for the U.S. market.' Tier 1 source for the US 2001 to 2006 run of the coupe, the 333 hp US rating and the SMG's US debut; it gives no month or model year for either."
   - title: "2002 BMW M3: What's New"
     publisher: "Cars.com"
     url: https://www.cars.com/articles/2002-bmw-m3-whats-new-1420687120026
     tier: 2
     accessed: 2026-11-23
-    note: "Cars.com Editors (reporter Jim Flammang), posted 3/27/02. Says 'The high-performance BMW M3 coupe and convertible went on sale in spring 2001', which is the source for the 2001 start, and 'Both M3 models have 18-inch tires for the front and rear and cast-alloy wheels'. Says 'Later in the 2002 model year, a sequentially shifting manual transmission will become available': the source for the US SMG year note."
+    note: "Rated Tier 2: staffed editorial content from a marketplace (data.md); its listings and fitment lookups would be Tier 3. Cars.com Editors (reporter Jim Flammang), posted 3/27/02. Says 'The high-performance BMW M3 coupe and convertible went on sale in spring 2001', the second source for the 2001 start, and 'Both M3 models have 18-inch tires for the front and rear and cast-alloy wheels'. Says 'Later in the 2002 model year, a sequentially shifting manual transmission will become available': the source for the US SMG year note."
   - title: "International presskit: Twenty Years of the BMW M3"
     publisher: "BMW Group"
     url: https://newsroom.bmwgroup.com/emea/international-presskit--twenty-years-of-the-bmw-m3
@@ -93,13 +100,13 @@ sources:
     url: https://www.bmwblog.com/2022/04/18/buyers-guide-bmw-e46-m3/
     tier: 3
     accessed: 2026-11-23
-    note: "Rated Tier 3: a blog, like the equivalent Supercars.net guide. By Steven Paul, 18 April 2022. Says the E46 M3 is the M3 'produced between 2001 and 2006 model years', that it comes as a coupe or convertible with a six-speed manual or SMG II ('the one we've come to know stateside is SMG II'), and that a sunroof was an option. Says the Competition Package (option code ZCP) is 'the only way you can get' Interlagos Blue Metallic. It dates the package to 2004, which disagrees with BMW North America's 2005 and agrees with the December 2004 availability in BMW's Canadian and German releases; the package summary gives both."
+    note: "Rated Tier 3: a blog. By Steven Paul, 18 April 2022. Says the E46 M3 is the M3 'produced between 2001 and 2006 model years', that it comes as a coupe or convertible with a six-speed manual or SMG II ('the one we've come to know stateside is SMG II'), and that a sunroof was an option. Says the Competition Package (option code ZCP) is 'the only way you can get' Interlagos Blue Metallic. It dates the package to 2004, which disagrees with BMW North America's 2005 and agrees with the December 2004 availability in BMW Canada's release; the package summary gives both."
   - title: "BMW NA 50th Anniversary, 50 Stories for 50 Years, Chapter 33: Just for U.S.: BMW of North America Creates Special Models with Enhanced Enthusiast Appeal"
     publisher: "BMW Group"
     url: https://newsroom.bmwgroup.com/americas/bmw-na-50th-anniversary--50-stories-for-50-years--chapter-33-just-for-us-bmw-of-north-america-creates-special-models-with-enhanced-enthusiast-appeal
     tier: 2
     accessed: 2026-11-23
-    note: "Rated Tier 2: a BMW-published retrospective article, which data.md's Tier 1 (technical documents, product pages) does not cover. BMW of North America, 19 August 2025. Says that in 2005 BMW NA created the E46 M3 ZCP ('Z Competition Package') and that it started with the CSL's 19-inch Double Spoke wheels and Michelin Pilot Sport tires, larger brakes with cross-drilled iron rotors, a faster steering rack (14.5:1 rather than 15.4:1), an Alcantara-wrapped steering wheel and M Track Mode, in the exclusive colour Interlagos Blue. Source for the ZCP package and its 2005 start. It also says the CSL was not street-legal in the US."
+    note: "Rated Tier 2: a BMW-published retrospective article, which data.md's Tier 1 (technical documents, product pages) does not cover. BMW of North America, 19 August 2025. Says that in 2005 BMW NA created the E46 M3 ZCP ('Z Competition Package') and that it started with the CSL's 19-inch Double Spoke wheels and Michelin Pilot Sport tires, larger brakes with cross-drilled iron rotors, a faster steering rack (14.5:1 rather than 15.4:1), an Alcantara-wrapped steering wheel and M Track Mode, in the exclusive colour Interlagos Blue. Source for the ZCP package and its 2005 start; the name 'ZCP' also appears in BimmerWorld's listings (Tier 2), and the Michelin tire mention rests on this chapter alone, so it is not used in the data. It also says the CSL was not street-legal in the US."
   - title: "New Competition Package for the BMW M3 Coupé. Attractive equipment for the exceptionally sportsminded driver."
     publisher: "BMW Group"
     url: https://newsroom.bmwgroup.com/americas/en-ca/new-competition-package-for-the-bmw-m3-coupe-attractive-equipment-for-the-exceptionally-sportsminded-driver/
@@ -123,7 +130,7 @@ sources:
     url: https://shop.bmw.co.uk/product/genuine-19-wheel-rim-light-alloy-19-inch-9-5jx19-et-27-36-11-2-282-999
     tier: 1
     accessed: 2026-11-23
-    note: "BMW's own UK parts shop (a manufacturer product page). A 9.5Jx19 ET:27 light-alloy wheel, part 36112282999, whose compatibility table lists E46 M3 coupes (BL91 1999-07 to 2006-05, BL92 2000-03 to 2006-05), E46 M3 convertibles (BR91 2000-04 to 2006-08, BR92 2000-10 to 2006-08) and the M3 CSL (BL95, BL96), all ECE. It is the 9.5J ET27 rear of the CSL-style wheel (BimmerWorld calls part 36112282999 the ZCP/CSL rear). Tier 1 for that rear width and offset on the Euro coupe, the Euro convertible and the CSL, and for the 19-inch wheel fitting the convertible. The production codes start before BMW's debut dates (the convertible's in 2000, BMW says spring 2001), so they are not used for start years; the coupe's May 2006 and the convertible's August 2006 ends agree with the 2006 end."
+    note: "BMW's own UK parts shop (a manufacturer product page). A 9.5Jx19 ET:27 light-alloy wheel, part 36112282999, whose compatibility table lists E46 M3 coupes (BL91 1999-07 to 2006-05, BL92 2000-03 to 2006-05), E46 M3 convertibles (BR91 2000-04 to 2006-08, BR92 2000-10 to 2006-08) and the M3 CSL (BL95, BL96), all ECE. The page gives no front or rear position; that this part is the rear of the CSL-style pair comes from BimmerWorld (Tier 2), which calls part 36112282999 the ZCP/CSL rear. So it is Tier 1 for a 9.5Jx19 ET27 wheel that fits these bodies, including the convertible, and Tier 2 for its position and its use on the Competition Package and the CSL. The production codes start before BMW's debut dates (the convertible's in 2000, BMW says spring 2001), so they are not used for start years; the coupe's May 2006 and the convertible's August 2006 ends agree with the 2006 end."
   - title: "BMW M3 E46 [2000 .. 2006] wheel fitment, 3.2i (S54B32)"
     publisher: "Koleso.ee (Astela OÜ)"
     url: https://koleso.ee/en/valuveljed/bmw/m3/263/e46-2000-2006/544
@@ -135,7 +142,7 @@ sources:
     url: https://www.hubcaphaven.com/p/3015/aly59367-bmw-m3-wheel-hyper-silver-36112229950.html
     tier: 2
     accessed: 2026-11-23
-    note: "Retailer listing under OE part number 36112229950: style '10 Double Spoke (option code: Style 67)', 18x8, 5 lugs, 120 mm, offset 47 mm, fits the BMW M3 2001-2006 as a front wheel. Source for the 18-inch wheel's style name and, with the rear listing, its widths and offsets. This is the only Tier 2 publisher for the 18-inch widths and offsets, so those are unverified under data.md's rule; the 18-inch tire sizes are Tier 1 (the US owner's manual, p. 27)."
+    note: "Retailer listing under OE part number 36112229950: style '10 Double Spoke (option code: Style 67)', 18x8, 5 lugs, 120 mm, offset 47 mm, fits the BMW M3 2001-2006 as a front wheel. Source for the 18-inch wheel's style name and, with the rear listing, its widths and offsets. This is the only Tier 2 publisher for the 18-inch widths and offsets, so those are unverified under data.md's rule."
   - title: "ALY59368/59607 BMW M3 Wheel/Rim Hyper Silver #36112229960"
     publisher: "Hubcap Haven"
     url: https://www.hubcaphaven.com/p/1705/aly59368-59607-bmw-m3-wheel-hyper-silver-36112229960.html

@@ -112,6 +112,8 @@ The list is short on purpose: non-commercial references only. Adding a host is a
 
 **Tier 3:** forums and owner reports.
 
+A marketplace's staffed editorial content (reviews, news) is Tier 2, and its listings and fitment lookups are Tier 3.
+
 ### What counts as verified
 
 Maintenance intervals, and fixes for known issues, need one Tier 1 source or two independent Tier 2 sources to be marked `verified: true`.
