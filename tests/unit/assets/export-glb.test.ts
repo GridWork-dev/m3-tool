@@ -187,6 +187,42 @@ function addMorphTarget(doc: Document, meshName: string, weight: number): void {
   mesh.setWeights([weight])
 }
 
+// Skins the mesh of the node called `nodeName` to a new joint node `joint`, 1 m along X from the
+// origin (Codex's repro). Every vertex follows that one joint at weight 1, and the inverse bind
+// matrix is the identity, so the exported model draws shifted 1 m while its POSITION data, the
+// bind pose the proxy is cut from, stays where it was. No animation or morph target is involved.
+// `skinName` is left off to build an unnamed skin.
+function addSkin(doc: Document, nodeName: string, skinName?: string): void {
+  const node = nodeNamed(doc, nodeName)
+  const primitive = node?.getMesh()?.listPrimitives()[0]
+  const buffer = doc.getRoot().listBuffers()[0]
+  if (!(node && primitive && buffer)) throw new Error(`the fixture has no mesh node ${nodeName}`)
+  const count = primitive.getAttribute('POSITION')?.getCount() ?? 0
+  const accessor = (
+    type: 'VEC4' | 'MAT4',
+    array: Uint16Array<ArrayBuffer> | Float32Array<ArrayBuffer>,
+  ) => doc.createAccessor().setType(type).setArray(array).setBuffer(buffer)
+  const joints = new Uint16Array(count * 4)
+  const weights = new Float32Array(count * 4)
+  for (let vertex = 0; vertex < count; vertex++) weights[vertex * 4] = 1
+  primitive.setAttribute('JOINTS_0', accessor('VEC4', joints))
+  primitive.setAttribute('WEIGHTS_0', accessor('VEC4', weights))
+  const joint = doc.createNode(`${nodeName}_joint`).setTranslation([1, 0, 0])
+  sceneOf(doc).addChild(joint)
+  // biome-ignore format: keeps the matrix as a 4 x 4 grid
+  const identity = new Float32Array([
+    1, 0, 0, 0,
+    0, 1, 0, 0,
+    0, 0, 1, 0,
+    0, 0, 0, 1,
+  ])
+  const skin = doc
+    .createSkin(skinName)
+    .addJoint(joint)
+    .setInverseBindMatrices(accessor('MAT4', identity))
+  node.setSkin(skin)
+}
+
 const ANCHORS = CONTRACTS['base-car'].requiredAnchors
 const MATERIALS = CONTRACTS['base-car'].requiredMaterials
 const MODULES = ['bumper_front', 'bumper_rear', 'trunk_lid', 'roof']
@@ -805,6 +841,42 @@ describe('an input with morph targets', () => {
   })
 })
 
+// The proxy is cut from the bind-pose positions in the file, and a skin draws the mesh through its
+// joints, wherever those sit, so the proxy would describe a different shape than the GLB renders
+// and nothing would flag it. The export refuses any input with a skin (ruling R73), on the same
+// reasoning as animation and morph targets: neither the contract nor the pipeline's cars have one.
+describe('an input with a skin', () => {
+  test('an input with a skin is refused, naming the skin and the node it skins', async () => {
+    const doc = makeProduct()
+    addSkin(doc, 'product-0', 'rig')
+    await expect(exportGlb(await toGlb(doc), { kind: 'product' })).rejects.toThrow(
+      'input has 1 skin(s); the export does not support skinned meshes (skins: rig; skinned nodes: product-0)',
+    )
+  })
+
+  test('says so for a skin that has no name, and still names the node', async () => {
+    const doc = makeProduct()
+    addSkin(doc, 'product-0')
+    await expect(exportGlb(await toGlb(doc), { kind: 'product' })).rejects.toThrow(
+      'input has 1 skin(s); the export does not support skinned meshes (skins: (unnamed skin); skinned nodes: product-0)',
+    )
+  })
+
+  test('names every skin and every skinned node', async () => {
+    const doc = makeBaseCar({ triangles: 2_000 })
+    addSkin(doc, 'trunk_lid', 'lid_rig')
+    addSkin(doc, 'roof', 'roof_rig')
+    await expect(exportGlb(await toGlb(doc), { kind: 'base-car' })).rejects.toThrow(
+      'input has 2 skin(s); the export does not support skinned meshes (skins: lid_rig, roof_rig; skinned nodes: trunk_lid, roof)',
+    )
+  })
+
+  test('still exports the same product without the skin', async () => {
+    const { proxy } = await exportGlb(await toGlb(makeProduct()), { kind: 'product' })
+    expect(proxy.triangles).toBe(1_200)
+  })
+})
+
 // The checks the export runs on its own result, so a broken structure fails the export instead of
 // the stage after it.
 describe('the structure check', () => {
@@ -1045,6 +1117,22 @@ describe('runExportGlb', () => {
     )
     expect(spawnSync('test', ['-e', out]).status).not.toBe(0)
     expect(spawnSync('test', ['-e', join(dir, 'morphed-out.proxy.json')]).status).not.toBe(0)
+  })
+
+  test('exits 1 and writes nothing for a product with a skin', async () => {
+    const doc = makeProduct()
+    addSkin(doc, 'product-0', 'rig')
+    const skinned = join(dir, 'skinned.glb')
+    await writeFile(skinned, await toGlb(doc))
+    const out = join(dir, 'skinned-out.glb')
+    const result = await runExportGlb([skinned, out, '--kind', 'product'])
+    expect(result.exitCode).toBe(1)
+    expect(result.stdout).toEqual([])
+    expect(result.stderr.join('\n')).toContain(
+      'input has 1 skin(s); the export does not support skinned meshes (skins: rig; skinned nodes: product-0)',
+    )
+    expect(spawnSync('test', ['-e', out]).status).not.toBe(0)
+    expect(spawnSync('test', ['-e', join(dir, 'skinned-out.proxy.json')]).status).not.toBe(0)
   })
 
   test('exits 1 and writes nothing when the proxy cannot be brought within its budget', async () => {
