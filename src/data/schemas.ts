@@ -250,11 +250,15 @@ export type Generation = z.infer<typeof Generation>
 // Variant
 // ---------------------------------------------------------------------------------------------
 
+// The two markets the data covers. A variant is built for one. A maintenance item may name the
+// markets its source speaks for.
+const Market = z.enum(['us', 'euro'])
+
 export const Variant = z.strictObject({
   id: Id,
   generation: Id,
   name: Text,
-  market: z.enum(['us', 'euro']),
+  market: Market,
   body: Body,
   transmissions: z.array(Transmission).min(1),
   years: YearRange,
@@ -522,31 +526,60 @@ const requireHowToCheck = (
   }
 }
 
+// What a service is tied to when BMW gives no mileage or time for it. On the E46 the Service
+// Interval Indicator works out when each service is due, so most items have a trigger and no
+// number. `data.md`, "Maintenance intervals", says what each value means.
+export const MAINTENANCE_TRIGGERS = [
+  'oil-service',
+  'inspection-i',
+  'inspection-ii',
+  'lifetime-fill',
+  'condition-based',
+] as const
+
 export const MaintenanceItem = z
   .strictObject({
     id: Id,
     generation: Id,
     engine: Text.optional(),
+    // Absent means every market. A document for one market supports that market only (data.md).
+    markets: z.array(Market).min(1).optional(),
     title: Text,
+    // `miles` and `months` may sit beside a `trigger` only when the source gives both.
     interval: z
       .strictObject({
         miles: z.int().positive().optional(),
         months: z.int().positive().optional(),
+        trigger: z.enum(MAINTENANCE_TRIGGERS).optional(),
       })
       .refine(
-        (interval) => interval.miles !== undefined || interval.months !== undefined,
-        'an interval needs miles, months or both',
+        (interval) =>
+          interval.miles !== undefined ||
+          interval.months !== undefined ||
+          interval.trigger !== undefined,
+        'an interval needs at least one of miles, months or trigger',
       ),
     parts: z.array(Text),
     fluids: z.array(Text),
-    cost: z.strictObject({ currency: z.literal('USD'), diy: Range, shop: Range }),
+    // Optional: when no Tier 1 or Tier 2 source gives a cost, it is left out and the site shows
+    // "no sourced cost". It is never filled with zero.
+    cost: z.strictObject({ currency: z.literal('USD'), diy: Range, shop: Range }).optional(),
     inspectWhenBuying: z.boolean(),
     howToCheck: Text.optional(),
     sources: z.array(Source).min(1),
     verified: z.boolean(),
     notes: Text.optional(),
   })
-  .superRefine(requireHowToCheck)
+  .superRefine((item, ctx) => {
+    requireHowToCheck(item, ctx)
+    if (item.markets !== undefined && new Set(item.markets).size !== item.markets.length) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['markets'],
+        message: 'markets names a market more than once',
+      })
+    }
+  })
 export type MaintenanceItem = z.infer<typeof MaintenanceItem>
 
 export const KnownIssue = z
@@ -559,7 +592,8 @@ export const KnownIssue = z
     cause: Text,
     // Optional (spec 7.6, amended 2026-11-23): an issue known only from forum reports publishes its
     // symptoms, cause and frequency, and no fix. A fix needs a Tier 1 or Tier 2 source, which
-    // quality.ts checks, and a cost, which the refinement below checks.
+    // quality.ts checks. It does not need a cost (ADR 0014): a sourced fix is not dropped for lack
+    // of a price, and the site shows "no sourced cost" when `cost` is absent.
     fix: Text.optional(),
     prevention: Text.optional(),
     cost: z
@@ -572,14 +606,5 @@ export const KnownIssue = z
     sources: z.array(Source).min(1),
     verified: z.boolean(),
   })
-  .superRefine((issue, ctx) => {
-    requireHowToCheck(issue, ctx)
-    if (issue.fix !== undefined && issue.cost === undefined) {
-      ctx.addIssue({
-        code: 'custom',
-        path: ['cost'],
-        message: 'a known issue with a fix needs a cost; leave out both, or give both',
-      })
-    }
-  })
+  .superRefine(requireHowToCheck)
 export type KnownIssue = z.infer<typeof KnownIssue>

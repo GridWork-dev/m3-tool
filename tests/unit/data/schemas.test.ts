@@ -4,6 +4,7 @@ import {
   DateLike,
   Generation,
   KnownIssue,
+  MAINTENANCE_TRIGGERS,
   MaintenanceItem,
   Part,
   PriceObservation,
@@ -19,11 +20,18 @@ const wheel = () => readFixture('parts/e46/fixture-wheel.yaml')
 const generic = () => readFixture('parts/e46/fixture-generic-wheels.yaml')
 const coilovers = () => readFixture('parts/e46/fixture-coilovers.yaml')
 const trunkLid = () => readFixture('parts/e46/fixture-trunk-lid.yaml')
+// Miles, months, a cost and no trigger or markets.
 const maintenance = () => readFixture('maintenance/e46/fixture-oil-service.yaml')
+// A trigger and no miles, months or cost, for one market.
+const inspectionService = () => readFixture('maintenance/e46/fixture-inspection-service.yaml')
+// A lifetime-fill trigger alone, with no markets (every market).
+const lifetimeFluid = () => readFixture('maintenance/e46/fixture-lifetime-fluid.yaml')
 // A forum-only issue: no fix and no cost.
 const issue = () => readFixture('issues/e46/fixture-rod-bearings.yaml')
 // An issue with a fix, a cost and a Tier 2 source.
 const issueWithFix = () => readFixture('issues/e46/fixture-guide-wear.yaml')
+// An issue with a fix and a Tier 2 source, and no cost.
+const issueFixNoCost = () => readFixture('issues/e46/fixture-fix-without-cost.yaml')
 
 // The unmutated fixtures must pass, so a failing mutation below is the mutation's doing.
 describe('valid fixtures', () => {
@@ -40,8 +48,11 @@ describe('valid fixtures', () => {
     ['branded part with attributes', Part, coilovers],
     ['part that replaces a body module', Part, trunkLid],
     ['maintenance item', MaintenanceItem, maintenance],
+    ['maintenance item with a trigger, one market and no cost', MaintenanceItem, inspectionService],
+    ['maintenance item with a lifetime-fill trigger alone', MaintenanceItem, lifetimeFluid],
     ['known issue without a fix', KnownIssue, issue],
     ['known issue with a fix and a cost', KnownIssue, issueWithFix],
+    ['known issue with a fix and no cost', KnownIssue, issueFixNoCost],
   ])('%s parses', (_name, schema, read) => {
     expect(schema.safeParse(read()).success).toBe(true)
   })
@@ -573,10 +584,17 @@ describe('maintenance item and known issue', () => {
     ).toBe(true)
   })
 
-  test('rejects a maintenance interval with neither miles nor months', () => {
+  test('rejects a maintenance interval with none of miles, months or trigger', () => {
     const none = MaintenanceItem.safeParse(edit(maintenance(), 'interval', {}))
     expect(none.success).toBe(false)
     expect(issuePaths(none)).toContain('interval')
+    expect(issueMessages(none).join(' ')).toMatch(/miles, months or trigger/)
+    // A key that is present but undefined is as empty as no key.
+    const undef = MaintenanceItem.safeParse(
+      edit(maintenance(), 'interval', { miles: undefined, months: undefined, trigger: undefined }),
+    )
+    expect(undef.success).toBe(false)
+    expect(issuePaths(undef)).toContain('interval')
     expect(MaintenanceItem.safeParse(edit(maintenance(), 'interval', { months: 12 })).success).toBe(
       true,
     )
@@ -589,6 +607,97 @@ describe('maintenance item and known issue', () => {
     expect(
       MaintenanceItem.safeParse(edit(maintenance(), 'interval', { miles: 5000.5 })).success,
     ).toBe(false)
+  })
+
+  test('accepts each trigger on its own, and rejects a value outside the list', () => {
+    expect([...MAINTENANCE_TRIGGERS]).toEqual([
+      'oil-service',
+      'inspection-i',
+      'inspection-ii',
+      'lifetime-fill',
+      'condition-based',
+    ])
+    for (const trigger of MAINTENANCE_TRIGGERS) {
+      expect(
+        MaintenanceItem.safeParse(edit(maintenance(), 'interval', { trigger })).success,
+        trigger,
+      ).toBe(true)
+    }
+    for (const bad of ['Oil Service', 'oil_service', 'inspection-iii', 'annual', '']) {
+      const r = MaintenanceItem.safeParse(edit(maintenance(), 'interval', { trigger: bad }))
+      expect(r.success, bad).toBe(false)
+      expect(issuePaths(r), bad).toContain('interval.trigger')
+    }
+  })
+
+  test('miles and months may sit beside a trigger', () => {
+    const both = { miles: 60000, months: 48, trigger: 'inspection-ii' }
+    expect(MaintenanceItem.safeParse(edit(maintenance(), 'interval', both)).success).toBe(true)
+    const one = { miles: 60000, trigger: 'inspection-ii' }
+    expect(MaintenanceItem.safeParse(edit(maintenance(), 'interval', one)).success).toBe(true)
+    // The other interval rules still apply beside a trigger.
+    const zero = MaintenanceItem.safeParse(
+      edit(maintenance(), 'interval', { miles: 0, trigger: 'inspection-ii' }),
+    )
+    expect(zero.success).toBe(false)
+    expect(issuePaths(zero)).toContain('interval.miles')
+  })
+
+  test('the interval takes no keys beyond miles, months and trigger', () => {
+    const r = MaintenanceItem.safeParse(
+      edit(maintenance(), 'interval', { trigger: 'oil-service', hours: 100 }),
+    )
+    expect(r.success).toBe(false)
+  })
+
+  test('a maintenance cost is optional, and never defaults to zero', () => {
+    expect('cost' in inspectionService()).toBe(false)
+    const parsed = MaintenanceItem.safeParse(inspectionService())
+    expect(parsed.success).toBe(true)
+    // Absent stays absent: the parser does not fill in a zero cost.
+    expect(parsed.success && parsed.data.cost).toBeUndefined()
+    expect(MaintenanceItem.safeParse(edit(maintenance(), 'cost', undefined)).success).toBe(true)
+    // A cost that is given is still checked in full.
+    expect(MaintenanceItem.safeParse(edit(maintenance(), 'cost', {})).success).toBe(false)
+    expect(
+      MaintenanceItem.safeParse(edit(maintenance(), 'cost', { currency: 'USD', shop: [60, 100] }))
+        .success,
+    ).toBe(false)
+    expect(
+      MaintenanceItem.safeParse(
+        edit(maintenance(), 'cost', { currency: 'USD', diy: [100, 20], shop: [60, 100] }),
+      ).success,
+    ).toBe(false)
+  })
+
+  test('markets is optional, and absent means every market', () => {
+    expect('markets' in maintenance()).toBe(false)
+    expect('markets' in lifetimeFluid()).toBe(false)
+    expect(MaintenanceItem.safeParse(lifetimeFluid()).success).toBe(true)
+    expect(inspectionService().markets).toEqual(['us'])
+    for (const markets of [['us'], ['euro'], ['us', 'euro'], ['euro', 'us']]) {
+      expect(MaintenanceItem.safeParse(edit(maintenance(), 'markets', markets)).success).toBe(true)
+    }
+  })
+
+  test('rejects an empty markets list, an unknown market and a repeated market', () => {
+    const empty = MaintenanceItem.safeParse(edit(maintenance(), 'markets', []))
+    expect(empty.success).toBe(false)
+    expect(issuePaths(empty)).toContain('markets')
+    const unknown = MaintenanceItem.safeParse(edit(maintenance(), 'markets', ['uk']))
+    expect(unknown.success).toBe(false)
+    expect(issuePaths(unknown).join(' ')).toMatch(/markets/)
+    const twice = MaintenanceItem.safeParse(edit(maintenance(), 'markets', ['us', 'us']))
+    expect(twice.success).toBe(false)
+    expect(issuePaths(twice)).toContain('markets')
+    expect(issueMessages(twice).join(' ')).toMatch(/more than once/)
+    expect(MaintenanceItem.safeParse(edit(maintenance(), 'markets', 'us')).success).toBe(false)
+  })
+
+  test('markets uses the same two values as a variant', () => {
+    const variantMarket = Variant.safeParse(edit(variant(), 'market', 'uk'))
+    expect(variantMarket.success).toBe(false)
+    expect(Variant.safeParse(edit(variant(), 'market', 'euro')).success).toBe(true)
   })
 
   test('require sources, a sorted cost range and a known frequency', () => {
@@ -624,15 +733,25 @@ describe('known issue fix and cost (safety evidence, spec 7.6)', () => {
     expect(KnownIssue.safeParse(withCost).success).toBe(true)
   })
 
-  test('with a fix, the cost is required', () => {
-    const r = KnownIssue.safeParse(edit(issueWithFix(), 'cost', undefined))
-    expect(r.success).toBe(false)
-    expect(issuePaths(r)).toContain('cost')
-    expect(issueMessages(r).join(' ')).toMatch(/fix.*cost/)
+  test('a fix needs no cost: a sourced fix is not dropped for lack of a price', () => {
+    expect('fix' in issueFixNoCost()).toBe(true)
+    expect('cost' in issueFixNoCost()).toBe(false)
+    const parsed = KnownIssue.safeParse(issueFixNoCost())
+    expect(parsed.success).toBe(true)
+    // Absent stays absent: the parser does not fill in a zero cost.
+    expect(parsed.success && parsed.data.cost).toBeUndefined()
+    const dropped = KnownIssue.safeParse(edit(issueWithFix(), 'cost', undefined))
+    expect(dropped.success).toBe(true)
     const noCostNoFix = KnownIssue.safeParse(
       edit(edit(issueWithFix(), 'cost', undefined), 'fix', undefined),
     )
     expect(noCostNoFix.success).toBe(true)
+  })
+
+  test('a cost that is given beside a fix is still checked', () => {
+    expect(KnownIssue.safeParse(issueWithFix()).success).toBe(true)
+    expect(KnownIssue.safeParse(edit(issueWithFix(), 'cost', {})).success).toBe(false)
+    expect(KnownIssue.safeParse(edit(issueWithFix(), 'cost.shop', [900, 500])).success).toBe(false)
   })
 
   test('a fix that is blank is still refused', () => {

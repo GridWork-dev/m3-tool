@@ -316,6 +316,32 @@ describe('safety evidence (spec 7.6)', () => {
     expect(issues[0]?.message).toMatch(/fix/)
   })
 
+  test('a fix with no cost still needs a Tier 1 or Tier 2 source, and the message does not ask for a cost', () => {
+    const set = fresh()
+    const noCost = find(set.issues, 'fixture-fix-without-cost').data
+    expect(noCost.fix).toBeDefined()
+    expect(noCost.cost).toBeUndefined()
+    expect(codes(set)).toEqual([])
+    noCost.sources = [source(3)]
+    const issues = checkDataSet(set)
+    expect(issues.map((issue) => issue.code)).toEqual(['safety-advice-without-evidence'])
+    expect(issues[0]?.file).toBe('issues/e46/fixture-fix-without-cost.yaml')
+    expect(issues[0]?.message).toMatch(/remove the fix$/)
+    expect(issues[0]?.message).not.toMatch(/its cost/)
+  })
+
+  test('a maintenance item with a trigger and no cost needs a Tier 1 or Tier 2 source like any other', () => {
+    const set = fresh()
+    const item = find(set.maintenance, 'fixture-inspection-service').data
+    expect(item.cost).toBeUndefined()
+    expect(codes(set)).toEqual([])
+    item.verified = false
+    item.sources = [source(3)]
+    const issues = checkDataSet(set)
+    expect(issues.map((issue) => issue.code)).toEqual(['safety-advice-without-evidence'])
+    expect(issues[0]?.file).toBe('maintenance/e46/fixture-inspection-service.yaml')
+  })
+
   test('an issue with a fix and a Tier 2 or Tier 1 source passes', () => {
     const set = fresh()
     guide(set).sources = [source(2)]

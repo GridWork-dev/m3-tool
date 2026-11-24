@@ -227,7 +227,7 @@ export function checkDataSet(set: DataSet, options: CheckOptions = {}): QualityI
       add(
         file,
         'safety-advice-without-evidence',
-        `known issue "${data.id}" publishes a fix but has no Tier 1 or Tier 2 source; add one, or remove the fix and its cost`,
+        `known issue "${data.id}" publishes a fix but has no Tier 1 or Tier 2 source; add one, or remove the fix`,
       )
     }
   }

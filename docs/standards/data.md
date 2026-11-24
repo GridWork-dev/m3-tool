@@ -33,8 +33,8 @@ The schemas in [`src/data/schemas.ts`](../../src/data/schemas.ts) are the contra
 | `generations` | `Generation` | Chassis, production years, engines, bodies and their sources, dimensions per body, driver eye point, stock wheel fitment per axle, and which values are unverified |
 | `variants` | `Variant` | Market, body, transmissions, packages, paints, factory wheels, interiors, which assets render it (base car, interior, body modules), and which values are unverified |
 | `parts` | `Part` | A product or a generic tier, with fitment attributes, options, prices, labor, 3D model (and the body modules it replaces), sources |
-| `maintenance` | `MaintenanceItem` | A service interval with parts, fluids, cost ranges and a buyer's inspection note |
-| `issues` | `KnownIssue` | A known problem with symptoms, cause, fix, cost range and how common it is |
+| `maintenance` | `MaintenanceItem` | A service with its interval (miles, months, a trigger, or a mix), the markets its sources cover, parts, fluids, an optional cost range and a buyer's inspection note |
+| `issues` | `KnownIssue` | A known problem with symptoms, cause, an optional fix, an optional cost range and how common it is |
 
 The schemas reject keys they don't list, so a typo like `brnad:` is an error instead of a silently dropped field. They also reject a few shapes the types alone allow:
 
@@ -44,11 +44,11 @@ The schemas reject keys they don't list, so a typo like `brnad:` is an error ins
 - A model's `replaces` names at least one body module, each at most once, and only from the four in `BODY_MODULES`. A variant's `render.modules` has only those four as keys.
 - A part's `attributes.kind` matches its category: `wheel` and `hub-ring` go with `wheels`, `tire` with `tires`, `brake-kit` with `brakes`, `suspension` with `suspension`.
 - `inspectWhenBuying: true` needs a non-empty `howToCheck`.
-- A maintenance interval has `miles`, `months` or both.
+- A maintenance interval has at least one of `miles`, `months` or `trigger` (see "Maintenance intervals"). `markets`, when present, is a non-empty list of `us` or `euro` with no repeats (see "Markets").
 - A measured driver eye point has sources. An estimated one may have none, and its `note` says it is an estimate. Labor estimates are another sourceless exception the schema names (see "Labor estimates"), and a paint's display colour (`baseColor`) is a third: it is a render value, not a fact about the car, so it needs no source, and the variant file's comment says how each value was picked (a paint's code, name and the markets and variants that offered it are facts and still need sources). (A generic part has no sources of its own either, because it is a computed tier, not a claim, and so its labor is an estimate.)
 - A part's `labor` always says whether it is an estimate: `estimated` is `true` or `false`, written out, with no default. Labor with `estimated: false` needs at least one source on the part.
 - Required text (names, titles, sellers, publishers) must not be empty or only whitespace. The value is kept as written, not trimmed.
-- A `KnownIssue` with a `fix` also has a `cost`. Without a `fix` the `cost` is optional (see "Safety advice needs evidence").
+- A `KnownIssue`'s `fix` and `cost` are each optional. A fix needs a Tier 1 or Tier 2 source but no cost (see "Safety advice needs evidence" and "Costs that are absent"). A maintenance item's `cost` is optional too.
 - Dimensions are keyed by bodies the generation lists, and there's at least one.
 
 ### Body module swaps
@@ -170,10 +170,38 @@ Listing a value and the object above it is allowed, so each claim keeps its own 
 Safety advice never rests on a forum post alone. This is weaker than `verified` and applies even to an unverified entry:
 
 - **A maintenance item** needs at least one Tier 1 or Tier 2 source.
-- **A known issue's `fix`** is optional. When it's there, the issue needs at least one Tier 1 or Tier 2 source, and a `cost`.
+- **A known issue's `fix`** is optional. When it's there, the issue needs at least one Tier 1 or Tier 2 source. A `cost` is optional (see "Costs that are absent").
 - **A known issue without a `fix`** publishes its symptoms, cause and how common it is, and Tier 3 sources are enough for that. Its `cost` is optional.
 
-`check-data` reports a maintenance item, or an issue with a fix, that has only Tier 3 sources as `safety-advice-without-evidence`. To fix it, add a Tier 1 or Tier 2 source, or (for an issue) remove the `fix` and its `cost` until there is one. `prevention` isn't checked by a rule, so the data verifier and the user's spot-check on `safety` PRs look at it.
+`check-data` reports a maintenance item, or an issue with a fix, that has only Tier 3 sources as `safety-advice-without-evidence`. To fix it, add a Tier 1 or Tier 2 source, or (for an issue) remove the `fix` until there is one. `prevention` isn't checked by a rule, so the data verifier and the user's spot-check on `safety` PRs look at it.
+
+### Maintenance intervals
+
+An interval is `miles`, `months`, a `trigger`, or a mix, and it says what the source says.
+
+- **Give a number only when the source gives one.** BMW's E46 documents give a number for a few services (oil at least once a year, brake fluid every two years, spark plugs at 60,000 miles in the 2005 US checklist). For the others they name the service that carries it. Record that as the `trigger`. The site shows the trigger, not a made-up mileage, so don't turn a trigger into miles from a forum, from a typical figure, or by reading one number across from another document.
+- **`miles` and `months` may sit beside a `trigger` only when the source gives both** the service and its number. A source that names only the service supports the trigger alone. The schema can't see the source, so the data verifier and the `safety` spot-check look at this.
+- **A shorter interval that specialists recommend is not the interval.** It goes in `notes`, labelled as theirs, with its own source. It never replaces BMW's number or trigger.
+
+On the E46 the Service Interval Indicator works out when the next service is due from how the car is driven, and shows OIL SERVICE or INSPECTION with the distance left. The record pages of BMW's 2004 US M3 booklet list the services as Engine Oil Service, Inspection I, Engine Oil Service, Inspection II, so the distance between two of them is not a fixed number. The triggers:
+
+| Trigger | Means for the E46 |
+|---|---|
+| `oil-service` | The service the indicator shows as OIL SERVICE. |
+| `inspection-i` | The service the indicator shows as INSPECTION and BMW lists as Inspection I. |
+| `inspection-ii` | Inspection II, which BMW says includes everything in Inspection I and more. |
+| `lifetime-fill` | BMW says the fluid or part is a lifetime fill with no scheduled change. Give no `miles` or `months`. The schema doesn't enforce that. |
+| `condition-based` | BMW's Condition Based Service decides from its own monitoring of that part. BMW started it with the E65, so no E46 item uses it. |
+
+### Markets
+
+`markets` names the markets an item's sources speak for: a non-empty list of `us` or `euro`, each at most once. Leave it out only when the sources cover every market.
+
+A document for one market covers that market only (ruling R61, in "What counts as verified"). A BMW of North America booklet or checklist supports `markets: [us]` and nothing else, and a European handbook supports `markets: [euro]`. A model-wide statement under R61 supports leaving `markets` out. When the US and European schedules differ, write one item for each market, with its own `markets` and an id that names the market.
+
+### Costs that are absent
+
+`cost` is optional on a maintenance item and on a known issue. Leave it out when no Tier 1 or Tier 2 source gives a figure. The site then shows "no sourced cost", and never zero. Don't write `[0, 0]` for "unknown": nothing tells it from free. A `cost` that is given is still checked: USD, a sorted range, and for a maintenance item both `diy` and `shop`. Price collection is a separate lane (see "Prices"), so a figure from a retailer's product listing is not a sourced cost.
 
 ### Review
 
@@ -227,7 +255,7 @@ It prints one `<file>: <code>: <message>` line per problem, exits 1 if there are
 | `requires-conflicts-overlap` | The same id is in both `requires` and `conflicts` | Keep it in one |
 | `verified-without-tier` | A part, maintenance item or issue is `verified: true` but fails the rule above | Add the sources, or set `verified: false` |
 | `multiple-generic-in-category` | A generation has two brandless parts in one category | Keep one |
-| `safety-advice-without-evidence` | A maintenance item, or a known issue with a `fix`, has no Tier 1 or Tier 2 source | Add a source, or remove the issue's `fix` and `cost` |
+| `safety-advice-without-evidence` | A maintenance item, or a known issue with a `fix`, has no Tier 1 or Tier 2 source | Add a source, or remove the issue's `fix` |
 | `variant-body-not-in-generation` | A variant's `body` isn't in its generation's `bodies` | Fix the body, or add it to the generation |
 | `variant-years-outside-generation` | A variant's `years` aren't within its generation's `years` | Fix the years |
 | `part-years-outside-generation` | A part's `fits.years` aren't within its generation's `years` | Fix the years |
