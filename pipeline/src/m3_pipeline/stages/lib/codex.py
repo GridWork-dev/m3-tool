@@ -104,17 +104,26 @@ def run_codex(
 ) -> str:
     """Run one `codex exec` in `cwd` and return the text of its last message, stripped.
 
-    Codex writes that message to `last_message` (`-o`; a relative path is made absolute against
-    our working directory, not `cwd`). A file left there by an earlier run is removed first, so a
-    run that writes nothing can't return a stale answer. Raises CodexError for every failure: a
+    Relative `images` and `last_message` paths are made absolute against our working directory,
+    not `cwd`. Every image must be an existing file, or CodexError is raised before Codex starts.
+    Codex writes its message to `last_message` (`-o`) only if the folder exists, so the folder
+    is created, and a file left there by an earlier run is removed first, so a run that writes
+    nothing can't return a stale answer. Raises CodexError for every failure: a missing image, a
     binary that can't start, a timeout, a nonzero exit (with the tail of stderr) and an empty or
     missing last message.
     """
-    binary = codex_binary()
-    # Codex resolves `-o` against `cwd`, we resolve it against our own directory: make the path
-    # absolute once, so cleanup, `-o` and the read all name the same file.
+    # Codex resolves `-o` and `-i` against `cwd`, we resolve them against our own directory: make
+    # every path absolute once, so the checks, the arguments and the read name the same files.
     last_message = last_message.absolute()
-    argv = build_argv(binary, prompt, last_message, images, sandbox=sandbox)
+    attached = [image.absolute() for image in images]
+    # `codex exec -i missing.png` exits 0 and tells the model the file is missing, so the run
+    # would go ahead blind and a critic would judge pictures it never saw. Refuse to start.
+    missing = [image for image in attached if not image.is_file()]
+    if missing:
+        names = ", ".join(str(image) for image in missing)
+        raise CodexError(f"codex was not started: image file(s) not found: {names}")
+    binary = codex_binary()
+    argv = build_argv(binary, prompt, last_message, attached, sandbox=sandbox)
     try:
         last_message.parent.mkdir(parents=True, exist_ok=True)
         last_message.unlink(missing_ok=True)

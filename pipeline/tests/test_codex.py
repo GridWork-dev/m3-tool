@@ -60,9 +60,18 @@ class FakeRun:
             target = Path(cmd[list(cmd).index("-o") + 1])
             if not target.is_absolute():
                 target = (cwd or Path.cwd()) / target
-            target.parent.mkdir(parents=True, exist_ok=True)
-            target.write_text(self.message, "utf-8")
+            # The real CLI does not create the folder: with it missing, `codex exec` exits 0, prints
+            # "Failed to write last message file" and leaves nothing behind.
+            if target.parent.is_dir():
+                target.write_text(self.message, "utf-8")
         return subprocess.CompletedProcess(list(cmd), self.returncode, "headers\n", self.stderr)
+
+
+def _image(folder: Path, name: str = "view.png") -> Path:
+    """An image file for `run_codex` to attach (its bytes are never decoded here)."""
+    path = folder / name
+    path.write_bytes(b"\x89PNG")
+    return path
 
 
 def _install(monkeypatch: pytest.MonkeyPatch, fake: FakeRun) -> FakeRun:
@@ -216,7 +225,7 @@ def test_run_codex_passes_devnull_stdin_and_cwd(
     last = tmp_path / "out" / "last.md"
     work = tmp_path / "work"
     work.mkdir()
-    image = tmp_path / "view.png"
+    image = _image(tmp_path)
 
     answer = run_codex("do it", [image], cwd=work, last_message=last)
 
@@ -315,3 +324,69 @@ def test_run_codex_resolves_a_relative_last_message_once_for_cleanup_argv_and_re
     assert passed.is_absolute()
     assert passed.resolve() == (ours / "out" / "last.md").resolve()
     assert not (theirs / "out").exists()  # Codex wrote where we read, not under its own cwd
+
+
+def test_run_codex_creates_the_missing_folder_of_the_last_message(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # Codex exits 0 and writes nothing when the `-o` folder is missing, so `run_codex` makes it.
+    _install(monkeypatch, FakeRun(message="the answer"))
+    last = tmp_path / "a" / "b" / "last.md"
+    assert not last.parent.exists()
+    assert run_codex("p", [], cwd=tmp_path, last_message=last) == "the answer"
+    assert last.read_text("utf-8") == "the answer"
+
+
+def test_the_fake_leaves_a_missing_last_message_folder_missing(tmp_path: Path) -> None:
+    # Guards the fake itself: it must not be kinder than Codex, or the test above proves nothing.
+    last = tmp_path / "missing" / "last.md"
+    FakeRun(message="x")(["codex", "-o", str(last)], cwd=tmp_path)
+    assert not last.parent.exists()
+
+
+def test_run_codex_refuses_to_start_when_an_image_is_missing(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # `codex exec -i ./missing.png` exits 0 and tells the model the file is missing, so the
+    # critic would judge pictures it never saw. Every image is checked before launching.
+    fake = _install(monkeypatch, FakeRun())
+    good = _image(tmp_path)
+    gone_a = tmp_path / "gone-a.png"
+    gone_b = tmp_path / "sub" / "gone-b.png"
+    with pytest.raises(CodexError) as raised:
+        run_codex("p", [gone_a, good, gone_b], cwd=tmp_path, last_message=tmp_path / "last.md")
+    message = str(raised.value)
+    assert str(gone_a) in message and str(gone_b) in message
+    assert str(good) not in message
+    assert fake.calls == []  # Codex was never started
+
+
+def test_run_codex_refuses_a_directory_in_place_of_an_image(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    fake = _install(monkeypatch, FakeRun())
+    folder = tmp_path / "view.png"
+    folder.mkdir()
+    with pytest.raises(CodexError, match="view.png"):
+        run_codex("p", [folder], cwd=tmp_path, last_message=tmp_path / "last.md")
+    assert fake.calls == []
+
+
+def test_run_codex_hands_codex_absolute_image_paths(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # Codex resolves `-i` against its own cwd; the existence check resolves against ours. One
+    # absolute path makes both name the same file.
+    ours = tmp_path / "ours"
+    theirs = tmp_path / "theirs"
+    ours.mkdir()
+    theirs.mkdir()
+    _image(ours, "a.png")
+    monkeypatch.chdir(ours)
+    fake = _install(monkeypatch, FakeRun())
+
+    run_codex("p", [Path("a.png")], cwd=theirs, last_message=tmp_path / "last.md")
+
+    cmd = cast("list[str]", fake.calls[0]["cmd"])
+    passed = Path(cmd[cmd.index("-i") + 1])
+    assert passed.is_absolute() and passed.resolve() == (ours / "a.png").resolve()

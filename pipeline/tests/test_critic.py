@@ -1,4 +1,5 @@
 import json
+import time
 from collections.abc import Sequence
 from pathlib import Path
 from typing import Literal, cast, get_args
@@ -22,17 +23,72 @@ def _issue(severity: str, text: str = "t", fix: str = "f") -> dict[str, str]:
     return {"severity": severity, "text": text, "fix": fix}
 
 
-def _assert_failed_with_no_valid_verdict(verdict: Verdict, raw: str) -> None:
+def _assert_failed_with_no_valid_verdict(verdict: Verdict, raw: str, reason: str = "") -> None:
+    """A failed verdict: one blocker that starts `critic returned no valid verdict: ` and names
+    the reason (`reason`, when given, must appear in it); `raw` is kept."""
     assert verdict.ok is False
-    assert verdict.issues == (Issue("blocker", NO_VALID_VERDICT, ""),)
+    (issue,) = verdict.issues
+    assert issue.severity == "blocker" and issue.fix == ""
+    assert issue.text.startswith(NO_VALID_VERDICT + ": ")
+    assert reason in issue.text
     assert verdict.raw == raw
 
 
-# --- parse_verdict: garbage never passes ----------------------------------------------------
+PASSING = _verdict_json(True)
+FAILING = _verdict_json(False, [_issue("major", "roof too tall", "lower the roof")])
+
+
+# --- parse_verdict: exactly two accepted forms ----------------------------------------------
 
 
 def test_garbage_message_is_a_failed_verdict_not_a_pass() -> None:
     assert parse_verdict("Looks great to me!").ok is False
+
+
+def test_parse_verdict_reads_a_bare_object() -> None:
+    verdict = parse_verdict(PASSING)
+    assert verdict.ok is True and verdict.issues == () and verdict.raw == PASSING
+
+
+def test_parse_verdict_trims_whitespace_around_a_bare_object() -> None:
+    assert parse_verdict("\n\n  " + PASSING + " \t\n").ok is True
+
+
+def test_parse_verdict_reads_json_inside_a_code_fence() -> None:
+    message = "```json\n" + FAILING + "\n```"
+    verdict = parse_verdict(message)
+    assert verdict.ok is False
+    assert verdict.issues == (Issue("major", "roof too tall", "lower the roof"),)
+    assert verdict.raw == message
+
+
+@pytest.mark.parametrize(
+    "message",
+    [
+        "```\n" + PASSING + "\n```",  # a bare fence
+        "```json\n" + PASSING + "\n```",
+        "\n  ```json\n" + PASSING + "\n```\n\n",  # whitespace around the whole message
+        "```json\n" + PASSING + "```",  # the closing fence right after the JSON
+        "```json  \n\n" + PASSING + "\n\n```",
+        "```json\n" + json.dumps(json.loads(PASSING), indent=2) + "\n```",  # a pretty-printed body
+    ],
+)
+def test_parse_verdict_accepts_a_single_fenced_block(message: str) -> None:
+    verdict = parse_verdict(message)
+    assert verdict.ok is True and verdict.issues == ()
+
+
+def test_nested_issue_objects_are_part_of_the_one_verdict_object() -> None:
+    verdict = parse_verdict(_verdict_json(False, [_issue("minor", "a"), _issue("major", "b")]))
+    assert [i.text for i in verdict.issues] == ["a", "b"]
+
+
+def test_braces_inside_strings_do_not_confuse_the_parser() -> None:
+    verdict = parse_verdict(_verdict_json(True, [_issue("minor", 'a } b { c " d', "fix {}")]))
+    assert verdict.ok is True and verdict.issues[0].text == 'a } b { c " d'
+
+
+# --- parse_verdict: every other shape is a failed verdict, with a reason ---------------------
 
 
 @pytest.mark.parametrize(
@@ -40,25 +96,127 @@ def test_garbage_message_is_a_failed_verdict_not_a_pass() -> None:
     [
         "Looks great to me!",
         "pass",
-        "",
-        "   \n\t ",
-        '{"pass": true, "issues": [',  # half-formed
-        '{"pass": tru',
-        '{"pass": true, "issues": [{"severity": "minor", "text": "x"',
-        "```json\n{not json}\n```",  # a fenced block with junk
-        "```json\n```",
-        "```\nlooks fine\n```",
+        "{}",
         "[]",
         '["pass", true]',
         '"pass"',
         "null",
         "true",
-        "{}",
-        '{"pass": true, "issues": []} then {broken',  # a good verdict, then a broken object
+        "42",
     ],
 )
-def test_prose_empty_half_formed_and_junk_messages_fail(message: str) -> None:
+def test_prose_and_non_verdict_json_fail(message: str) -> None:
     _assert_failed_with_no_valid_verdict(parse_verdict(message), message)
+
+
+@pytest.mark.parametrize("message", ["", "   \n\t ", "```json\n```", "```\n\n```"])
+def test_an_empty_message_or_an_empty_fence_fails(message: str) -> None:
+    _assert_failed_with_no_valid_verdict(parse_verdict(message), message)
+
+
+def test_the_empty_message_names_its_reason() -> None:
+    _assert_failed_with_no_valid_verdict(parse_verdict("  \n"), "  \n", "empty")
+
+
+def test_prose_before_the_json_fails() -> None:
+    message = "Here is my verdict:\n" + PASSING
+    _assert_failed_with_no_valid_verdict(parse_verdict(message), message)
+
+
+def test_prose_after_the_json_fails() -> None:
+    message = PASSING + "\nI hope that helps."
+    _assert_failed_with_no_valid_verdict(parse_verdict(message), message, "Extra data")
+
+
+def test_prose_on_both_sides_of_the_json_fails() -> None:
+    message = "Verdict:\n" + PASSING + "\nHope that helps."
+    _assert_failed_with_no_valid_verdict(parse_verdict(message), message)
+
+
+@pytest.mark.parametrize(
+    "first, second",
+    [(FAILING, PASSING), (PASSING, FAILING), (PASSING, PASSING), (PASSING, "{}")],
+)
+def test_two_objects_fail_in_either_order(first: str, second: str) -> None:
+    for message in (
+        f"{first}\n{second}",
+        f"{first}{second}",
+        f"{first}\n\nOn reflection:\n{second}",
+    ):
+        _assert_failed_with_no_valid_verdict(parse_verdict(message), message)
+
+
+def test_a_complete_verdict_followed_by_a_broken_object_fails() -> None:
+    for tail in ("{broken", "{oops}", "{"):
+        message = PASSING + "\n" + tail
+        _assert_failed_with_no_valid_verdict(parse_verdict(message), message)
+
+
+@pytest.mark.parametrize(
+    "message",
+    [
+        '[{"pass": true, "issues": []}',  # an array-wrapped verdict, truncated
+        '[{"pass": true, "issues": []}]',
+        '[{"pass": true, "issues": []}, {"pass": true, "issues": []}]',
+        "```json\n" + '[{"pass": true, "issues": []}]' + "\n```",
+        '{"verdict": {"pass": true, "issues": []}}',  # wrapped in another object
+    ],
+)
+def test_a_verdict_wrapped_in_an_array_or_another_object_fails(message: str) -> None:
+    _assert_failed_with_no_valid_verdict(parse_verdict(message), message)
+
+
+def test_a_json_array_names_its_reason() -> None:
+    message = '[{"pass": true, "issues": []}]'
+    _assert_failed_with_no_valid_verdict(parse_verdict(message), message, "not an object")
+
+
+@pytest.mark.parametrize(
+    "message",
+    [
+        "```json\n" + PASSING + "\n```\nHope that helps.",  # a fence plus trailing prose
+        "Here you go:\n```json\n" + PASSING + "\n```",  # leading prose plus a fence
+        "Here you go:\n```json\n" + PASSING + "\n```\nHope that helps.",
+        "```json\n" + FAILING + "\n```\n```json\n" + PASSING + "\n```",  # two fenced blocks
+        "```json\n" + PASSING + "\n```\n" + PASSING,  # a fence, then a bare object
+        "```json\n" + PASSING + "\n",  # an unclosed fence
+        "```json\n" + PASSING + "\n``",
+        "``` " + PASSING + " ```",  # no newline after the opening fence
+        "```python\n" + PASSING + "\n```",  # another language tag
+        "```jsonl\n" + PASSING + "\n```",
+        "```JSON\n" + PASSING + "\n```",
+        "```json\nThe verdict is:\n" + PASSING + "\n```",  # prose inside the fence
+        "```json\n{not json}\n```",
+        "```\nlooks fine\n```",
+        "`" + PASSING + "`",  # inline code, not a fence
+    ],
+)
+def test_a_fence_that_is_not_one_clean_block_around_one_object_fails(message: str) -> None:
+    _assert_failed_with_no_valid_verdict(parse_verdict(message), message)
+
+
+def test_a_malformed_fence_names_its_reason() -> None:
+    message = "```json\n" + PASSING + "\n```\nHope that helps."
+    _assert_failed_with_no_valid_verdict(parse_verdict(message), message, "fence")
+
+
+def test_a_truncated_verdict_fails() -> None:
+    message = '{"pass": false, "issues": [{"pass": true, "issues": []}'
+    _assert_failed_with_no_valid_verdict(parse_verdict(message), message)
+
+
+@pytest.mark.parametrize(
+    "verdict", [PASSING, _verdict_json(True, [_issue("minor", "a } b", "fix"), _issue("major")])]
+)
+def test_every_truncation_of_a_passing_verdict_fails_bare_and_fenced(verdict: str) -> None:
+    for cut in range(len(verdict)):
+        piece = verdict[:cut]
+        bare = parse_verdict(piece)
+        assert bare.ok is False, piece
+        assert bare.issues[0].text.startswith(NO_VALID_VERDICT), piece
+        fenced = parse_verdict("```json\n" + piece + "\n```")
+        assert fenced.ok is False, piece
+        assert fenced.issues[0].text.startswith(NO_VALID_VERDICT), piece
 
 
 def test_parse_verdict_never_raises_on_odd_input() -> None:
@@ -66,28 +224,12 @@ def test_parse_verdict_never_raises_on_odd_input() -> None:
         assert parse_verdict(message).ok is False
 
 
-# A malformed outer object must never hand the verdict to an object nested inside it.
-@pytest.mark.parametrize(
-    "message",
-    [
-        '{"pass": false, "issues": [{"pass": true, "issues": []}',  # truncated outer
-        '{"pass": false, "issues": [{"pass": true, "issues": []}]',  # one brace short
-        '{"pass": false, "issues": [{"pass": true, "issues": []}, {"oops"',
-        '{"note": "draft", "x": {"pass": true, "issues": []}',  # the outer has no closing brace
-        '{"x": ] {"pass": true, "issues": []} }',  # a mismatched closer
-        '{oops {"pass": true, "issues": []}',  # a stray open brace before the verdict
-        '{"pass": false, "text": "unterminated {"pass": true, "issues": []}',
-        "```json\n" + '{"pass": false, "issues": [{"pass": true, "issues": []}' + "\n```",
-    ],
-)
-def test_an_object_nested_in_a_malformed_outer_object_is_never_the_verdict(message: str) -> None:
-    _assert_failed_with_no_valid_verdict(parse_verdict(message), message)
-
-
-def test_a_complete_verdict_after_a_balanced_junk_object_still_counts() -> None:
-    # `{hood}` is a closed region, so the scan resumes after it: only an unclosed one is fatal.
-    assert parse_verdict("The {hood} is fine.\n" + _verdict_json(True)).ok is True
-    assert parse_verdict("```\n{not json}\n```\n" + _verdict_json(True)).ok is True
+def test_parse_time_is_linear_on_large_garbage() -> None:
+    # A degenerate model loop must not hang the gate: strict decoding looks at the text once.
+    started = time.monotonic()
+    for message in ("{x}" * 200000, "{" * 200000, '{"a":[' * 20000):
+        assert parse_verdict(message).ok is False
+    assert time.monotonic() - started < 2.0
 
 
 @pytest.mark.parametrize(
@@ -101,24 +243,18 @@ def test_a_complete_verdict_after_a_balanced_junk_object_still_counts() -> None:
     ],
 )
 def test_duplicate_json_keys_are_a_failed_verdict(message: str) -> None:
-    _assert_failed_with_no_valid_verdict(parse_verdict(message), message)
-
-
-def test_a_duplicate_key_in_an_earlier_object_does_not_hide_a_later_good_verdict() -> None:
-    message = '{"pass": true, "pass": false}\n' + _verdict_json(True)
-    # The broken object voids nothing that came before it, and the later object is complete.
-    assert parse_verdict(message).ok is True
+    _assert_failed_with_no_valid_verdict(parse_verdict(message), message, "duplicate key")
 
 
 def test_parse_verdict_rejects_a_missing_pass_field() -> None:
     message = json.dumps({"issues": []})
-    _assert_failed_with_no_valid_verdict(parse_verdict(message), message)
+    _assert_failed_with_no_valid_verdict(parse_verdict(message), message, "pass")
 
 
 @pytest.mark.parametrize("passed", ["true", "yes", 1, 0, None, [], {}])
 def test_parse_verdict_rejects_a_pass_that_is_not_a_boolean(passed: object) -> None:
     message = _verdict_json(passed)
-    _assert_failed_with_no_valid_verdict(parse_verdict(message), message)
+    _assert_failed_with_no_valid_verdict(parse_verdict(message), message, "pass")
 
 
 @pytest.mark.parametrize(
@@ -134,57 +270,7 @@ def test_parse_verdict_rejects_a_pass_that_is_not_a_boolean(passed: object) -> N
     ],
 )
 def test_parse_verdict_rejects_a_missing_or_malformed_issues_list(message: str) -> None:
-    _assert_failed_with_no_valid_verdict(parse_verdict(message), message)
-
-
-# --- parse_verdict: where the JSON may sit --------------------------------------------------
-
-
-def test_parse_verdict_reads_a_bare_object() -> None:
-    verdict = parse_verdict(_verdict_json(True))
-    assert verdict.ok is True and verdict.issues == ()
-
-
-def test_parse_verdict_reads_json_inside_a_code_fence() -> None:
-    message = "```json\n" + _verdict_json(False, [_issue("major", "roof too tall")]) + "\n```"
-    verdict = parse_verdict(message)
-    assert verdict.ok is False
-    assert verdict.issues == (Issue("major", "roof too tall", "f"),)
-    assert verdict.raw == message
-
-
-def test_parse_verdict_reads_json_inside_a_bare_fence() -> None:
-    verdict = parse_verdict("```\n" + _verdict_json(True) + "\n```")
-    assert verdict.ok is True
-
-
-def test_parse_verdict_reads_json_wrapped_in_prose() -> None:
-    message = (
-        "Here is my verdict, as asked:\n"
-        + _verdict_json(False, [_issue("blocker", "a roundel on the hood")])
-        + "\nI hope that helps."
-    )
-    verdict = parse_verdict(message)
-    assert verdict.ok is False
-    assert [i.text for i in verdict.issues] == ["a roundel on the hood"]
-
-
-def test_parse_verdict_takes_the_last_json_object() -> None:
-    earlier_fail = _verdict_json(False, [_issue("blocker", "first draft")])
-    later_pass = _verdict_json(True)
-    assert parse_verdict(f"{earlier_fail}\nOn reflection:\n{later_pass}").ok is True
-    assert parse_verdict(f"{later_pass}\nOn reflection:\n{earlier_fail}").ok is False
-
-
-def test_nested_issue_objects_are_not_mistaken_for_the_verdict() -> None:
-    message = _verdict_json(False, [_issue("minor", "a"), _issue("major", "b")])
-    verdict = parse_verdict(message)
-    assert [i.text for i in verdict.issues] == ["a", "b"]
-
-
-def test_braces_in_the_prose_before_the_verdict_are_ignored() -> None:
-    verdict = parse_verdict("The {hood} is fine.\n" + _verdict_json(True))
-    assert verdict.ok is True
+    _assert_failed_with_no_valid_verdict(parse_verdict(message), message, "issue")
 
 
 # --- parse_verdict: severity and ok ---------------------------------------------------------
@@ -269,6 +355,42 @@ def test_critic_prompt_states_the_fixed_rules(kind: Kind) -> None:
         assert field in prompt
     for severity in ("blocker", "major", "minor"):
         assert severity in prompt
+
+
+@pytest.mark.parametrize("kind", KINDS)
+def test_critic_prompt_spells_out_that_only_one_bare_object_is_accepted(kind: Kind) -> None:
+    prompt = critic_prompt(kind, ["x"])
+    assert "no text before or after it" in prompt
+    assert "no second object" in prompt
+    assert "no code fence" in prompt
+
+
+def test_synth_view_prompt_fixes_the_attachment_order_and_asks_for_a_comparison() -> None:
+    prompt = critic_prompt("synth-view", ["x"])
+    assert "every image except the last is a real reference photo" in prompt
+    assert "the last image is a synthesized candidate view" in prompt
+    assert "Compare the candidate against the reference photos" in prompt
+
+
+@pytest.mark.parametrize("kind", ["exterior", "interior", "product"])
+def test_paired_prompts_say_each_photo_is_followed_by_its_render(kind: Kind) -> None:
+    prompt = critic_prompt(kind, ["x"])
+    assert "each" in prompt and "followed by a render" in prompt
+    assert "Compare each render with the photo just before it" in prompt
+
+
+@pytest.mark.parametrize("kind", KINDS)
+def test_forbidden_marks_are_a_blocker_only_on_the_candidate_never_on_the_reference_photos(
+    kind: Kind,
+) -> None:
+    prompt = critic_prompt(kind, ["x"])
+    rule = next(line for line in prompt.splitlines() if line.startswith("Forbidden marks"))
+    target = "the synthesized candidate" if kind == "synth-view" else "a render"
+    assert f"Any of them on {target}" in rule and "is a blocker" in rule
+    assert "any of them, anywhere, is a blocker" not in prompt  # the old, unscoped rule
+    photos = "product photos" if kind == "product" else "reference photos"
+    assert f"The {photos} are real and show real badges, logos and plates" in rule
+    assert "never count" in rule and "never list one as an issue" in rule
 
 
 @pytest.mark.parametrize("kind", KINDS)
