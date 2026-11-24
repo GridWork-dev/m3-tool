@@ -199,7 +199,14 @@ export function startServer(options: ServerOptions): Promise<RunningServer> {
       res.end()
       return
     }
-    if (path === '/viewer' || path === '/viewer/') {
+    // The page loads ./viewer.js, which only resolves under /viewer/. Without the slash it would
+    // ask for /viewer.js and get a 404, so send the browser on, keeping ?car=... and the rest.
+    if (path === '/viewer') {
+      res.writeHead(302, { Location: `/viewer/${url.search}` })
+      res.end()
+      return
+    }
+    if (path === '/viewer/') {
       return sendFile(res, await fileUnder(VIEWER_DIR, 'index.html'))
     }
     if (path.startsWith('/viewer/')) {

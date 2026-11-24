@@ -47,6 +47,8 @@ interface ViewerApi {
   state: () => ViewerState
   reset: () => void
   settle: (count?: number) => Promise<void>
+  // The direction the driver camera looks, as a unit vector in the car frame.
+  driverForward: () => [number, number, number]
 }
 
 type ViewerWindow = { __viewer: ViewerApi }
@@ -159,6 +161,12 @@ const viewerReset = (page: Page): Promise<void> =>
   page.evaluate(() => (window as unknown as ViewerWindow).__viewer.reset())
 const viewerSettle = (page: Page): Promise<void> =>
   page.evaluate(() => (window as unknown as ViewerWindow).__viewer.settle(5))
+const viewerForward = (page: Page): Promise<[number, number, number]> =>
+  page.evaluate(() => (window as unknown as ViewerWindow).__viewer.driverForward())
+
+const near = (a: readonly number[], b: readonly number[], tolerance: number): boolean =>
+  a.length === b.length &&
+  a.every((value, i) => Math.abs(value - (b[i] ?? Number.NaN)) <= tolerance)
 
 // The state keys whose value differs between two states.
 function changedKeys(a: ViewerState, b: ViewerState): string[] {
@@ -170,9 +178,9 @@ const sameList = (a: string[], b: string[]): boolean =>
   a.length === b.length && a.every((value, index) => value === b[index])
 
 // Loads the viewer and waits until it has drawn its first frames, or throws what stopped it.
-async function openViewer(page: Page, url: string): Promise<void> {
+async function openViewer(page: Page, url: string, timeout = 30_000): Promise<void> {
   await page.goto(url)
-  await page.waitForFunction(() => '__viewer' in window, undefined, { timeout: 30_000 })
+  await page.waitForFunction(() => '__viewer' in window, undefined, { timeout })
   await page.evaluate(() => (window as unknown as ViewerWindow).__viewer.ready)
   await viewerSettle(page)
   await page.bringToFront()
@@ -477,6 +485,14 @@ async function main(): Promise<number> {
       eye.length === 3 && eye.every((v, i) => Math.abs(v - (defaults.eye[i] ?? Number.NaN)) < 1e-9),
       `${JSON.stringify(defaults.eye)} vs YAML ${JSON.stringify(eye)}`,
     )
+    // The nose is toward -Z, so a driver at default yaw looks along -Z. A flipped look direction
+    // would still put the eye at the right point, so this is checked on its own.
+    const forward = await viewerForward(page)
+    record(
+      'the driver camera looks toward -Z at default yaw',
+      near(forward, [0, 0, -1], 1e-6),
+      JSON.stringify(forward),
+    )
     if (assets.interior) {
       record(
         'state().interiorPosition is the car origin',
@@ -506,21 +522,64 @@ async function main(): Promise<number> {
       const again = await shoot(page, join(shots, 'driver-after-reset.png'))
       const drift = await changedShare(scratch, references.driver, again)
       record('reset puts the driver look direction back', drift < MAX_NOISE, percent(drift, 3))
+      const resetForward = await viewerForward(page)
+      record(
+        'reset points the driver camera toward -Z',
+        near(resetForward, [0, 0, -1], 1e-6),
+        JSON.stringify(resetForward),
+      )
     }
 
-    // ?eye= replaces the data's eye point, and the page prints the value it uses.
-    const override = [-0.4, 1.15, 0.05]
+    // /viewer without the slash must land on /viewer/ with the query, or the page's relative
+    // ./viewer.js resolves to /viewer.js and the page never starts.
+    const slashless = await fetch(`${server.url}/viewer?${query}`, { redirect: 'manual' })
+    record(
+      '/viewer redirects to /viewer/ and keeps the query',
+      slashless.status === 302 && slashless.headers.get('location') === `/viewer/?${query}`,
+      `${slashless.status} ${slashless.headers.get('location')}`,
+    )
+    let slashlessResult: string
+    try {
+      await openViewer(page, `${server.url}/viewer?${query}`, 10_000)
+      const status = (await page.locator('#status').textContent()) ?? ''
+      slashlessResult =
+        !status.startsWith('loading') && status.includes('renderer:')
+          ? 'loaded'
+          : `status is "${status.split('\n')[0]}"`
+    } catch (error) {
+      slashlessResult = `did not start: ${error instanceof Error ? error.message.split('\n')[0] : error}`
+    }
+    record(
+      '/viewer without the slash loads the viewer',
+      slashlessResult === 'loaded' && page.url() === `${server.url}/viewer/?${query}`,
+      `${slashlessResult}; ended at ${page.url()}`,
+    )
+
+    // ?eye= replaces the data's eye point, and the page prints the value it uses. state().eye is
+    // the driver camera's own world position, and z is not 0, so a flipped sign shows.
+    const override = [-0.37, 1.1, 0.25]
     query.set('eye', override.join(','))
     await openViewer(page, `${server.url}/viewer/?${query}`)
     const overridden = await viewerState(page)
     const printed = (await page.locator('#readout').textContent()) ?? ''
     record(
-      '?eye= overrides the eye point and the page prints it',
+      '?eye= moves the driver camera to exactly that point and the page prints it',
       JSON.stringify(overridden.eye) === JSON.stringify(override) &&
-        printed.includes('-0.400, 1.150, 0.050') &&
+        printed.includes('-0.370, 1.100, 0.250') &&
         printed.includes('?eye= override'),
       `${JSON.stringify(overridden.eye)}; ${printed.split('\n')[0]}`,
     )
+    if (references.driver) {
+      // The picture must follow the camera: 0.25 m further back changes the driver's view.
+      await page.locator('#camera-driver').check()
+      const moved = await shoot(page, join(shots, 'driver-eye-override.png'))
+      const share = await changedShare(scratch, references.driver, moved)
+      record(
+        '?eye= changes the driver shot',
+        share >= MIN_CHANGED,
+        `${percent(share)} of pixels moved (needs ${percent(MIN_CHANGED, 1)})`,
+      )
+    }
 
     record('no page errors', pageErrors.length === 0, pageErrors.join(' | ') || 'none')
     const failed = results.filter((r) => !r.ok)

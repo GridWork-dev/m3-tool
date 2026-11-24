@@ -72,6 +72,12 @@ function requireNamed(root, name, what) {
   return object
 }
 
+// Where an object is in the car frame. `+ 0` turns -0 into 0.
+function worldPosition(object) {
+  const at = object.getWorldPosition(new THREE.Vector3())
+  return [at.x + 0, at.y + 0, at.z + 0]
+}
+
 const fixed = (values, digits = 3) => values.map((value) => value.toFixed(digits)).join(', ')
 
 async function start() {
@@ -297,12 +303,14 @@ async function start() {
   new ResizeObserver(resize).observe(stage)
   resize()
 
+  // The readout prints where the driver camera actually is, not the value it was given.
   const readout = $('readout')
-  const lines = [`eye (m): ${fixed(eye)}`, `  from ${eyeInfo.source}`]
+  const placed = worldPosition(driverCamera)
+  const lines = [`eye (m): ${fixed(placed)}`, `  from ${eyeInfo.source}`]
   if (interiorEyeAnchor) {
-    const anchor = interiorEyeAnchor.getWorldPosition(new THREE.Vector3())
-    const deltaMm = [anchor.x - eye[0], anchor.y - eye[1], anchor.z - eye[2]].map((v) => v * 1000)
-    lines.push(`interior camera_driver_eye (m): ${fixed(anchor.toArray())}`)
+    const anchor = worldPosition(interiorEyeAnchor)
+    const deltaMm = anchor.map((value, i) => (value - placed[i]) * 1000)
+    lines.push(`interior camera_driver_eye (m): ${fixed(anchor)}`)
     lines.push(`  minus eye (mm): ${fixed(deltaMm, 0)}`)
   }
   readout.textContent = lines.join('\n')
@@ -336,11 +344,6 @@ async function start() {
   status.className = 'muted'
   status.textContent = `renderer: ${backend}\ncar: ${carPath}${interiorPath ? `\ninterior: ${interiorPath}` : ''}${wheelPath ? `\nwheel: ${wheelPath}` : ''}`
 
-  const position = (object) => {
-    // `+ 0` turns -0 into 0.
-    const at = object.getWorldPosition(new THREE.Vector3())
-    return [at.x + 0, at.y + 0, at.z + 0]
-  }
   return {
     // What the controls hold, read back from the scene. Keys and order are the page's contract.
     state: () => {
@@ -352,10 +355,16 @@ async function start() {
         glassOpacity: glassMaterials[0].opacity,
         wheelsVisible: wheelHolders.length > 0 && wheelHolders.every((holder) => holder.visible),
         interiorVisible: interiorRoot ? interiorRoot.visible : false,
-        interiorPosition: interiorRoot ? position(interiorRoot) : [0, 0, 0],
-        eye: [...eye],
+        interiorPosition: interiorRoot ? worldPosition(interiorRoot) : [0, 0, 0],
+        // The driver camera's own position, so a sign error in how it was placed shows here.
+        eye: worldPosition(driverCamera),
         backend,
       }
+    },
+    // The direction the driver camera looks, a unit vector in the car frame.
+    driverForward: () => {
+      const direction = driverCamera.getWorldDirection(new THREE.Vector3())
+      return [direction.x + 0, direction.y + 0, direction.z + 0]
     },
     // Every default back: paint, glass, wheels, interior, the orbit camera and its pose.
     reset,
