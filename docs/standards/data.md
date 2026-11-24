@@ -133,7 +133,7 @@ Tier 3 alone is enough for symptoms and "how common". The entry stays `verified:
 
 "Independent" means different publishers. `check-data` compares publisher names after trimming, collapsing spaces and ignoring case, so `Shop A` and ` shop  a ` are one publisher, and two articles from it count once.
 
-A model-wide statement in a Tier 1 source, or in two Tier 2 sources from different publishers, covers every variant it does not explicitly exclude.
+A model-wide statement in a Tier 1 source, or in two Tier 2 sources from different publishers, covers every variant it does not explicitly exclude, and a document for one market covers that market only.
 
 ### Safety advice needs evidence
 
