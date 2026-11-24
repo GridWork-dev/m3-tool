@@ -102,7 +102,7 @@ Inputs and conditions the spec implies and no happy path covers, most likely fir
 1. **A selection with no sourced entries, by market or by model year.** Every maintenance item in PR #41 is `markets: [us]`, so the Euro view of the maintenance page and the checklist is empty, and a model year can be empty too. Expect a visible "gap in the data" notice for that selection, in each group, never a blank list that reads as "nothing is due". One empty group must not remove the controls its sibling group needs. Task 12 `filterStatus names the gap when a selection shows nothing`; Task 14 `a selection with no sourced items says so`; Task 16 `a selection with no sourced entries names the gap in each group`.
 2. **A source URL on a retailer, CDN or forum host rendered as a link.** The data cites BMW bulletins copied to `cdn.shopify.com`, and publishers such as PistonHeads. Their URLs render as text. A `web.archive.org` snapshot of the same file is on `CITATION_HOSTS`, so it renders as a link, and a page must not unlink it. Task 6 `no source in data/ is linked unless isCitationLinkable allows it`; Task 7 `source anchors are exactly the linkable sources`.
 3. **An `inspection-i` item shown as due at Inspection I only.** It is due at every inspection, because Inspection II repeats it. Task 13 `inspection-i reads as every inspection`; Task 14 `inspection-i rows say every inspection`; Task 16 `a service-history row for inspection-i says every inspection`.
-4. **A flag, marker or value misread.** `verified: false` shown as verified (a maintenance row in the checklist included), an `unverified` path template that puts the front offset's mark on the rear value, a flagged element whose other fields stay unmarked, a repeat that loses its mark, `very-common` leaking as a slug, an absent or `[0, 0]` cost shown as `$0`. Task 5 `describeCost never shows zero`; Task 7 and Task 8 `expectMarks`: `every rendered value is marked exactly when its path is covered` and `each mark sits on the value its path names`; Task 11 `the verified chip follows the flag` and `frequency never shows as a slug`.
+4. **A flag, marker or value misread.** `verified: false` shown as verified (a maintenance row in the checklist included), an `unverified` path template that puts the front offset's mark on the rear value, a flagged element whose other fields are printed with no mark at all, a repeat that loses its mark, `very-common` leaking as a slug, an absent or `[0, 0]` cost shown as `$0`. Task 5 `describeCost never shows zero`; Task 7 and Task 8 `expectMarks`, checked against an inventory the test builds independently of the page: `every rendered value is marked exactly when its path is covered`, `each mark sits on the value its path names` and, in `marks-selftest.spec.ts`, `a value printed without a Mark fails the inventory`; Task 11 `the verified chip follows the flag` and `frequency never shows as a slug`.
 5. **Model-year scoping read wrongly.** A range read as from-only, an end year dropped (off by one at `to`), the split coolant items both showing for one year, an entry with no `modelYears` hidden once a year is chosen. Task 5 `appliesToYear is inclusive at both ends`; Task 12 `isVisible: a year outside the entry's years hides it`; Task 14 `selecting a model year hides exactly the rows that do not apply`.
 
 ## File structure
@@ -113,15 +113,16 @@ astro.config.ts, src/content.config.ts  fonts, trailingSlash, SITE_DATA_DIR, SIT
 src/lib/{notice,site}.ts               NOTICE; SITE_NAME, pageTitle                                    (Task 1)
 src/lib/route-list.ts                  routesFor(set), keyRoutes(set)                                  (Task 2)
 src/layouts/Base.astro, src/components/{SiteNav,SiteFooter}.astro                                      (Task 2)
-tests/e2e/fixtures.ts                  `test` with `dataSet` and the cross-origin guard                (Task 2)
+tests/e2e/test.ts                  `test` with `dataSet` and the cross-origin guard                (Task 2)
 tests/e2e/shared/*.spec.ts             run on both builds                                              (Tasks 2, 7 to 17)
-tests/e2e/fixture/*.spec.ts            run on the fixture build only                                   (Tasks 12, 14, 16)
+tests/e2e/fixture-only/*.spec.ts            run on the fixture build only                                   (Tasks 12, 14, 16)
 tests/fixtures/site-data/              the e2e data set; dist-fixture/ is its build                    (Task 3)
 tests/shots/shoot.spec.ts              CI screenshot capture (SHOOT=1)                                 (Task 4)
 src/lib/{format,money,routes,markets,model-years}.ts                                                   (Task 5)
 src/lib/{citations,unverified-marks}.ts, tests/support/value-at.ts                                     (Task 6)
 src/data/site.ts                       typed loaders over the content collections                      (Tasks 7, 17)
-src/components/{Drawer,Tier,Mark,SourceList,GenerationNav}.astro, tests/e2e/marks.ts                   (Task 7)
+src/components/{Drawer,Tier,Mark,SourceList,GenerationNav}.astro, tests/e2e/{marks,inventories}.ts,
+  tests/e2e/shared/marks-selftest.spec.ts                                                              (Task 7)
 src/pages/[gen]/index.astro            generation page                                                 (Tasks 7 to 9)
 src/components/VariantPanel.astro                                                                      (Task 8)
 src/lib/hero-layout.ts, src/components/hero/coupe-outline.ts, src/components/{HeroDrawing,PitBoard}.astro (Task 9)
@@ -143,7 +144,7 @@ src/lib/data-sources.ts, src/pages/about.astro                                  
 | 2 Shell and route-wide gates | 1 | 5, 6 |
 | 3 Fixture data set and second build | 2 | 5, 6 |
 | 4 CI screenshots | 3 | 5, 6 |
-| 5 Display libs | 1 | 2, 3, 4, 6 |
+| 5 Display libs | 1 | 2, 3, 4 |
 | 6 Citation, unverified and value libs | 5 | 2, 3, 4 |
 | 7 Generation page: specs | 2, 3, 5, 6 | none |
 | 8 Variants | 7 | 10 |
@@ -188,7 +189,7 @@ expect(pageTitle()).toBe('m3-tool'); expect(pageTitle('About')).toBe('About · m
 `tokens.test.ts` reads `src/styles/tokens.css` and checks:
 - `contrastRatio('#000000', '#ffffff')` is 21.
 - Text pairs, each at least 4.5: `--text`, `--muted`, `--dim` on `--floor`; `--muted` and `--dim` on `--steel-2`; `--board-ink` on `--board`; `--board` on `--floor`; `--canary-ink` on `--canary`; `--canary-muted` and `--stale` on `--canary` and on `--canary-2`; `--hot` on `--floor` and on `--steel-2`. Non-text: `--edge` on `--floor` is at least 3.
-- `no raw colour literals outside tokens.css`: no match of `#[0-9a-fA-F]{3,8}\b`, `rgb(`, `rgba(`, `hsl(`, `hwb(`, `oklch(` in `src/{pages,components,layouts,styles}/**` except `tokens.css`.
+- `no raw colour literals outside tokens.css`: no match of `(?<!&)#[0-9a-fA-F]{3,8}\b` (the lookbehind keeps a decimal entity such as `&#8211;` out), `rgb(`, `rgba(`, `hsl(`, `hwb(`, `oklch(` in `src/{pages,components,layouts,styles}/**` except `tokens.css`.
 
 - [ ] **Step 2: Run to verify failure**
 
@@ -239,7 +240,7 @@ git commit -m "feat(site): B2 tokens, self-hosted font config and shared constan
 ### Task 2: Site shell and route-wide gates
 
 **Files:**
-- Create: `src/lib/route-list.ts`, `src/components/SiteNav.astro`, `tests/unit/route-list.test.ts`, `tests/e2e/fixtures.ts`, `tests/e2e/shared/site.spec.ts`, `tests/e2e/shared/a11y.spec.ts`, `tests/e2e/shared/mobile.spec.ts`
+- Create: `src/lib/route-list.ts`, `src/components/SiteNav.astro`, `tests/unit/route-list.test.ts`, `tests/e2e/test.ts`, `tests/e2e/shared/site.spec.ts`, `tests/e2e/shared/a11y.spec.ts`, `tests/e2e/shared/mobile.spec.ts`
 - Modify: `src/layouts/Base.astro`, `src/components/SiteFooter.astro`, `src/pages/index.astro`, `src/pages/about.astro`, `src/pages/404.astro`, `playwright.config.ts`, `package.json` and `pnpm-lock.yaml`
 - Delete: `tests/e2e/smoke.spec.ts` (its cases move into `site.spec.ts`)
 
@@ -247,7 +248,7 @@ git commit -m "feat(site): B2 tokens, self-hosted font config and shared constan
 - Consumes: Task 1.
 - Produces: `Base.astro` with props `{ title?: string | undefined; description?: string | undefined }` (it builds `<title>` with `pageTitle`), a skip link to `#main`, the sticky top bar, `<main id="main">`, the footer, and `<meta name="robots" content="noindex">` unless `PUBLIC_INDEXABLE === 'true'`.
 - Produces (`route-list.ts`): `routesFor(set: DataSet): string[]`, every route of the site for a data set, each with a trailing slash. It starts as `['/', '/about/']`, and each page task adds its routes and extends `route-list.test.ts`. `keyRoutes(set)` is added in Task 4.
-- Produces (`tests/e2e/fixtures.ts`): `test` and `expect`, where `test` adds the fixture `dataSet: DataSet` (loaded from `testInfo.project.metadata.dataDir`, cached per directory) and replaces `page` with one that fails the test at teardown on any request to another origin (a `data:` URL is fine) and on any `requestfailed`. Every spec imports from this file.
+- Produces (`tests/e2e/test.ts`): `test` and `expect`, where `test` adds the fixture `dataSet: DataSet` (loaded from `testInfo.project.metadata.dataDir`, cached per directory) and replaces `page` with one that fails the test at teardown on any request to another origin (a `data:` URL is fine) and on any `requestfailed` except `net::ERR_ABORTED` (what a navigation that leaves a page before it finishes loading produces: specs wait for load before they leave a page). Every spec imports from this file, except `tests/shots/shoot.spec.ts` (Task 4), which imports `@playwright/test` directly: the `shots` project has no `baseURL`, and its "before" visit is to production.
 - Playwright: for now one project, `real` (`metadata.dataDir: 'data'`), `testMatch` `shared/**`. Task 3 adds the second.
 - Dependency: `@axe-core/playwright` 4.14.0 (4.14.1 is under three days old, and Renovate waits three days).
 
@@ -255,7 +256,7 @@ git commit -m "feat(site): B2 tokens, self-hosted font config and shared constan
   - `site.spec.ts`:
     - `footer carries the notice word for word`: `getByRole('contentinfo')` `toContainText(NOTICE)`, and `/about/` `main` too.
     - `every route is noindex`; `no route renders an img`; `every route has exactly one h1`.
-    - `unknown paths return the 404 page` (moved from smoke).
+    - `unknown paths return the 404 page`, at `/no-such-page/` with the slash: under `trailingSlash: 'always'` preview answers `/no-such-page` with Astro's own message, not the site's 404 page.
     - `the skip link is the first focus stop and targets main`.
     - `the fonts are self-hosted`: at least one `/_astro/fonts/*.woff2` request.
     - `every internal link has a trailing slash and resolves`: every same-origin `a[href]` except fragments, `/_astro/` and file links ends in `/` and answers 200 through `request.get`. This is the only check that a dead internal link fails, because `check:links` never follows one.
@@ -292,9 +293,9 @@ Expected: PASS. Under `trailingSlash: 'always'`, `astro preview` answers `/about
 - Modify: `astro.config.ts`, `src/content.config.ts`, `playwright.config.ts`, `package.json`, `.gitignore`, `.github/workflows/ci.yml`
 
 **Interfaces:**
-- Produces, settings (not `M3_` names, which are for secrets): `SITE_DATA_DIR` (default `./data`) is the base of every collection in `content.config.ts`. `SITE_OUT_DIR` (default `./dist`) is Astro's `outDir`. When `SITE_DATA_DIR` is set, `cacheDir` is `./node_modules/.astro-site-data`: Astro's content cache is keyed by neither, and a probe on 2026-11-24 showed a shared cache mixing the two data sets (duplicate-slug warnings on `generations` and `variants`).
+- Produces, settings (not `M3_` names, which are for secrets): `SITE_DATA_DIR` (default `./data`) is the base of every collection in `content.config.ts`. `SITE_OUT_DIR` (default `./dist`) is Astro's `outDir`. When `SITE_DATA_DIR` is set, `cacheDir` is `./node_modules/.astro-site-data`, which keeps the two builds' content caches isolated. A first probe on 2026-11-24 (build `data/`, then `SITE_DATA_DIR=tests/fixtures/data/valid SITE_OUT_DIR=dist-fixture astro build` on the default cache) printed duplicate-slug warnings for `generations` and `variants`. A re-review that alternated the builds four times could not reproduce them, so treat the separate cache as cheap insurance, not a proven fix: it costs one extra font download per fixture build.
 - Produces, scripts: `build:fixture` is `SITE_DATA_DIR=tests/fixtures/site-data SITE_OUT_DIR=dist-fixture astro build` (no Pagefind: the fixture build needs no search index). `check:links:fixture` is `node tools/check-links.ts dist-fixture`.
-- Produces, Playwright: a second `webServer` on port 4322 (`pnpm preview --port 4322 --ignore-lock` with `SITE_OUT_DIR=dist-fixture` in its `env`) and a second project `fixture` (`baseURL` port 4322, `metadata.dataDir: 'tests/fixtures/site-data'`). `real` matches `shared/**`, and `fixture` matches `shared/**` and `fixture/**`.
+- Produces, Playwright: a second `webServer` on port 4322 (`pnpm preview --port 4322 --ignore-lock` with `SITE_OUT_DIR=dist-fixture` in its `env`) and a second project `fixture` (`baseURL` port 4322, `metadata.dataDir: 'tests/fixtures/site-data'`). `real` matches `shared/**`, and `fixture` matches `shared/**` and `fixture-only/**`.
 - Produces, CI: the `e2e` job runs `pnpm build`, `pnpm build:fixture`, `pnpm check:links:fixture`, then `pnpm e2e`. The second build is a handful of pages, with no Pagefind and no lint, so it adds seconds, not minutes: record the measured seconds in the PR.
 
 **The base fixture set** (valid under the merged schemas; Tasks 11, 14 and 16 add the facts their tests assert, in their own Step 1):
@@ -340,11 +341,11 @@ Expected: exit 0 for all. `pnpm build && pnpm build:fixture` alternating leaves 
 Do not touch `deploy.yml`: `tests/unit/workflows.test.ts` locks it.
 
 **Interfaces:**
-- Produces: `keyRoutes(set: DataSet): string[]`, the routes worth looking at: `routesFor` with only the first issue page per generation. Later tasks keep it in step.
-- Produces: a Playwright project `shots` (`testDir: 'tests/shots'`), defined only when `SHOOT === '1'`, so a plain `pnpm e2e` never runs it. `shoot.spec.ts` writes, for each key route and each viewport (390 x 844 and 1280 x 800, full page), `screenshots/after/<slug>-<width>.png` from the `real` server and `screenshots/after-fixture/...` from the fixture server. When `SHOOT_BEFORE_URL` is set it also writes `screenshots/before/...` from that URL, and skips a route that answers anything but 200 (a new route) or an unreachable production, logging the skip without failing. It asserts nothing about pixels: `testing.md` forbids screenshot assertions before the visual suite.
-- CI: in the `e2e` job, after the e2e step, `pnpm exec playwright test --project=shots` with `if: always()` and `env` `SHOOT: '1'` and `SHOOT_BEFORE_URL: https://m3-tool.broken-wood-97a9.workers.dev`, then the `actions/upload-artifact` step already pinned in this file (`cf430e030ddbb5b0abf93d22962f4752f3646cd9`, `# v7.0.2`) with `name: screenshots`, `path: screenshots/`, `if: always()`, `if-no-files-found: ignore`, `retention-days: 14`. Keep `${{ }}` expressions out of every `run:` and use `pnpm exec`, never `npx`: `workflows.test.ts` requires it. Any new checkout needs `persist-credentials: false` (this job adds none).
+- Produces: `keyRoutes(set: DataSet): string[]`, the routes worth looking at. In this task it returns every route `routesFor` has registered (only `/` and `/about/` exist yet). Task 11 narrows it to the first issue page per generation once issue pages exist, with its own assertion, so this group tests only routes that are registered.
+- Produces: a Playwright project `shots` (`testDir: 'tests/shots'`), defined only when `SHOOT === '1'`, so a plain `pnpm e2e` never runs it. `shoot.spec.ts` imports `@playwright/test` directly (Task 2 names this exception), loads the data sets with `loadDataSet` itself (the `dataSet` fixture is not available to it), and writes, for each key route and each viewport (390 x 844 and 1280 x 800, full page), `screenshots/after/<slug>-<width>.png` from the `real` server and `screenshots/after-fixture/...` from the fixture server. When `SHOOT_BEFORE_URL` is set it also writes `screenshots/before/...` from that URL, and skips a route that answers anything but 200 (a new route) or an unreachable production, logging the skip without failing. It asserts nothing about pixels: `testing.md` forbids screenshot assertions before the visual suite.
+- CI: in the `e2e` job, after the e2e step, `pnpm exec playwright test --project=shots` with `if: always()`, `continue-on-error: true` (the capture is advisory, so a flake in it cannot turn the required `e2e` job red), and `env` `SHOOT: '1'` and `SHOOT_BEFORE_URL: https://m3-tool.broken-wood-97a9.workers.dev`, then the `actions/upload-artifact` step already pinned in this file (`cf430e030ddbb5b0abf93d22962f4752f3646cd9`, `# v7.0.2`) with `name: screenshots`, `path: screenshots/`, `if: always()`, `if-no-files-found: ignore`, `retention-days: 14`. Keep `${{ }}` expressions out of every `run:` and use `pnpm exec`, never `npx`: `workflows.test.ts` requires it. Any new checkout needs `persist-credentials: false` (this job adds none).
 
-- [ ] **Step 1: Write the failing tests.** `route-list.test.ts`: `keyRoutes` of a set with two issues contains the first issue page and not the second, and every route in it is also in `routesFor`. `workflows.test.ts` must stay green with the new steps.
+- [ ] **Step 1: Write the failing tests.** `route-list.test.ts`: `keyRoutes` of the real and the fixture data set contains `/` and `/about/`, and every entry is also in `routesFor` of the same set (no issue route is asserted here: none is registered until Task 11). `workflows.test.ts` must stay green with the new steps.
 
 - [ ] **Step 2: Run to verify failure**
 
@@ -370,7 +371,7 @@ Expected: PNGs under `screenshots/after/` and `screenshots/after-fixture/`, no `
 
 **Interfaces:**
 - Produces (`format.ts`): `formatDate(date: Date): string` (UTC `YYYY-MM-DD`); `formatNumber(value: number): string` (`4492` to `4,492`, `3.5` to `3.5`, `-370` to `-370`; for millimetres and similar, never for years); `formatYears(years: readonly [number, number]): string` (`2000–2006` with an en dash, `2004` when equal); `frequencyLabel(f: KnownIssue['frequency']): string`; `transmissionLabel(t: Variant['transmissions'][number]): string` (`6mt` "6-speed manual", `smg` "SMG", `dct` "DCT", `auto` "Automatic", `7mt` "7-speed manual"); `bodyLabel(b: Variant['body']): string`; `wheelParts(w: { diameterIn: number; widthIn: number; offsetMm: number; tire: string }): { diameter: string; width: string; offset: string; tire: string }` (each value as its own string through `formatNumber`, so a page can put a mark around each one); `wheelLabel(w)` (the parts joined, `18 × 8 ET47`, for `aria-label` and `<title>` text only).
-- Produces (`money.ts`): `NO_SOURCED_COST = 'no sourced cost'`; `formatUsdRange(range: readonly [number, number]): string`; `sourcedShopMax(cost: { shop: readonly [number, number] } | undefined): number | undefined`, the one place that decides a cost is sourced: `undefined` when `cost` is absent or `shop[1]` is 0; `describeCost(cost: { diy?: readonly [number, number] | undefined; shop: readonly [number, number] } | undefined): CostView`, with `CostView = { kind: 'sourced'; shop: string; diy?: string } | { kind: 'none'; label: typeof NO_SOURCED_COST }`, built on `sourcedShopMax`. `compareIssues` (Task 12) and `buildChecklist` (Task 15) call `sourcedShopMax` too. A `zero-cost` check will reject `[0, 0]` in a separate data-lane PR (R87.5), and until it lands this guard is all that stands between a `[0, 0]` entry and a printed `$0`.
+- Produces (`money.ts`): `NO_SOURCED_COST = 'no sourced cost'`; `formatUsdRange(range: readonly [number, number]): string`; `sourcedShopMax(cost: { shop: readonly [number, number] } | undefined): number | undefined`, the one place that decides a cost is sourced: `undefined` when `cost` is absent or `shop[1]` is 0; `describeCost(cost: { diy?: readonly [number, number] | undefined; shop: readonly [number, number] } | undefined): CostView`, with `CostView = { kind: 'sourced'; shop: string; diy?: string } | { kind: 'none'; label: typeof NO_SOURCED_COST }`, built on `sourcedShopMax`. Zero is decided per side: a `shop` range with a high end of 0 makes the whole cost `none` (a DIY figure with no shop figure is not published either), and a `diy` range with a high end of 0 is dropped on its own, so `{ diy: [0, 0], shop: [60, 100] }` shows the shop figure and no DIY tile. `compareIssues` (Task 12) and `buildChecklist` (Task 15) call `sourcedShopMax` too. A `zero-cost` check will reject `[0, 0]` in a separate data-lane PR (R87.5), and until it lands this guard is all that stands between a `[0, 0]` entry and a printed `$0`.
 - Produces (`routes.ts`): `generationPath(gen: string)` (`/e46/`), `issuesPath(gen)`, `issuePath(gen, id)`, `maintenancePath(gen)`, `buyingPath(gen)`, all with a leading and trailing slash; `GenerationSection = { key: 'overview' | 'maintenance' | 'issues' | 'buying'; label: string; path: (gen: string) => string }`; `GENERATION_SECTIONS: readonly GenerationSection[]`. This task owns the `overview` entry. Each later task that adds a page inserts its entry at its spec-order position (overview, mods, maintenance, issues, buying, build) and updates the `keys` assertion.
 - Produces (`markets.ts`): `type Market = Variant['market']`; `MARKETS: readonly ['us', 'euro']`; `marketsOf(entry: { markets?: readonly Market[] | undefined }): readonly Market[]` (no `markets` means both); `marketsLabel(entry): string` ("All markets", "US only", "Euro only", "US and Euro"); `marketLabel(m: Market): 'US' | 'Euro'`; `marketsAttr(entry): string` (`'us euro'`, for `data-markets`).
 - Produces (`model-years.ts`): `type ModelYears = NonNullable<MaintenanceItem['modelYears']>` (derived from the merged schema, so it cannot drift: `[from, to]`, both required, R88); `appliesToYear(entry: { modelYears?: ModelYears | undefined }, year: number): boolean` (no `modelYears` means every year; both ends inclusive); `modelYearsLabel(entry): string` (`All model years`, `2001–2003`, or `2004 only` for `[2004, 2004]`); `yearsAttr(entry, run: readonly [number, number]): string` (the years from `from` to `to`, space-separated, for `data-years`; with no `modelYears`, every year of the run; nothing is clamped, because `check:data` already rejects a range outside the run as `model-years-outside-generation`).
@@ -383,6 +384,8 @@ test('describeCost never shows zero (Review Focus 4)', () => {
   expect(describeCost(undefined)).toEqual(none)
   expect(describeCost({ shop: [0, 0] })).toEqual(none)
   expect(describeCost({ diy: [0, 0], shop: [0, 0] })).toEqual(none)
+  expect(describeCost({ diy: [20, 40], shop: [0, 0] })).toEqual(none)
+  expect(describeCost({ diy: [0, 0], shop: [60, 100] })).toEqual({ kind: 'sourced', shop: '$60–100' }) // zero DIY dropped, no $0
   expect(describeCost({ diy: [20, 40], shop: [60, 100] })).toEqual({ kind: 'sourced', shop: '$60–100', diy: '$20–40' })
   expect(describeCost({ shop: [60, 100] })).toEqual({ kind: 'sourced', shop: '$60–100' }) // no diy key at all
   expect(sourcedShopMax({ shop: [0, 0] })).toBeUndefined(); expect(sourcedShopMax({ shop: [60, 100] })).toBe(100)
@@ -428,7 +431,7 @@ Expected: PASS, exit 0.
 - Consumes: `isCitationLinkable` (`src/lib/link-policy.ts`), `formatDate` (Task 5), `Source` (schemas), `loadDataSet` (tests only).
 - Produces (`citations.ts`): `CitationView = { publisher: string; title: string; accessed: string; tier: 1 | 2 | 3; note?: string; href?: string }`; `citationView(source: Source): CitationView` (`href` only when `isCitationLinkable(source.url)`, and no `href` key otherwise); `latestAccessed(sources: readonly Source[]): string | undefined`; `TIER_LABEL: Record<1 | 2 | 3, string>`.
 - Produces (`unverified-marks.ts`): `isUnverified(unverified: readonly string[] | undefined, path: string): boolean` (true when a listed entry equals `path` or is an ancestor of it at a dot boundary).
-- Produces (`tests/support/value-at.ts`, used by the e2e marks helper): `valueAt(root: unknown, path: string): unknown`, which follows the `unverified.ts` grammar: a list element is named by its `id` or `code`, a tuple such as `years` by position, a record key as written; it returns `undefined` for a path that leads nowhere.
+- Produces (`tests/support/value-at.ts`, used by the e2e marks helper): `valueAt(root: unknown, path: string): unknown`, which follows the `unverified.ts` grammar: a list element is named by its `id` or `code`, a tuple such as `years` by position, a record key as written; it returns `undefined` for a path that leads nowhere. `unverified.ts` is a contract file that returns reasons, not values, so the helper cannot reuse it and duplicates the grammar. `value-at.test.ts` pins the two together (below).
 
 - [ ] **Step 1: Write the failing tests.**
 
@@ -444,7 +447,7 @@ test('no source in data/ is linked unless isCitationLinkable allows it (Review F
 })
 ```
 
-Also: `accessed` is `YYYY-MM-DD`; a source with no `url` has no `href`; `note` passes through; `latestAccessed` of two dates is the later, and of `[]` is `undefined`. `isUnverified` with `['paints.A08', 'years.1', 'factoryWheels.optional-19.front.offsetMm']`: true for `paints.A08.code`, `paints.A08`, `years.1`; false for `paints.A080`, `years.0`, `factoryWheels.optional-19.front.widthIn`, `factoryWheels.optional-190.front.offsetMm`; an `undefined` list is false. `valueAt` on a variant: `paints.A08.code` is `'A08'`, `factoryWheels.optional-19.front.offsetMm` is the front value and `...rear.offsetMm` the rear one, `years.1` is the end year, `paints.nope.code` is `undefined`.
+Also: `accessed` is `YYYY-MM-DD`; a source with no `url` has no `href`; `note` passes through; `latestAccessed` of two dates is the later, and of `[]` is `undefined`. `isUnverified` with `['paints.A08', 'years.1', 'factoryWheels.optional-19.front.offsetMm']`: true for `paints.A08.code`, `paints.A08`, `years.1`; false for `paints.A080`, `years.0`, `factoryWheels.optional-19.front.widthIn`, `factoryWheels.optional-190.front.offsetMm`; an `undefined` list is false. `value-at.test.ts` also pins `valueAt` to `unverified.ts`: for every generation and variant in `loadDataSet('data')` and in `tests/fixtures/site-data`, each path in its `unverified` list is accepted by `unresolvedReason(Generation or Variant, data, path)` (it returns `undefined`) and by `valueAt` (it returns a defined value), and for paths `unresolvedReason` rejects (`paints.0.code`, `paints.nope.code`, `years.2`) `valueAt` returns `undefined`, so a change to the grammar breaks a test here instead of drifting silently. `valueAt` on a variant: `paints.A08.code` is `'A08'`, `factoryWheels.optional-19.front.offsetMm` is the front value and `...rear.offsetMm` the rear one, `years.1` is the end year, `paints.nope.code` is `undefined`.
 
 - [ ] **Step 2: Run to verify failure**
 
@@ -465,31 +468,42 @@ Expected: PASS, exit 0.
 ### Task 7: Generation page: spec drawers
 
 **Files:**
-- Create: `src/data/site.ts`, `src/components/{Drawer,Tier,Mark,SourceList,GenerationNav}.astro`, `src/pages/[gen]/index.astro`, `tests/e2e/marks.ts`, `tests/e2e/shared/generation.spec.ts`
+- Create: `src/data/site.ts`, `src/components/{Drawer,Tier,Mark,SourceList,GenerationNav}.astro`, `src/pages/[gen]/index.astro`, `tests/e2e/marks.ts`, `tests/e2e/inventories.ts`, `tests/e2e/shared/marks-selftest.spec.ts`, `tests/e2e/shared/generation.spec.ts`
 - Modify: `src/lib/route-list.ts` and its test (add `generationPath(gen)` for every generation)
 
 **Interfaces:**
 - Consumes: Tasks 2 to 6.
 - Produces (`src/data/site.ts`, uses `getCollection`, so no unit test: the e2e covers it): `GenerationData = { generation: Generation; variants: Variant[]; issues: KnownIssue[]; maintenance: MaintenanceItem[] }`; `generationIds(): Promise<string[]>`; `loadGeneration(id: string): Promise<GenerationData>` (throws `no generation "<id>"`; each list sorted by `id`).
 - Produces (components): `Drawer` (props `name: string; label: string; span?: 4 | 5 | 7 | 8 | 12`, default slot, renders the tool-chest drawer with its tape label and handle, and `data-drawer={name}`); `Tier` (`tier: 1 | 2 | 3`, the `T1`/`T2`/`T3` badge with a text label for assistive tech); `Mark` (props `path: string; unverified: readonly string[] | undefined`, wraps its slot as `<span data-value-path={path}><span data-value>slot</span></span>` always, and when `isUnverified` adds a visible `†`, visually-hidden text "unverified" and the attribute `data-unverified`); `SourceList` (`sources: readonly Source[]`, an `<ol data-sources>` of citations: tier badge, publisher, title and accessed date as text, a link only when `citationView` gives an `href`, and `note` inside a closed `<details>`); `GenerationNav` (`gen: string; current: GenerationSection['key']`, links from `GENERATION_SECTIONS`).
-- Produces for e2e (`tests/e2e/marks.ts`): `expectMarks(scope: Locator, args: { root: unknown; listed: readonly string[] | undefined }): Promise<void>`, which asserts, over every `[data-value-path]` in `scope`:
-  1. It has `data-unverified` exactly when `isUnverified(listed, path)`. A flag on an ancestor therefore marks every rendered value under it, repeats included, and nothing else is marked.
-  2. Every listed path has at least one `[data-value-path]` at or under it, so a listed path with no rendered value fails: add the value, do not weaken the test.
-  3. Binding: for a scalar value, the `[data-value]` text equals `String(v)` or `formatNumber(v)` of `valueAt(root, path)`. A front offset's path on the rear value fails here even though both paths are listed. A list or object path (`bodies`, `envelopes`) is checked for presence only.
+- Produces for e2e (`tests/e2e/marks.ts`): `expectMarks(scope: Locator, args: { root: unknown; listed: readonly string[] | undefined; inventory: readonly { path: string; times: number }[]; complete: boolean; exempt?: readonly string[] | undefined }): Promise<void>`.
+  - `listed` is the entry's full `unverified` list: it alone decides whether a rendered value is covered.
+  - `inventory` names every path the scope must render and how many times it renders it. The test builds it from the data and the scope's render list (below) in `tests/e2e/inventories.ts`, independently of the page.
+  - `complete` says the scope renders every flaggable value of its entry. A scope that shows only a subset (the home card) passes `false`.
+  - It asserts:
+    1. **Inventory.** For each inventory path the number of `[data-value-path="<path>"]` elements in `scope` equals `times`, and no `[data-value-path]` has a path outside the inventory. A value printed as plain text has no wrapper and fails here, which enumerating the wrappers that exist could never detect.
+    2. **Flag.** Each wrapper has `data-unverified` exactly when `isUnverified(listed, path)`. A flag on an ancestor therefore marks every inventory value under it, repeats included, and nothing else.
+    3. **Completeness**, only when `complete`. Every listed path outside `exempt` has an inventory path at or under it, so flagging a value the page never prints fails: add the value, do not weaken the test. When `complete` is false, a listed path with no inventory path under it is not required, so a scope is never asked to render values it does not show.
+    4. **Binding.** For a path that holds a number or text the page prints unchanged, the `[data-value]` element's `textContent` (not `innerText`, so a value inside a closed `<details>` reads correctly) equals `String(v)` or `formatNumber(v)` of `valueAt(root, path)`. A front offset's path on the rear value fails here even though both paths are flagged. Enumerations the page prints as labels (`market`, `body`, `finish`, `material`, `basis`) and lists or objects (`bodies`, `transmissions`, `envelopes`) are checked for presence only.
+- Produces (`tests/e2e/inventories.ts`): `generationInventory(generation: Generation, stage: { hero: boolean; drawing: boolean })`, `variantInventory(variant: Variant)` (Task 8) and `homeCardInventory(generation: Generation)` (Task 10). Render lists:
+  - **Generation scope** (`[data-generation-specs]`, `complete: true`): `name` x1; `chassis` x1; `years.0` and `years.1` x1; `bodies` x1; per engine `engines.<code>.code|displacementCc|cylinders` x1; per body in `dimensions` the six `dimensions.<body>.lengthMm|widthMm|heightMm|wheelbaseMm|trackFrontMm|trackRearMm` x1; per axle `fitment.<axle>.boltPattern|centerBoreMm|stock.diameterIn|stock.widthIn|stock.offsetMm|stock.tire|envelopes` x1; `driverEyePoint.xMm|yMm|zMm|basis|note` x1. Task 9 adds the hero's repeats when `stage.hero` and `stage.drawing` are set: `years.0|1` and `bodies` x2, the first engine's three paths x2 (the pit board), the hero body's `wheelbaseMm` one more (the pit board), and, with a drawing, `lengthMm`, `heightMm` and `wheelbaseMm` of the hero body one more each (the SVG labels).
+  - **Variant scope** (`#variant-<id>`, `complete: true`, `exempt: ['render']`, the site shows no render value): `name`, `market`, `body`, `years.0`, `years.1`, `transmissions` x1; per package `packages.<id>.name|summary`; per paint `paints.<code>.code|name|finish`; per wheel `factoryWheels.<id>.name` and `factoryWheels.<id>.<front|rear>.diameterIn|widthIn|offsetMm|tire`; per interior `interiors.<id>.name|color|material`, each x1.
+  - **Home card** (`article[data-generation]`, `complete: false`): `name`, `chassis`, `years.0`, `years.1`, `bodies` x1.
+- Produces (`tests/e2e/shared/marks-selftest.spec.ts`, run on both builds, using `page.setContent`): proof that `expectMarks` rejects what it must. (a) `paints.A08` flagged, `code` marked, `name` and `finish` printed as plain text with no wrapper: rejects (the inventory count). (b) `name` wrapped but without `data-unverified` under a flagged ancestor: rejects. (c) The front and rear offset paths swapped: rejects. (d) A flagged path with no rendered value: rejects when `complete` and passes when not. (e) One wrapper where the inventory expects two (a repeat that lost its mark): rejects. (f) The correct markup passes.
 
-**Page content** (`/[gen]/`). The generation's own content sits in one `<div data-generation-specs>`, which the generation specs scope to. The `h1` is the name; a "data checked `<latestAccessed>`" line; a legend line ("† marks a value below the verification rule: one Tier 1 source, or two independent Tier 2 sources"); then the drawers:
-- Engine: per engine, code, displacement in cc and cylinders (paths `engines.<code>.code|displacementCc|cylinders`), years (`years.0` and `years.1` each in its own `Mark`, the en dash outside), chassis; sources `generation.sources`.
+**Page content** (`/[gen]/`). The generation's own content sits in one `<div data-generation-specs>`, which the generation specs scope to. Every value the page prints from the entry is wrapped in a `Mark` with its schema path, scalars and lists alike, so a data PR that flags any of them cannot turn the `real` project red. The `h1` is the name (in a `Mark` for `name`); a "data checked `<latestAccessed>`" line; a legend line ("† marks a value below the verification rule: one Tier 1 source, or two independent Tier 2 sources"); then the drawers:
+- Engine: `chassis`, years (`years.0` and `years.1` each in its own `Mark`, the en dash outside), `bodies` (one `Mark` around the list), and per engine code, displacement in cc and cylinders (`engines.<code>.code|displacementCc|cylinders`); sources `generation.sources`.
 - Body, mm: one drawer per body in `dimensions`, six figures (`dimensions.<body>.<field>`), that body's sources.
-- Stock wheels: per axle, `wheelParts` with a `Mark` around each part (`fitment.<axle>.stock.diameterIn|widthIn|offsetMm|tire`) and the literal "×" and "ET" outside, bolt pattern and centre bore, and `fitment.sources`. An empty `envelopes` says "Fit limits not yet sourced: the build sheet will report fitment unknown". A non-empty `envelopes` renders a four-column table (ride drop, max inner, max outer, max outer with fender work, all mm) under that axle, marked whole as `fitment.<axle>.envelopes`.
-- Driver eye point: x, y, z in mm. When `basis` is `estimated` an "Estimated · no source" badge and the `note`. When `sources` is not empty, their `SourceList`, whatever the basis (a measured point lists its sources).
+- Stock wheels: per axle, `wheelParts` with a `Mark` around each part (`fitment.<axle>.stock.diameterIn|widthIn|offsetMm|tire`) and the literal "×" and "ET" outside, `boltPattern` and `centerBoreMm` each in a `Mark`, and `fitment.sources`. `fitment.<axle>.envelopes` is one `Mark` around the whole region: an empty list says "Fit limits not yet sourced: the build sheet will report fitment unknown", and a non-empty one renders a four-column table (ride drop, max inner, max outer, max outer with fender work, all mm).
+- Driver eye point: `driverEyePoint.xMm|yMm|zMm` in mm, `basis` (the raw word in the `Mark`, styled by CSS) and `note`. When `basis` is `estimated` an "Estimated · no source" badge (the word `estimated` is the marked `basis`). When `sources` is not empty, their `SourceList`, whatever the basis (a measured point lists its sources).
 
 - [ ] **Step 1: Write the failing tests.** Add the fixture facts first (the measured eye point of `fixture-gen2` and the rear `envelopes` row exist from Task 3). `generation.spec.ts`, in `shared/` and data-driven over `dataSet.generations`:
+  - `marks-selftest.spec.ts`: cases (a) to (f) above, so the helper is proved before any page relies on it.
   - `the h1 contains the generation name`, and the page title is `<name> · m3-tool`.
   - `every engine, body figure and stock wheel value is shown`: each engine code and displacement; each body's six figures inside that body's drawer; each axle's `wheelParts`, bolt pattern and centre bore.
-  - `every rendered value is marked exactly when its path is covered` and `each mark sits on the value its path names` (Review Focus 4): `expectMarks(page.locator('[data-generation-specs]'), { root: generation, listed: generation.unverified })`. Scoped to the generation's own wrapper: variant panels are not inside it.
+  - `every rendered value is marked exactly when its path is covered` and `each mark sits on the value its path names` (Review Focus 4): `expectMarks(page.locator('[data-generation-specs]'), { root: generation, listed: generation.unverified, inventory: generationInventory(generation, { hero: false, drawing: false }), complete: true })`. Scoped to the generation's own wrapper: variant panels are not inside it.
   - `an estimated eye point says so, and a measured one lists its sources`.
   - `non-empty envelopes render as a table`, `empty ones say fit limits are not yet sourced`.
-  - `source anchors are exactly the linkable sources` (Review Focus 2): inside `[data-generation-specs] [data-sources]`, the `a[href^="http"]` count equals the count of `isCitationLinkable` sources of the generation, and each `href` is one of them.
+  - `source anchors are exactly the linkable sources` (Review Focus 2): inside `[data-generation-specs] [data-sources]`, the sorted `href` list of the `a[href^="http"]` anchors equals the sorted list of URLs of the generation's `isCitationLinkable` sources (the generation's own, each body's dimension sources, the fitment sources and the eye point's), so a duplicated or missing link fails; and each source's row, found by its title, has an anchor exactly when its URL is linkable.
   - `the nav marks the current section`.
 
 - [ ] **Step 2: Run to verify failure**
@@ -517,14 +531,14 @@ Expected: exit 0 for both. The route-wide specs from Task 2 (notice, noindex, ax
 **Interfaces:**
 - Consumes: `Mark`, `SourceList`, `Drawer`, `expectMarks` (Task 7); `transmissionLabel`, `bodyLabel`, `marketLabel`, `formatYears`, `wheelParts` (Task 5).
 - Produces: `VariantPanel` (props `variant: Variant`): a `<details id="variant-{id}">` whose summary row shows name, market, body, years and transmissions, and whose body lists packages (name and summary), paints (swatch from `baseColor` through an inline `--c` custom property, code, name, finish), factory wheels (the name, then front and rear `wheelParts` with a `Mark` around each value), interiors (name, colour, material) and the variant's `SourceList`. A list with no entries (the CSL has no interiors) prints a plain "None recorded" line. The variants sit outside `[data-generation-specs]`. Spec 7.2 has no per-variant route, so variants render here (R87.8).
-- Mark paths: `years.0` and `years.1` (in the summary row and again wherever the panel shows years); `paints.<code>.code|name|finish`; `packages.<id>.name|summary`; `factoryWheels.<id>.name`; `factoryWheels.<id>.<front|rear>.diameterIn|widthIn|offsetMm|tire`; `interiors.<id>.name|color|material`. A listed element path (`paints.<code>`, `interiors.<id>`, `packages.<id>`) is satisfied by marking every one of that element's rendered fields. `baseColor` is a render value with no source and is never marked.
+- Mark paths: every value the panel prints from the variant is wrapped in a `Mark`, as listed in Task 7's variant render list: `name`, `market`, `body`, `years.0`, `years.1` and `transmissions` (one `Mark` around the list) in the summary row; `packages.<id>.name|summary`; `paints.<code>.code|name|finish`; `factoryWheels.<id>.name` and `factoryWheels.<id>.<front|rear>.diameterIn|widthIn|offsetMm|tire`; `interiors.<id>.name|color|material`. A flagged element (`paints.<code>`, `interiors.<id>`, `packages.<id>`) marks every one of that element's rendered fields. `baseColor` is a render value with no source and is never printed as text or marked. Years print once, in the summary row.
 
 - [ ] **Step 1: Write the failing tests** in `variants.spec.ts` (shared), per variant of each generation in `dataSet.variants`, with the panel found by `#variant-<id>`:
   - `each variant has a panel with its name, market, body, years and transmissions`.
-  - `every rendered value is marked exactly when its path is covered`, `each mark sits on the value its path names` and `a flagged element marks all its fields` (Review Focus 4): `expectMarks(panel, { root: variant, listed: variant.unverified })`, once per variant against its own `unverified`. The fixture's `e46-us-coupe` lists `years.1`, scalar wheel paths on both axles, `paints.<code>` and `interiors.<id>` elements, so a front/rear swap, an unmarked field under a flagged element and a lost repeat each fail.
+  - `every rendered value is marked exactly when its path is covered`, `each mark sits on the value its path names` and `a flagged element marks all its fields` (Review Focus 4): `expectMarks(panel, { root: variant, listed: variant.unverified, inventory: variantInventory(variant), complete: true, exempt: ['render'] })`, once per variant against its own `unverified`. The fixture's `e46-us-coupe` lists `years.1`, scalar wheel paths on both axles, `paints.<code>` and `interiors.<id>` elements, so a front/rear swap and a field printed without a `Mark` under a flagged element each fail.
   - `every paint code and name, wheel, package and interior is shown`, and `a variant with no interiors says none recorded`.
   - `the swatch colour comes from the data`: each paint swatch's inline `--c` equals its `baseColor`.
-  - `source anchors in a panel are exactly that variant's linkable sources`.
+  - `source anchors in a panel are exactly that variant's linkable sources`: the sorted `href` list of the panel's `a[href^="http"]` anchors equals the sorted URLs of the variant's `isCitationLinkable` sources, and each source's row has an anchor exactly when its URL is linkable.
 
 - [ ] **Step 2: Run to verify failure**
 
@@ -549,11 +563,11 @@ Expected: exit 0 for both. Pass criterion for the phone layout: `mobile.spec.ts`
 - Modify: `src/pages/[gen]/index.astro`
 
 **Interfaces:**
-- Produces (`coupe-outline.ts`, the one file the spike's traced outline replaces later): `OUTLINE = { generation: 'e46', lengthMm: 4492, heightMm: 1372, wheelbaseMm: 2731, rearAxleXMm: 925, art: string }`, where `art` is the markup of `#coupe-art` from `docs/design/b2-garage.html` lines 659 to 679, kept with its `id="coupe-art"` (the reflection `<use href="#coupe-art">` needs it) and unscaled. The art's `stop-color="#fff"` becomes `style="stop-color: var(--text)"`, so no colour literal is left.
+- Produces (`coupe-outline.ts`, the one file the spike's traced outline replaces later): `OUTLINE = { lengthMm: 4492, heightMm: 1372, wheelbaseMm: 2731, rearAxleXMm: 925, art: string }`, where `art` is the markup of `#coupe-art` from `docs/design/b2-garage.html` lines 659 to 679, kept with its `id="coupe-art"` (the reflection `<use href="#coupe-art">` needs it), its `id="tire-r"` and `id="tire-f"` circles, and unscaled. `HeroDrawing` owns the wrapper around the art: the `<defs>` (shadow, reflection and cone gradients, the reflection mask), the shadow ellipses, the reflection `<use>` and the ground line (mock-up lines 646 to 658). The `<defs>` gradient's `stop-color="#fff"` becomes `style="stop-color: var(--text)"`, so no colour literal is left.
 - Produces (`hero-layout.ts`): `type BodyDimensions = NonNullable<Generation['dimensions'][Body]>`; `heroBody(generation: Generation): { body: Body; dimensions: BodyDimensions }` (the first body in `bodies` that has `dimensions`: the coupe for the E46; the hero and the pit board both use it); `heroLayout(dims: BodyDimensions, outline: typeof OUTLINE, unverified: readonly string[] | undefined, body: Body): HeroLayout | undefined`, with `HeroLayout = { viewBox: string; length: Dim; height: Dim; wheelbase: Dim }` and `Dim = { x1: number; y1: number; x2: number; y2: number; labelX: number; labelY: number; text: string; path: string; unverified: boolean }`.
   - It returns `undefined` unless length, height and wheelbase each differ from the outline's by at most 1 mm. The art is not scaled, so a drawing for other figures would lie: such a generation gets the hero text and the pit board and no drawing.
   - `viewBox` is `-640 -2000 {lengthMm + 1280} 2000`.
-  - The wheelbase line runs from `rearAxleXMm` to `rearAxleXMm + wheelbaseMm`, which are the drawn axles (925 and 3656), so the dimension endpoints meet them by construction and by test.
+  - The wheelbase line runs from `rearAxleXMm` to `rearAxleXMm + wheelbaseMm` (925 and 3656), and the test checks those endpoints against the circles the art itself draws, not against the constants.
   - `text` is `formatNumber(value) + ' mm'`. `path` is the value's schema path (`dimensions.<body>.lengthMm`), and `unverified` is `isUnverified(unverified, path)`; a flagged label carries `†` in a `<tspan data-value-path>` with a nested `<tspan data-value>` that holds the number alone (` mm` follows it outside), the same hooks as `Mark`.
 - Produces: `HeroDrawing` (props `layout: HeroLayout`), an `<svg role="img">` whose `<title>` and `<desc>` are built from the data; `PitBoard` (props `rows: { label: string; value: ComponentChild }[]`).
 
@@ -568,8 +582,16 @@ test('E46 dimensions give the mock-up coordinates, and the lines meet the drawn 
   expect(l.viewBox).toBe('-640 -2000 5772 2000')
   expect(l.length).toMatchObject({ x1: 0, x2: 4492, y1: -1780, y2: -1780, labelX: 2246, text: '4,492 mm' })
   expect(l.height).toMatchObject({ x1: -300, y1: 0, y2: -1372, text: '1,372 mm' })
-  expect(l.wheelbase).toMatchObject({ x1: OUTLINE.rearAxleXMm, x2: OUTLINE.rearAxleXMm + 2731, y1: 330, text: '2,731 mm' })
-  expect(l.wheelbase.x1).toBe(925); expect(l.wheelbase.x2).toBe(3656)
+  expect(l.wheelbase).toMatchObject({ x1: 925, x2: 3656, y1: 330, text: '2,731 mm' })
+})
+test('the dimension endpoints meet the circles the art draws', () => {
+  const cx = (id: string) => Number(new RegExp(`id="${id}"[^>]*\\bcx="([\\d.]+)"`).exec(OUTLINE.art)?.[1])
+  const l = heroLayout(E46_COUPE, OUTLINE, undefined, 'coupe')!
+  expect(l.wheelbase.x1).toBe(cx('tire-r')); expect(l.wheelbase.x2).toBe(cx('tire-f')) // fails if a traced outline replaces the art and the constants stay stale
+})
+test('the 1 mm boundary: 4493 draws, 4494 does not', () => {
+  expect(heroLayout({ ...E46_COUPE, lengthMm: 4493 }, OUTLINE, undefined, 'coupe')).toBeDefined()
+  expect(heroLayout({ ...E46_COUPE, lengthMm: 4494 }, OUTLINE, undefined, 'coupe')).toBeUndefined()
 })
 test('a generation whose figures differ from the outline gets no drawing', () => {
   expect(heroLayout({ ...E46_COUPE, lengthMm: 4500 }, OUTLINE, undefined, 'coupe')).toBeUndefined()
@@ -579,7 +601,7 @@ test('a flagged dimension marks its label', () => {
 })
 ```
 
-Also `heroBody` picks `coupe` for `bodies: ['coupe', 'convertible']` and the first body with `dimensions` when the first has none. `hero.spec.ts` (shared): the generations with a drawing (`e46`) show an `<svg>` whose visible dimension texts equal the data's length, height and wheelbase, whose `<title>` and `<desc>` contain them, with no `image` element, and the caption; a generation without one (`fixture-gen2` in the fixture build) shows no drawing and still shows the pit board; the pit board shows each engine code and the cylinder count; `expectMarks` over `[data-generation-specs]` still passes with the hero and pit board inside it (hero years, pit board values and SVG labels all carry their marks).
+Also `heroBody` picks `coupe` for `bodies: ['coupe', 'convertible']` and the first body with `dimensions` when the first has none. `hero.spec.ts` (shared): the generations with a drawing (`e46`) show an `<svg>` whose visible dimension texts equal the data's length, height and wheelbase, whose `<title>` and `<desc>` contain them, with no `image` element, and the caption; a generation without one (`fixture-gen2` in the fixture build) shows no drawing and still shows the pit board; the pit board shows each engine code and the cylinder count; the Task 7 `expectMarks` assertion is updated to `generationInventory(generation, { hero: true, drawing })`, where `drawing` is true when `heroLayout` returns a layout, so hero years, bodies, pit board values and SVG labels each carry their own mark and a repeat that loses its mark fails.
 
 - [ ] **Step 2: Run to verify failure**
 
@@ -605,9 +627,9 @@ Expected: exit 0 for both. Pass criterion for the look: the gates are green, and
 
 **Interfaces:**
 - Consumes: `generationIds`, `loadGeneration` (Task 7), `generationPath`, `formatYears`, `bodyLabel` (Task 5), `Mark`, `expectMarks`, `Drawer`.
-- Produces: `/` with a short statement of what the site is ("A free reference for BMW M3 owners and shoppers: factory spec, known issues, maintenance and a used-buyer checklist. Nothing is for sale and there are no store links."), then one card per generation, each in `<article data-generation="{id}">`: name, years (`years.0` and `years.1` each in a `Mark`), chassis, bodies, and a link to `generationPath(id)`. Generations always exist in a built site, so there is no empty state.
+- Produces: `/` with a short statement of what the site is ("A free reference for BMW M3 owners and shoppers: factory spec, known issues, maintenance and a used-buyer checklist. Nothing is for sale and there are no store links."), then one card per generation, each in `<article data-generation="{id}">`: `name`, `years.0` and `years.1`, `chassis` and `bodies`, each in a `Mark` with its schema path, and a link to `generationPath(id)`. Generations always exist in a built site, so there is no empty state.
 
-- [ ] **Step 1: Write the failing e2e tests** (shared): `every generation is listed with its name, years and a working link` (click the first link, expect that generation's `h1` to contain its name; the fixture build lists two generations); `each card's years are marked exactly when covered`: `expectMarks(card, { root: generation, listed: generation.unverified })` per card; `the home page makes no store claim it cannot keep`: the text contains "Nothing is for sale".
+- [ ] **Step 1: Write the failing e2e tests** (shared): `every generation is listed with its name, years and a working link` (click the first link, expect that generation's `h1` to contain its name; the fixture build lists two generations); `each card's values are marked exactly when covered`: `expectMarks(card, { root: generation, listed: generation.unverified, inventory: homeCardInventory(generation), complete: false })` per card. `listed` is the generation's full list, which decides coverage, while the inventory holds only what a card prints, so a card is not asked to render the wheel paths it does not show; `the home page makes no store claim it cannot keep`: the text contains "Nothing is for sale".
 
 - [ ] **Step 2: Run to verify failure**
 
@@ -629,7 +651,7 @@ Expected: exit 0 for both.
 
 **Files:**
 - Create: `src/components/Chip.astro`, `src/components/CostBox.astro`, `src/pages/[gen]/issues/[issue].astro`, `tests/e2e/shared/issues.spec.ts`
-- Modify: `src/lib/route-list.ts` and its test (add `issuePath(gen, id)` for every issue), `tests/unit/data/site-fixture.test.ts`, the fixture set
+- Modify: `src/lib/route-list.ts` and its test (add `issuePath(gen, id)` for every issue, and narrow `keyRoutes` to the first issue page per generation), `tests/unit/data/site-fixture.test.ts`, the fixture set
 
 **Interfaces:**
 - Consumes: `describeCost`, `frequencyLabel`, `marketsLabel`, `modelYearsLabel`, `issuePath` (Task 5); `SourceList`, `Drawer` (Task 7).
@@ -639,6 +661,7 @@ Expected: exit 0 for both.
 **Page** (the mock-up's tech card on the pegboard): the title and a frequency plate (`frequencyLabel`, `data-chip="frequency"`); chips for the engine code, `marketsLabel`, `modelYearsLabel` ("All model years" when the issue has no `modelYears`), "Verified" or "Unverified" (from `verified`) and "On the buyer checklist" when `inspectWhenBuying`; Symptoms (a list), Cause, How to check (when `howToCheck`), Fix (when `fix`; otherwise "No sourced fix yet. A fix needs a Tier 1 or Tier 2 source."), Costs (always, through `CostBox`), Prevention (when present), Sources (`SourceList`, and for an unverified issue the mock-up's line "Unverified: needs one Tier 1 source, or two Tier 2 sources from different publishers to read Verified.").
 
 - [ ] **Step 1: Write the failing tests.**
+  - `route-list.test.ts`: `keyRoutes` of a set with two issues in one generation contains the first issue page and not the second, every entry is also in `routesFor` of that set, and the issue routes appear in `routesFor`. The `shots` capture set now includes the first issue page.
   - Fixture: add issues with `modelYears` (`[2001, 2003]` for a market-split rod-bearing pair, `[2004, 2006]` for a late-build issue) and extend `site-fixture.test.ts` to assert they exist and that `checkDataSet` still reports nothing.
   - `issues.spec.ts` (shared), per issue in `dataSet.issues`:
     - `the page shows the title, every symptom and the cause`.
@@ -647,7 +670,7 @@ Expected: exit 0 for both.
     - `the market and model-year chips match the data`: `[data-chip="market"]` is `marketsLabel(issue)` and `[data-chip="years"]` is `modelYearsLabel(issue)`, "All model years" when there is no range.
     - `fix, prevention and how to check show exactly when the data has them`; an issue without a fix shows "No sourced fix yet".
     - `an issue with no cost says no sourced cost` (Review Focus 4): `[data-section="costs"]` has "no sourced cost" and no `$` when `cost` is absent, and the `describeCost` strings when present.
-    - `sources show publisher, title, tier and date, linked only for citation hosts`.
+    - `sources show publisher, title, tier and date, linked only for citation hosts`: the sorted `href` list of the page's `a[href^="http"]` anchors in `[data-section="sources"]` equals the sorted URLs of the issue's `isCitationLinkable` sources (a duplicated or missing link fails), and each source's row has an anchor exactly when its URL is linkable.
     - `an issue marked inspectWhenBuying shows the checklist chip`.
 
 - [ ] **Step 2: Run to verify failure**
@@ -669,14 +692,14 @@ Expected: exit 0 for both.
 ### Task 12: Issues list and the filter
 
 **Files:**
-- Create: `src/lib/issue-order.ts`, `src/lib/filters.ts`, `src/components/FilterScope.astro`, `src/pages/[gen]/issues/index.astro`, `tests/e2e/filter.ts`, `tests/unit/issue-order.test.ts`, `tests/unit/filters.test.ts`, `tests/e2e/fixture/issues-list.spec.ts`, `tests/e2e/shared/issues-list.spec.ts`
+- Create: `src/lib/issue-order.ts`, `src/lib/filters.ts`, `src/components/FilterScope.astro`, `src/pages/[gen]/issues/index.astro`, `tests/e2e/filter.ts`, `tests/unit/issue-order.test.ts`, `tests/unit/filters.test.ts`, `tests/e2e/fixture-only/issues-list.spec.ts`, `tests/e2e/shared/issues-list.spec.ts`
 - Modify: `src/pages/[gen]/issues/[issue].astro` (back link and `GenerationNav current="issues"`), `src/lib/routes.ts` (the `issues` section, spec order) and its test, `src/lib/route-list.ts` and its test (`issuesPath(gen)`), `tests/e2e/shared/a11y.spec.ts` and `mobile.spec.ts` (filter states), the fixture set
 
 **Interfaces:**
 - Consumes: `marketsAttr`, `marketLabel`, `marketsLabel`, `yearsAttr`, `modelYearsLabel`, `sourcedShopMax`, `Market` (Task 5); `Chip`, `CostBox` (Task 11).
 - Produces (`issue-order.ts`): `compareIssues(a: KnownIssue, b: KnownIssue): number` (frequency rank `very-common` > `common` > `rare`; then an issue with a sourced cost (`sourcedShopMax` defined) before one without, and the higher `sourcedShopMax` first; then `title.localeCompare(b.title, 'en')`); `sortIssues(issues: readonly KnownIssue[]): KnownIssue[]` (a copy).
 - Produces (`filters.ts`, pure, so the browser script holds no rule): `Selection = { market: Market | 'all'; year: number | 'all' }`; `EntryTags = { markets: readonly Market[]; years: readonly number[] }`; `parseTags(attrs: { markets: string; years: string }): EntryTags`; `isVisible(tags: EntryTags, selection: Selection): boolean` (`all` matches everything; a market or a year must be in the entry's list); `describeSelection(selection: Selection): string` (`all cars`, `US cars`, `model year 2003 cars`, `US cars, model year 2003`); `filterStatus(args: { shown: number; total: number; noun: string; gapNote?: string | undefined; selection: Selection }): { status: string; gap: string | undefined }` (`status` is `Showing {shown} of {total} {noun}`; `gap` is set only when `shown === 0 && total > 0`, as `No sourced {noun} for {describeSelection} yet. {gapNote}`, trimmed so a missing note leaves no trailing space).
-- Produces (`FilterScope.astro`, props `generationYears: readonly [number, number]; noun: string`, default slot, root `data-filter-scope`): a fieldset "Show" with a market control (radios named "All markets", "US" and "Euro") and a model-year control (a native `<select>` labelled "Model year", with "All model years" and one option per year of `generationYears`, so the options are the generation's years and nothing else), both `hidden` until the script runs, and a `role="status"` line (`data-filter-status`). One scope serves a whole page. Its bundled `<script>`, which imports `src/lib/filters.ts`, reveals the controls and, on change, reads `data-markets` and `data-years` from every `[data-entry]` element, sets each one's `hidden` from `isVisible`, updates the status line, and inside each `[data-filter-group]` container (a `data-noun`, an optional `data-gap-note`, and one `<p data-gap hidden>` child) fills and shows the gap text when that group shows nothing. The page owns the empty states: a group with no entries renders "No {noun} are published for this generation yet." in its place, and the controls render whenever any group on the page has an entry, so one empty group never removes the controls its sibling needs. Without JavaScript the controls never appear and every entry stays visible, each carrying market and model-year chips.
+- Produces (`FilterScope.astro`, props `generationYears: readonly [number, number]; noun: string`, default slot, root `data-filter-scope`): a fieldset "Show" with a market control (radios named "All markets", "US" and "Euro") and a model-year control (a native `<select>` labelled "Model year", with "All model years" and one option per year of `generationYears`, so the options are the generation's years and nothing else), both `hidden` until the script runs, and a `role="status"` line (`data-filter-status`). One scope serves a whole page. Its bundled `<script>`, which imports `src/lib/filters.ts`, reveals the controls and, on change, reads `data-markets` and `data-years` from every `[data-entry]` element, sets each one's `hidden` from `isVisible`, updates the status line, and inside each `[data-filter-group]` container (a `data-noun`, an optional `data-gap-note`, and one `<p data-gap hidden>` child) fills and shows the gap text when that group shows nothing. The page owns the empty states: a group with no entries renders "No {noun} are published for this generation yet." in its place, and the scope, with its controls, renders whenever any group on the page has an entry, so one empty group never removes the controls its sibling needs. When no group has an entry, the page renders no `FilterScope` at all, only the empty texts. Without JavaScript the controls never appear and every entry stays visible, each carrying market and model-year chips.
 - Produces (`tests/e2e/filter.ts`, used by Tasks 14 and 16 and the gates): `selectScope(page: Page, sel: { market?: 'all' | 'us' | 'euro'; year?: number | 'all' }): Promise<void>` (by the accessible names above), `visibleEntries(scope: Locator): Promise<string[]>` (the `data-entry` ids of the visible `[data-entry]` elements), `gapText(group: Locator): Promise<string | undefined>` (the visible `[data-gap]` text), `statusText(page: Page): Promise<string>`.
 
 - [ ] **Step 1: Write the failing tests.**
@@ -710,7 +733,7 @@ test('filterStatus names the gap when a selection shows nothing (Review Focus 1)
     - `the status line counts the visible rows`.
     - `a selection with no entries shows the group's gap text`, over every market and year choice of `fixture-gen2` (its one issue is `[us]`, so Euro is a gap) and of `e46`, compared with the count computed from the data.
     - `rows are in compareIssues order`, against an independent oracle written inline: consecutive rows satisfy (frequency rank desc, then has-cost desc, then high shop cost desc).
-  - Extend `a11y.spec.ts` and `mobile.spec.ts`: on any route whose page has a `[data-filter-scope]`, repeat the axe run and the 390 px checks for each market choice and for the first and last year of the run (an empty selection shows the gap text, which axe must pass too). Tasks 14 and 16 are covered by this without edits.
+  - Extend `a11y.spec.ts` and `mobile.spec.ts`: on any route whose page has visible filter controls (a `[data-filter-scope] select` that is visible), repeat the axe run and the 390 px checks for each market choice and for the first and last year of the run (an empty selection shows the gap text, which axe must pass too). A page with no controls, such as the maintenance page of a generation with no items, still gets the ordinary axe and 390 px checks and skips the permutations, so a gate never waits on a control that is not there. Tasks 14 and 16 are covered by this without edits.
 
 - [ ] **Step 2: Run to verify failure**
 
@@ -780,12 +803,12 @@ Expected: PASS, exit 0.
 ### Task 14: Maintenance page
 
 **Files:**
-- Create: `src/pages/[gen]/maintenance/index.astro`, `tests/e2e/shared/maintenance.spec.ts`, `tests/e2e/fixture/maintenance.spec.ts`
+- Create: `src/pages/[gen]/maintenance/index.astro`, `tests/e2e/shared/maintenance.spec.ts`, `tests/e2e/fixture-only/maintenance.spec.ts`
 - Modify: `src/lib/routes.ts` (the `maintenance` section) and its test, `src/lib/route-list.ts` and its test, `tests/unit/data/site-fixture.test.ts`, the fixture set
 
 **Interfaces:**
 - Consumes: `describeInterval`, `compareSchedule` (Task 13); `FilterScope`, `filter.ts` helpers (Task 12); `Chip`, `CostBox` (Task 11); `SourceList`, `Tier` (Task 7); `marketsAttr`, `yearsAttr`, `marketsLabel`, `modelYearsLabel` (Task 5).
-- Produces: `/[gen]/maintenance/`: `FilterScope` (`generationYears={generation.years}`, `noun="maintenance items"`) around one `data-filter-group` (`data-noun="maintenance items"`, `data-gap-note="This is a gap in the data, not a sign that nothing is due."`), a one-line legend ("BMW often ties a service to a trigger instead of a mileage. Triggers are shown as BMW gives them, and this site does not turn them into mileages."), and a schedule table in `compareSchedule` order. Columns: Service (title, the `engine` code when present, and `notes` when present), Due (`due` labels and `numbers`, with an `every inspection` emphasis when `everyInspection`), Parts and fluids, Cost (`CostBox`), Status (`Chip kind="verified"`), Applies to (`Chip kind="market"` and `Chip kind="years"`, "All model years" when the item has no `modelYears`), Sources (`SourceList` in a `<details>`). Each row carries `data-entry={id}`, `data-markets={marketsAttr(item)}` and `data-years={yearsAttr(item, generation.years)}`. On a phone the rows stack, as in the mock-up's `.lines` rules. A generation with no items renders "No maintenance items are published for this generation yet." and no table.
+- Produces: `/[gen]/maintenance/`: `FilterScope` (`generationYears={generation.years}`, `noun="maintenance items"`) around one `data-filter-group` (`data-noun="maintenance items"`, `data-gap-note="This is a gap in the data, not a sign that nothing is due."`), a one-line legend ("BMW often ties a service to a trigger instead of a mileage. Triggers are shown as BMW gives them, and this site does not turn them into mileages."), and a schedule table in `compareSchedule` order. Columns: Service (title, the `engine` code when present, and `notes` when present), Due (`due` labels and `numbers`, with an `every inspection` emphasis when `everyInspection`), Parts and fluids, Cost (`CostBox`), Status (`Chip kind="verified"`), Applies to (`Chip kind="market"` and `Chip kind="years"`, "All model years" when the item has no `modelYears`), Sources (`SourceList` in a `<details>`). Each row carries `data-entry={id}`, `data-markets={marketsAttr(item)}` and `data-years={yearsAttr(item, generation.years)}`. On a phone the rows stack, as in the mock-up's `.lines` rules. A generation with no items renders "No maintenance items are published for this generation yet." and neither a table nor a `FilterScope`.
 
 **Fixture additions** (`maintenance/e46/`, all `markets: [us]` except where noted; every item needs a Tier 1 source for `lifetime-fill` and `condition-based`): `fixture-coolant-us-2001-2003` (`modelYears: [2001, 2003]`, `months: 48`), `fixture-coolant-us-2004-2006` (`[2004, 2006]`, `lifetime-fill`), `fixture-engine-oil` (no `modelYears`, triggers `[break-in, oil-service, inspection-i]`, a sourced cost, `inspectWhenBuying: true`), `fixture-gearbox-oil` (`[break-in, inspection-ii]`), `fixture-brake-fluid` (`months: 24`, **`verified: false`** with one Tier 2 source, `inspectWhenBuying: true`), `fixture-air-filter` (`[inspection-ii]`, `inspectWhenBuying: false`), `fixture-transmission-monitored` (`markets: [euro]`, `modelYears: [2004, 2006]`, `condition-based` with `miles: 60000`, `inspectWhenBuying: false`). Euro with model year 2002 is therefore an empty selection, and Euro as a whole has one item. Extend `site-fixture.test.ts` to assert each fact.
 
@@ -846,7 +869,7 @@ Expected: PASS, exit 0.
 ### Task 16: Used-buyer checklist page
 
 **Files:**
-- Create: `src/pages/[gen]/buying/index.astro`, `tests/e2e/shared/buying.spec.ts`, `tests/e2e/fixture/buying.spec.ts`
+- Create: `src/pages/[gen]/buying/index.astro`, `tests/e2e/shared/buying.spec.ts`, `tests/e2e/fixture-only/buying.spec.ts`
 - Modify: `src/lib/routes.ts` (the `buying` section) and its test, `src/lib/route-list.ts` and its test, the fixture set
 
 **Interfaces:**
@@ -921,7 +944,7 @@ The route-wide gates (axe, 390 px, notice, noindex, links, cross-origin) already
 
 - [ ] **Step 1: Update the docs.**
   - `AGENTS.md`: extend the `src/lib/` line in "Layout" to name the display libraries (format, money, markets, model years, citations, intervals, filters, checklist), add `src/data/site.ts`, `tests/e2e/{shared,fixture}`, `tests/fixtures/site-data` and `tests/shots`, name `SITE_DATA_DIR`, `SITE_OUT_DIR` and `SHOOT` as settings, and change the `pnpm e2e` row to say it needs `pnpm build && pnpm build:fixture` first.
-  - `docs/standards/testing.md`: two builds and two projects (`real` runs `shared/`, `fixture` runs `shared/` and `fixture/`); page e2e tests are data-driven, and the rules the real data cannot exercise are tested against `tests/fixtures/site-data`; the route-wide gates; CI screenshots are a run artifact and never an assertion.
+  - `docs/standards/testing.md`: two builds and two projects (`real` runs `shared/`, `fixture` runs `shared/` and `fixture-only/`); page e2e tests are data-driven, and the rules the real data cannot exercise are tested against `tests/fixtures/site-data`; the route-wide gates; CI screenshots are a run artifact and never an assertion.
   - `CONTRIBUTING.md`: the `pnpm build:fixture` step before `pnpm e2e`.
 
 - [ ] **Step 2: Final verification**
