@@ -38,19 +38,14 @@
 # Interiors are empty on purpose: the only per-market source for the European convertible's
 # upholstery is the registry (Tier 3), which has no Tier 1 or Tier 2 check for Europe, so none
 # is recorded.
-# Unverified under data.md's rule (no Tier 1, fewer than two Tier 2 publishers): the widths and
-# offsets of standard-18 and of the optional-19 front and rear, and the tire sizes of both
-# wheels (no
-# Euro source above Tier 3 states them); the 'Style 67' label (Hubcap Haven alone for the Euro
-# cars); every paint code (Tier 3 only); the seven paint names no BMW document gives (Alpine
-# White III, Jet Black, Titanium Silver Metallic, Steel Grey Metallic, Topaz Blue Metallic,
-# Mystic Blue Metallic, Oxford Green Metallic, Tier 3 only); the solid finishes of Alpine White
-# III, Jet Black, Imola Red, Laguna Seca Blue (inferred from 'Metallic' missing in the name; no
-# source says solid); the metallic finishes of Titanium Silver Metallic, Steel Grey Metallic,
-# Topaz Blue Metallic, Mystic Blue Metallic, Oxford Green Metallic (they follow Tier 3 names);
-# the availability of all twelve paints and their months (the registry, Tier 3, alone); that
-# Interlagos Blue Metallic was not offered on the convertible (the registry lists it for the
-# coupe's Competition Package only; Tier 3).
+# Unverified values are listed in the `unverified` field at the end of this file (data.md,
+# "Unverified values"). The reasons for the paints and finishes are above. The wheel widths, offsets
+# and tire sizes fall below the rule (no Tier 1, fewer than two Tier 2 publishers; no Euro source
+# above Tier 3 states them), and the 'Style 67' label rests on Hubcap Haven alone for the Euro cars.
+# Not in `unverified`, because no field holds them: the months of all twelve paints (the registry,
+# Tier 3, alone), and that Interlagos Blue Metallic was not offered on the convertible (the registry
+# lists it for the coupe's Competition Package only; Tier 3), which is an absence, so there is no
+# value to point at.
 id: e46-euro-convertible
 generation: e46
 name: "M3 Convertible (Euro)"
@@ -235,3 +230,67 @@ sources:
     tier: 3
     accessed: 2026-11-23
     note: "Rated Tier 3: an enthusiast site (by 'bimmertips', 4 July 2016). Its table matches the BMW M Registry chart on the codes and months of the paints both list, so the two are not independent, but it is not the same list: it has no Fern Green (386), shows Black Sapphire Metallic (475) only in its table of special editions (the CSL), names 668 'Black II', 405 'Imola Red II' and 430 'Oxford Green II Metallic' (the registry has 'Jet Black', 'Imola Red II' and 'Oxford Green II metallic'), and says 'BMW offered 14 color options in total for the E46 M3, 4 being solid and 10 being metallic' against a main table of 13 rows (the split of four and ten holds only with Black Sapphire added). The page also carries unrelated spam text, which was ignored."
+# Values below data.md's verification rule, as paths (data.md, "Unverified values"). The
+# comments at the top of this file say why each one falls short.
+unverified:
+  # Standard-18 wheel: widths, offsets and tire sizes
+  - factoryWheels.standard-18.front.widthIn
+  - factoryWheels.standard-18.front.offsetMm
+  - factoryWheels.standard-18.front.tire
+  - factoryWheels.standard-18.rear.widthIn
+  - factoryWheels.standard-18.rear.offsetMm
+  - factoryWheels.standard-18.rear.tire
+  # Optional-19 wheel: widths, offsets and tire sizes
+  - factoryWheels.optional-19.front.widthIn
+  - factoryWheels.optional-19.front.offsetMm
+  - factoryWheels.optional-19.front.tire
+  - factoryWheels.optional-19.rear.widthIn
+  - factoryWheels.optional-19.rear.offsetMm
+  - factoryWheels.optional-19.rear.tire
+  # 'Style 67' label
+  - factoryWheels.standard-18.name
+  # Paint codes
+  - paints.300.code
+  - paints.668.code
+  - paints.405.code
+  - paints.448.code
+  - paints.416.code
+  - paints.354.code
+  - paints.400.code
+  - paints.A08.code
+  - paints.364.code
+  - paints.A07.code
+  - paints.430.code
+  - paints.445.code
+  # Names of the seven paints no BMW document names
+  - paints.300.name
+  - paints.668.name
+  - paints.354.name
+  - paints.400.name
+  - paints.364.name
+  - paints.A07.name
+  - paints.430.name
+  # Solid finishes
+  - paints.300.finish
+  - paints.668.finish
+  - paints.405.finish
+  - paints.448.finish
+  # Metallic finishes of the five paints with Tier 3 names
+  - paints.354.finish
+  - paints.400.finish
+  - paints.364.finish
+  - paints.A07.finish
+  - paints.430.finish
+  # Availability on this variant (a path to a paint marks everything under it)
+  - paints.300
+  - paints.668
+  - paints.405
+  - paints.448
+  - paints.416
+  - paints.354
+  - paints.400
+  - paints.A08
+  - paints.364
+  - paints.A07
+  - paints.430
+  - paints.445

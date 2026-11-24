@@ -26,11 +26,12 @@
 # Interiors are empty on purpose: the kit says the front bucket seats and the rear seats are
 # upholstered in 'a combination of Amaretta and fabric' and gives no colour. The registry's
 # 'Anthracite' is Tier 3 only, so it is not recorded.
-# Also unverified under data.md's rule: the optional-19 widths and offsets, front and rear, and
-# the optional-19 tire sizes (only Koleso.ee, Tier 3); the 'Style 163M' label (BimmerWorld
-# alone;
-# BMW's kit does not number the wheel); the two paint codes (Tier 3 only); Black Sapphire
-# Metallic's months (the registry, Tier 3, alone).
+# Also below data.md's rule, and listed with the 2004 end in the `unverified` field at the end of
+# this file (data.md, "Unverified values"): the optional-19 wheel's widths and offsets, front and
+# rear, and its tire sizes (only Koleso.ee, Tier 3); the 'Style 163M' label (BimmerWorld alone;
+# BMW's kit does not number the wheel); and the two paint codes (Tier 3 only, see Paints above).
+# Not in `unverified`, because no field holds it: Black Sapphire Metallic's months (the registry,
+# Tier 3, alone; recorded in the Paints note above).
 id: e46-csl-coupe
 generation: e46
 name: "M3 CSL"
@@ -191,3 +192,21 @@ sources:
     tier: 3
     accessed: 2026-11-23
     note: "Rated Tier 3: an enthusiast site (by 'bimmertips', 4 July 2016). Its table matches the BMW M Registry chart on the codes and months of the paints both list, so the two are not independent, but it is not the same list: it has no Fern Green (386), shows Black Sapphire Metallic (475) only in its table of special editions (the CSL), names 668 'Black II', 405 'Imola Red II' and 430 'Oxford Green II Metallic' (the registry has 'Jet Black', 'Imola Red II' and 'Oxford Green II metallic'), and says 'BMW offered 14 color options in total for the E46 M3, 4 being solid and 10 being metallic' against a main table of 13 rows (the split of four and ten holds only with Black Sapphire added). The page also carries unrelated spam text, which was ignored."
+# Values below data.md's verification rule, as paths (data.md, "Unverified values"). The
+# comments at the top of this file say why each one falls short.
+unverified:
+  # End year
+  - years.1
+  # Optional-19 wheel: widths and offsets
+  - factoryWheels.optional-19.front.widthIn
+  - factoryWheels.optional-19.front.offsetMm
+  - factoryWheels.optional-19.rear.widthIn
+  - factoryWheels.optional-19.rear.offsetMm
+  # Optional-19 wheel: tire sizes
+  - factoryWheels.optional-19.front.tire
+  - factoryWheels.optional-19.rear.tire
+  # 'Style 163M' label
+  - factoryWheels.csl-19-style-163m.name
+  # Paint codes
+  - paints.A08.code
+  - paints.475.code

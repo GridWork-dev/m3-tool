@@ -46,20 +46,13 @@
 # Cinnamon are the registry's regular US leather colours (Tier 3), and agree with Cars.com's
 # lookup. The registry's other two, Laguna Seca Blue and Kiwi, were 'Priority 1 only' for the US
 # (special order) and are left out.
-# Unverified under data.md's rule (no Tier 1, fewer than two Tier 2 publishers): the offsets of
-# standard-18 and the offsets of the optional-19 front and rear; every paint code (Tier 3 only);
-# the seven paint
-# names no BMW document gives (Alpine White III, Jet Black, Titanium Silver Metallic, Steel Grey
-# Metallic, Topaz Blue Metallic, Mystic Blue Metallic, Oxford Green Metallic, Tier 3 only); the
-# solid finishes of Alpine White III, Jet Black, Imola Red, Laguna Seca Blue (inferred from
-# 'Metallic' missing in the name; no source says solid); the metallic finishes of Titanium
-# Silver Metallic, Steel Grey Metallic, Topaz Blue Metallic, Mystic Blue Metallic, Oxford Green
-# Metallic (they follow Tier 3 names); the availability of the eight paints BMW does not name
-# for the US M3s (the registry, Tier 3, alone) and the months of all twelve (the registry
-# alone), with the doubt about 2002 above; the four leather names (Tier 3 only). The optional-19
+# Unverified values are listed in the `unverified` field at the end of this file (data.md,
+# "Unverified values"). The reasons for the paints, finishes and leathers are above. The optional-19
 # wheel's place on the convertible rests on model-wide statements (R61); BMW's UK parts listing
 # shows a 9.5J ET27 wheel fits the convertible but is not this wheel's design, so it does not
 # support the rear offset.
+# Not in `unverified`, because no field holds them: the months of all twelve paints (the registry
+# alone), with the doubt about 2002 above.
 id: e46-us-convertible
 generation: e46
 name: "M3 Convertible (US)"
@@ -296,3 +289,61 @@ sources:
     tier: 3
     accessed: 2026-11-23
     note: "Rated Tier 3: a research lookup, not editorial (data.md). Its interior colours for the 2003 M3 are Black, Gray, Cinnamon and Imola Red, with no split between the coupe and the convertible. The same page lists a long exterior list that includes colours of other models, which is not used. The four interior colours agree with BMW NA's count of four Nappa leather colours (2006 kit) and with the registry's regular US colours."
+# Values below data.md's verification rule, as paths (data.md, "Unverified values"). The
+# comments at the top of this file say why each one falls short.
+unverified:
+  # Wheel offsets
+  - factoryWheels.standard-18.front.offsetMm
+  - factoryWheels.standard-18.rear.offsetMm
+  - factoryWheels.optional-19.front.offsetMm
+  - factoryWheels.optional-19.rear.offsetMm
+  # Paint codes
+  - paints.300.code
+  - paints.668.code
+  - paints.405.code
+  - paints.448.code
+  - paints.416.code
+  - paints.354.code
+  - paints.400.code
+  - paints.A08.code
+  - paints.364.code
+  - paints.A07.code
+  - paints.430.code
+  - paints.445.code
+  # Names of the seven paints no BMW document names
+  - paints.300.name
+  - paints.668.name
+  - paints.354.name
+  - paints.400.name
+  - paints.364.name
+  - paints.A07.name
+  - paints.430.name
+  # Solid finishes
+  - paints.300.finish
+  - paints.668.finish
+  - paints.405.finish
+  - paints.448.finish
+  # Metallic finishes of the five paints with Tier 3 names
+  - paints.354.finish
+  - paints.400.finish
+  - paints.364.finish
+  - paints.A07.finish
+  - paints.430.finish
+  # Availability on this variant (a path to a paint marks everything under it)
+  - paints.300
+  - paints.668
+  - paints.354
+  - paints.400
+  - paints.A08
+  - paints.364
+  - paints.A07
+  - paints.430
+  # Leather colour names
+  - interiors.nappa-black.name
+  - interiors.nappa-black.color
+  - interiors.nappa-grey.name
+  - interiors.nappa-grey.color
+  - interiors.nappa-imola-red.name
+  - interiors.nappa-imola-red.color
+  - interiors.nappa-cinnamon.name
+  - interiors.nappa-cinnamon.color
