@@ -54,22 +54,14 @@
 # convertible), so for 2006 they may be one option under two names; the registry has the Impulse
 # cloth ending 08/2005 and the Alcantara 'Priority 1 until 09/2005' for the US. Two are
 # recorded, with no years.
-# Unverified under data.md's rule (no Tier 1, fewer than two Tier 2 publishers): the offsets of
-# standard-18 and the offsets of the optional-19 front and rear; the Competition Package front
-# offset, and
-# its rear offset, which is inferred as well (BimmerWorld alone calls part 36112282999 the ZCP
-# rear, and BMW's UK parts page shows only that a 9.5Jx19 ET27 wheel fits the M3); the 'Style
-# 163M' label (BimmerWorld alone; BMW's kit says only 'M Cross Spoke'); every paint code (Tier 3
-# only); the seven paint names no BMW document gives (Alpine White III, Jet Black, Titanium
-# Silver Metallic, Steel Grey Metallic, Topaz Blue Metallic, Mystic Blue Metallic, Oxford Green
-# Metallic, Tier 3 only); the solid finishes of Alpine White III, Jet Black, Imola Red, Laguna
-# Seca Blue (inferred from 'Metallic' missing in the name; no source says solid); the metallic
-# finishes of Titanium Silver Metallic, Steel Grey Metallic, Topaz Blue Metallic, Mystic Blue
-# Metallic, Oxford Green Metallic (they follow Tier 3 names); the availability of the eight
-# paints BMW does not name for the US M3s (the registry, Tier 3, alone) and the months of all
-# thirteen (the registry alone), with the doubt about 2002 above; the four leather names and the
-# Alcantara combination's colours (Tier 3 only), and whether that combination and the M
-# Cloth/Nappa leather are two options. The package has no years field: its dates are in the
+# Unverified values are listed in the `unverified` field at the end of this file (data.md,
+# "Unverified values"). The reasons for the paints, finishes and leathers are above. The wheel
+# values fall below the rule (no Tier 1, fewer than two Tier 2 publishers) too: the Competition
+# Package's rear offset is inferred (BimmerWorld alone calls part 36112282999 the ZCP rear, and
+# BMW's UK parts page shows only that a 9.5Jx19 ET27 wheel fits the M3), and the 'Style 163M' label
+# rests on BimmerWorld alone (BMW's kit says only 'M Cross Spoke').
+# Not in `unverified`, because no field holds them: the months of all thirteen paints (the registry
+# alone), with the doubt about 2002 above. The package has no years field: its dates are in the
 # summary only.
 id: e46-us-coupe
 generation: e46
@@ -361,3 +353,68 @@ sources:
     tier: 3
     accessed: 2026-11-23
     note: "Rated Tier 3: a research lookup, not editorial (data.md). Its interior colours for the 2003 M3 are Black, Gray, Cinnamon and Imola Red, with no split between the coupe and the convertible. The same page lists a long exterior list that includes colours of other models, which is not used. The four interior colours agree with BMW NA's count of four Nappa leather colours (2006 kit) and with the registry's regular US colours."
+# Values below data.md's verification rule, as paths (data.md, "Unverified values"). The
+# comments at the top of this file say why each one falls short.
+unverified:
+  # Wheel offsets
+  - factoryWheels.standard-18.front.offsetMm
+  - factoryWheels.standard-18.rear.offsetMm
+  - factoryWheels.optional-19.front.offsetMm
+  - factoryWheels.optional-19.rear.offsetMm
+  - factoryWheels.competition-19-style-163m.front.offsetMm
+  - factoryWheels.competition-19-style-163m.rear.offsetMm
+  # 'Style 163M' label
+  - factoryWheels.competition-19-style-163m.name
+  # Paint codes
+  - paints.300.code
+  - paints.668.code
+  - paints.405.code
+  - paints.448.code
+  - paints.416.code
+  - paints.354.code
+  - paints.400.code
+  - paints.A08.code
+  - paints.364.code
+  - paints.A07.code
+  - paints.A30.code
+  - paints.430.code
+  - paints.445.code
+  # Names of the seven paints no BMW document names
+  - paints.300.name
+  - paints.668.name
+  - paints.354.name
+  - paints.400.name
+  - paints.364.name
+  - paints.A07.name
+  - paints.430.name
+  # Solid finishes
+  - paints.300.finish
+  - paints.668.finish
+  - paints.405.finish
+  - paints.448.finish
+  # Metallic finishes of the five paints with Tier 3 names
+  - paints.354.finish
+  - paints.400.finish
+  - paints.364.finish
+  - paints.A07.finish
+  - paints.430.finish
+  # Availability on this variant (a path to a paint marks everything under it)
+  - paints.300
+  - paints.668
+  - paints.354
+  - paints.400
+  - paints.A08
+  - paints.364
+  - paints.A07
+  - paints.430
+  # Leather colour names and the Alcantara combination (its colours, and whether it is a second option)
+  - interiors.nappa-black.name
+  - interiors.nappa-black.color
+  - interiors.nappa-grey.name
+  - interiors.nappa-grey.color
+  - interiors.nappa-imola-red.name
+  - interiors.nappa-imola-red.color
+  - interiors.nappa-cinnamon.name
+  - interiors.nappa-cinnamon.color
+  - interiors.alcantara-nappa-combination.color
+  - interiors.alcantara-nappa-combination

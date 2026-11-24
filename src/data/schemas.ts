@@ -12,6 +12,16 @@ export const ID_PATTERN = /^[a-z0-9]+(-[a-z0-9]+)*$/
 export const Id = z
   .string()
   .regex(ID_PATTERN, 'must be kebab-case: lowercase letters and digits joined by single hyphens')
+// A key in an `unverified` path (see unverified.ts): letters, digits, "-" and "_". A path names a
+// list element by its `id` or its `code`, so each field that does so must fit it, or the element
+// could not be marked. `Id` already fits. `Code`, for a paint or an engine, is held to it here.
+const PATH_KEY = '[A-Za-z0-9_-]+'
+const Code = z
+  .string()
+  .regex(
+    new RegExp(`^${PATH_KEY}$`),
+    'must be letters, digits, "-" and "_" only, so a path in `unverified` can name it',
+  )
 // Required text: non-empty once trimmed, so "   " is refused. The value itself is kept as written.
 export const Text = z.string().refine((value) => value.trim() !== '', 'must not be empty')
 const Year = z.int().min(1985).max(2035)
@@ -118,6 +128,20 @@ export type PriceObservation = z.infer<typeof PriceObservation>
 // Generation
 // ---------------------------------------------------------------------------------------------
 
+// A path to a value in the same file that falls below data.md's verification rule: dot-separated
+// keys, such as `paints.A08.code` or `years.1`. The schema checks only the shape of the text.
+// quality.ts checks that each path points at a value and that none is listed twice, and
+// unverified.ts holds the grammar (see data.md, "Unverified values").
+const UNVERIFIED_PATH_PATTERN = new RegExp(`^${PATH_KEY}(\\.${PATH_KEY})*$`)
+const UnverifiedPath = z
+  .string()
+  .regex(
+    UNVERIFIED_PATH_PATTERN,
+    'must be dot-separated keys such as paints.A08.code, with no spaces, brackets or empty parts',
+  )
+// Optional: an entry with nothing below the rule leaves it out.
+const Unverified = z.array(UnverifiedPath).optional()
+
 const WheelSize = z.strictObject({
   diameterIn: z.number().positive(),
   widthIn: z.number().positive(),
@@ -161,7 +185,7 @@ export const Generation = z
     engines: z
       .array(
         z.strictObject({
-          code: Text,
+          code: Code,
           displacementCc: z.number().positive(),
           cylinders: z.int().positive(),
         }),
@@ -187,6 +211,8 @@ export const Generation = z
     // Covers the identity fields: name, chassis, years, engines and bodies. Dimensions, the eye
     // point and fitment carry their own.
     sources: z.array(Source).min(1),
+    // The values in this file that fall below the verification rule, as paths.
+    unverified: Unverified,
   })
   .superRefine((generation, ctx) => {
     const bodies: readonly string[] = generation.bodies
@@ -235,7 +261,7 @@ export const Variant = z.strictObject({
   packages: z.array(z.strictObject({ id: Id, name: Text, summary: Text })),
   paints: z.array(
     z.strictObject({
-      code: Text,
+      code: Code,
       name: Text,
       finish: z.enum(['solid', 'metallic', 'pearl']),
       baseColor: z.string().regex(/^#[0-9a-f]{6}$/, 'must be a lowercase hex colour like #c0c0c0'),
@@ -267,6 +293,8 @@ export const Variant = z.strictObject({
     note: Text.optional(),
   }),
   sources: z.array(Source).min(1),
+  // The values in this file that fall below the verification rule, as paths.
+  unverified: Unverified,
 })
 export type Variant = z.infer<typeof Variant>
 

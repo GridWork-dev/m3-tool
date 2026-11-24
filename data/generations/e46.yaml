@@ -69,11 +69,12 @@ driverEyePoint:
 # 255/35 ZR 19 in the owner's manual, 19x8 ET47 and 19x9.5 ET27 at BimmerWorld). Those are not
 # modelled.
 # Below data.md's verification rule (no Tier 1 source and fewer than two distinct Tier 2
-# publishers), now that Koleso.ee is Tier 3: the stock offsetMm on both axles (Hubcap Haven is the
-# only Tier 2 publisher), and the stock widthIn for the European cars (a US document does not
-# speak for them). BMW NA's 2006 press kit (Tier 1) gives the widths of 8 and 9 inches for the US
-# cars. A generation has no verified field, so this comment is the
-# record. The stock tire sizes (owner's manual, Tier 1), the 5x120 bolt pattern (Apex's E46 M3
+# publishers), now that Koleso.ee is Tier 3, and listed in the `unverified` field at the end of
+# this file (data.md, "Unverified values"): the stock offsets on both axles, because Hubcap
+# Haven is the only Tier 2 publisher, and the stock widths for the European cars, because a US
+# document does not speak for them. BMW NA's 2006 press kit (Tier 1) gives the widths of 8 and 9
+# inches for the US cars.
+# The stock tire sizes (owner's manual, Tier 1), the 5x120 bolt pattern (Apex's E46 M3
 # page, Tier 1, and Hubcap Haven and BimmerWorld) and the 72.56 mm center bore (Apex's E46 M3
 # page, Tier 1, and BimmerWorld) meet the rule. Apex states the bore its own wheel is made with
 # ('N/A Direct fit'), not a BMW statement of the hub, and BimmerWorld independently gives 72.56.
@@ -139,3 +140,12 @@ fitment:
       tier: 2
       accessed: 2026-11-23
       note: "Specialist shop's tech page. Its bolt pattern table gives 5x120 with a 72.56 mm center bore for the 5-lug E-chassis (E46 included), which is the 72.56 used here. Its E46 M3 row lists 19x8.0 ET47 front and 19x9.5 ET27 rear as stock, which differs from the 18-inch sizes used here (Koleso.ee labels those OEM), so it is not used for the wheel sizes."
+# Values below data.md's verification rule, as paths (data.md, "Unverified values"). The
+# comments at the top of this file say why each one falls short.
+unverified:
+  # Stock wheel: offsets
+  - fitment.front.stock.offsetMm
+  - fitment.rear.stock.offsetMm
+  # Stock wheel: widths
+  - fitment.front.stock.widthIn
+  - fitment.rear.stock.widthIn

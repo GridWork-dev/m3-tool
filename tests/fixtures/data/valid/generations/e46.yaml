@@ -62,3 +62,6 @@ sources:
     publisher: Fixture Co
     tier: 1
     accessed: 2026-11-23
+unverified:
+  - fitment.front.stock.offsetMm
+  - engines.FIXTURE-ENGINE.displacementCc

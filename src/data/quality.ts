@@ -9,7 +9,9 @@ import type {
   Source,
   Variant,
 } from './schemas.ts'
+import { Generation as GenerationSchema, Variant as VariantSchema } from './schemas.ts'
 import { hasTier1Or2Source, meetsVerificationRule } from './sources.ts'
+import { unresolvedReason } from './unverified.ts'
 
 export type QualityCode =
   | 'schema'
@@ -30,6 +32,8 @@ export type QualityCode =
   | 'fits-list-empty'
   | 'unknown-engine'
   | 'future-date'
+  | 'unverified-path-missing'
+  | 'unverified-path-duplicate'
 
 export interface QualityIssue {
   file: string
@@ -247,6 +251,7 @@ export function checkDataSet(set: DataSet, options: CheckOptions = {}): QualityI
   }
 
   checkAgainstGeneration(set, add)
+  checkUnverified(set, add)
   checkDates(set, options.today ?? new Date(), add)
 
   return found
@@ -344,6 +349,37 @@ function checkAgainstGeneration(set: DataSet, add: Add): void {
         'unknown-engine',
         `${kind} "${id}" names engine "${engine}", but generation "${generation.id}" has ${list(codes)}`,
       )
+    }
+  }
+}
+
+// `unverified` lists paths to values in the same file (data.md, "Unverified values"). Each path
+// must point at a value, which unverified.ts decides from the schema and the parsed data, and none
+// may be listed twice. A repeated path is reported once for each extra copy and is not resolved
+// again, so a duplicate of a bad path reports one of each.
+function checkUnverified(set: DataSet, add: Add): void {
+  const lists = [
+    [set.generations, GenerationSchema],
+    [set.variants, VariantSchema],
+  ] as const
+  for (const [entries, schema] of lists) {
+    for (const { file, data } of entries) {
+      const seen = new Set<string>()
+      for (const path of data.unverified ?? []) {
+        if (seen.has(path)) {
+          add(file, 'unverified-path-duplicate', `unverified lists "${path}" more than once`)
+          continue
+        }
+        seen.add(path)
+        const reason = unresolvedReason(schema, data, path)
+        if (reason !== undefined) {
+          add(
+            file,
+            'unverified-path-missing',
+            `unverified path "${path}" does not point at a value: ${reason}`,
+          )
+        }
+      }
     }
   }
 }

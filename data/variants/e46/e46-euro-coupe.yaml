@@ -46,25 +46,19 @@
 # lane may retune it.
 # Interiors are empty on purpose: the only per-market source for the European coupe's upholstery
 # is the registry (Tier 3), which has no Tier 1 or Tier 2 check for Europe, so none is recorded.
-# Unverified under data.md's rule (no Tier 1, fewer than two Tier 2 publishers): the end year of
-# the Competition Package, the widths and offsets of standard-18, the widths and offsets of the
-# optional-19 front and rear, the offset of the Competition Package front (inferred from the US
-# ZCP part)
-# and its rear offset (inferred as well: BimmerWorld alone calls part 36112282999 the ZCP rear),
-# and the tire sizes of standard-18 and optional-19 (no Euro source above Tier 3 states them;
-# the Competition Package's own 19-inch tires are Tier 1). Also unverified: the labels 'Style
-# 67' (Hubcap Haven alone for the Euro cars), 'Style 163M' (BimmerWorld alone) and 'M3 CS' (evo
-# alone at Tier 2; BMWBLOG, BIMMERtips and the registry are Tier 3); every paint code (Tier 3
-# only); the seven paint names no BMW document gives (Alpine White III, Jet Black, Titanium
-# Silver Metallic, Steel Grey Metallic, Topaz Blue Metallic, Mystic Blue Metallic, Oxford Green
-# Metallic, Tier 3 only); the solid finishes of Alpine White III, Jet Black, Imola Red, Laguna
-# Seca Blue (inferred from 'Metallic' missing in the name; no source says solid); the metallic
-# finishes of Titanium Silver Metallic, Steel Grey Metallic, Topaz Blue Metallic, Mystic Blue
-# Metallic, Oxford Green Metallic (they follow Tier 3 names); the availability of all twelve
-# paints other than Interlagos Blue Metallic and the months of all thirteen (the registry, Tier
-# 3, alone); that Interlagos Blue Metallic was available only with the Competition Package in
-# Europe (Tier 3; explicit at Tier 1 for Canada). The package has no years field: its dates are
-# in the summary only.
+# Unverified values are listed in the `unverified` field at the end of this file (data.md,
+# "Unverified values"). The reasons for the paints and finishes are above. The rest fall below the
+# rule (no Tier 1, fewer than two Tier 2 publishers) as follows. The Competition Package's end year,
+# and that Interlagos Blue Metallic was available only with the package in Europe (Tier 3; explicit
+# at Tier 1 for Canada), are stated in the package's summary, so the summary is their path. The
+# Competition Package's front offset is inferred from the US ZCP part, and its rear offset is
+# inferred as well (BimmerWorld alone calls part 36112282999 the ZCP rear). The tire sizes of
+# standard-18 and optional-19 have no Euro source above Tier 3 (the Competition Package's own
+# 19-inch tires are Tier 1). The labels 'Style 67' (Hubcap Haven alone for the Euro cars), 'Style
+# 163M' (BimmerWorld alone) and 'M3 CS' (evo alone at Tier 2; BMWBLOG, BIMMERtips and the registry
+# are Tier 3).
+# Not in `unverified`, because no field holds them: the months of all thirteen paints (the registry,
+# Tier 3, alone). The package has no years field: its dates are in the summary only.
 id: e46-euro-coupe
 generation: e46
 name: "M3 Coupe (Euro)"
@@ -298,3 +292,76 @@ sources:
     tier: 2
     accessed: 2026-11-23
     note: "Staffed editorial, by Khatir Soltani, 9 February 2005. Says that on the outside 'buyers have the option of the entire M3 color pallet' and that Interlagos Blue metallic is 'a new exclusive color'. It does not name the other colours or say which market it describes (it says the package will be available 'around the globe, including the U.S.'). A model-wide statement that supports the coupe's existing palette alongside Interlagos Blue Metallic."
+# Values below data.md's verification rule, as paths (data.md, "Unverified values"). The
+# comments at the top of this file say why each one falls short.
+unverified:
+  # Competition Package: end year, and Interlagos Blue exclusivity in Europe (both are in the summary)
+  - packages.competition-package.summary
+  # Standard-18 wheel: widths and offsets
+  - factoryWheels.standard-18.front.widthIn
+  - factoryWheels.standard-18.front.offsetMm
+  - factoryWheels.standard-18.rear.widthIn
+  - factoryWheels.standard-18.rear.offsetMm
+  # Optional-19 wheel: widths and offsets
+  - factoryWheels.optional-19.front.widthIn
+  - factoryWheels.optional-19.front.offsetMm
+  - factoryWheels.optional-19.rear.widthIn
+  - factoryWheels.optional-19.rear.offsetMm
+  # Competition Package wheel: offsets
+  - factoryWheels.competition-19-style-163m.front.offsetMm
+  - factoryWheels.competition-19-style-163m.rear.offsetMm
+  # Tire sizes of standard-18 and optional-19
+  - factoryWheels.standard-18.front.tire
+  - factoryWheels.standard-18.rear.tire
+  - factoryWheels.optional-19.front.tire
+  - factoryWheels.optional-19.rear.tire
+  # Labels: 'Style 67', 'Style 163M', 'M3 CS'
+  - factoryWheels.standard-18.name
+  - factoryWheels.competition-19-style-163m.name
+  - packages.competition-package.name
+  # Paint codes
+  - paints.300.code
+  - paints.668.code
+  - paints.405.code
+  - paints.448.code
+  - paints.416.code
+  - paints.354.code
+  - paints.400.code
+  - paints.A08.code
+  - paints.364.code
+  - paints.A07.code
+  - paints.A30.code
+  - paints.430.code
+  - paints.445.code
+  # Names of the seven paints no BMW document names
+  - paints.300.name
+  - paints.668.name
+  - paints.354.name
+  - paints.400.name
+  - paints.364.name
+  - paints.A07.name
+  - paints.430.name
+  # Solid finishes
+  - paints.300.finish
+  - paints.668.finish
+  - paints.405.finish
+  - paints.448.finish
+  # Metallic finishes of the five paints with Tier 3 names
+  - paints.354.finish
+  - paints.400.finish
+  - paints.364.finish
+  - paints.A07.finish
+  - paints.430.finish
+  # Availability on this variant (a path to a paint marks everything under it)
+  - paints.300
+  - paints.668
+  - paints.405
+  - paints.448
+  - paints.416
+  - paints.354
+  - paints.400
+  - paints.A08
+  - paints.364
+  - paints.A07
+  - paints.430
+  - paints.445
