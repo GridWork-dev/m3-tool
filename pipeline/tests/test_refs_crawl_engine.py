@@ -155,3 +155,78 @@ def test_every_request_carries_our_user_agent(
 ) -> None:
     run(site, store, [site.url("/ok.html")], clock)
     assert {r.user_agent for r in site.requests} == {DEFAULT_USER_AGENT}
+
+
+@pytest.fixture
+def redirecting_fetcher(monkeypatch: pytest.MonkeyPatch) -> None:
+    original_fetch = HttpxPageFetcher.fetch
+
+    def fetch(self: HttpxPageFetcher, url: str) -> PageResult:
+        # Match the CLI's shared client, including its default redirect behavior.
+        self.http.follow_redirects = True
+        return original_fetch(self, url)
+
+    monkeypatch.setattr(HttpxPageFetcher, "fetch", fetch)
+
+
+def test_image_redirect_to_disallowed_path_is_skipped(
+    site: Site,
+    store: RefStore,
+    clock: FakeClock,
+    redirecting_fetcher: None,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    site.add("/ok.html", body='<img src="/redirect.jpg">')
+    site.add("/redirect.jpg", status=302, headers={"Location": "/private/secret.jpg"})
+    site.add("/private/secret.jpg", body=site.routes["/big.jpg"][1], content_type="image/jpeg")
+    rep = run(site, store, [site.url("/ok.html")], clock)
+    assert site.hits("/private/secret.jpg") == 0
+    assert store.records() == [] and rep.images_added == 0
+    assert rep.disallowed == [site.url("/private/secret.jpg")]
+    assert site.url("/private/secret.jpg") in caplog.text
+
+
+def test_page_final_url_disallowed_skips_extraction(
+    site: Site,
+    store: RefStore,
+    clock: FakeClock,
+    redirecting_fetcher: None,
+) -> None:
+    site.add("/redirect.html", status=302, headers={"Location": "/private/page.html"})
+    rep = run(site, store, [site.url("/redirect.html")], clock)
+    assert rep.pages_fetched == 1
+    assert rep.disallowed == [site.url("/private/page.html")]
+    assert site.hits("/big.jpg") == 0 and store.records() == []
+
+
+def test_image_redirect_chain_to_allowed_path_is_ingested_and_throttled(
+    site: Site,
+    store: RefStore,
+    clock: FakeClock,
+    redirecting_fetcher: None,
+) -> None:
+    site.add("/ok.html", body='<img src="/redirect.jpg">')
+    site.add("/redirect.jpg", status=302, headers={"Location": "next.jpg"})
+    site.add("/next.jpg", status=307, headers={"Location": site.url("/big.jpg")})
+    rep = run(site, store, [site.url("/ok.html")], clock)
+    assert rep.images_added == 1 and len(store.records()) == 1
+    assert site.hits("/redirect.jpg") == site.hits("/next.jpg") == site.hits("/big.jpg") == 1
+    assert clock.slept.count(3.0) == 3
+
+
+@pytest.mark.parametrize("hops", [5, 6])
+def test_image_redirect_limit(
+    site: Site,
+    store: RefStore,
+    clock: FakeClock,
+    redirecting_fetcher: None,
+    hops: int,
+) -> None:
+    site.add("/ok.html", body='<img src="/redirect-0.jpg">')
+    for i in range(hops):
+        site.add(f"/redirect-{i}.jpg", status=302, headers={"Location": f"/redirect-{i + 1}.jpg"})
+    site.add(f"/redirect-{hops}.jpg", body=site.routes["/big.jpg"][1], content_type="image/jpeg")
+    rep = run(site, store, [site.url("/ok.html")], clock)
+    assert rep.images_added == (1 if hops == 5 else 0)
+    assert rep.images_failed == (0 if hops == 5 else 1)
+    assert site.hits("/redirect-6.jpg") == 0

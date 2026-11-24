@@ -16,16 +16,20 @@ class SeenRequest:
 class Site:
     def __init__(self) -> None:
         self.requests: list[SeenRequest] = []
-        self.routes: dict[str, tuple[int, bytes, str]] = {}
+        self.routes: dict[str, tuple[int, bytes, str, dict[str, str]]] = {}
         site = self
 
         class Handler(BaseHTTPRequestHandler):
             def do_GET(self) -> None:
                 site.requests.append(SeenRequest(self.path, self.headers.get("User-Agent", "")))
-                status, body, content_type = site.routes.get(self.path, (404, b"", "text/plain"))
+                status, body, content_type, headers = site.routes.get(
+                    self.path, (404, b"", "text/plain", {})
+                )
                 self.send_response(status)
                 self.send_header("Content-Type", content_type)
                 self.send_header("Content-Length", str(len(body)))
+                for name, value in headers.items():
+                    self.send_header(name, value)
                 self.end_headers()
                 self.wfile.write(body)
 
@@ -56,8 +60,14 @@ class Site:
         status: int = 200,
         body: bytes | str = b"",
         content_type: str = "text/html",
+        headers: dict[str, str] | None = None,
     ) -> None:
-        self.routes[path] = (status, body.encode() if isinstance(body, str) else body, content_type)
+        self.routes[path] = (
+            status,
+            body.encode() if isinstance(body, str) else body,
+            content_type,
+            headers or {},
+        )
 
     def hits(self, path: str) -> int:
         return sum(r.path == path for r in self.requests)

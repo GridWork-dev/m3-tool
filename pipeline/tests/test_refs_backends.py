@@ -20,6 +20,7 @@ from m3_pipeline.refs.crawl.browserbase import (
     redact,
 )
 from m3_pipeline.refs.crawl.fetchers import MissingCredentials, open_fetcher
+from m3_pipeline.refs.crawl.robots import RobotsCache
 from m3_pipeline.refs.sources import DEFAULT_USER_AGENT
 
 
@@ -178,3 +179,32 @@ def test_playwright_fetcher_reports_403_status(site: Site) -> None:
         ) as f,
     ):
         assert f.fetch(site.url("/blocked.html")).status == 403
+
+
+@pytest.mark.browser
+def test_browser_blocks_disallowed_subresources(site: Site) -> None:
+    site.add(
+        "/ok.html",
+        body=(
+            '<iframe src="/private/page.html"></iframe>'
+            '<script src="/private/script.js"></script>'
+            '<script src="/allowed.js"></script>'
+            '<img src="/big.jpg">'
+        ),
+    )
+    site.add("/private/script.js", body="window.disallowed = true", content_type="text/javascript")
+    site.add("/allowed.js", body="window.allowed = true", content_type="text/javascript")
+    with (
+        httpx.Client(headers={"User-Agent": DEFAULT_USER_AGENT}) as http,
+        open_fetcher(
+            "local",
+            user_agent=DEFAULT_USER_AGENT,
+            env={},
+            http=http,
+            allowed=RobotsCache(http, DEFAULT_USER_AGENT).allowed,
+        ) as fetcher,
+    ):
+        assert fetcher.fetch(site.url("/ok.html")).status == 200
+    assert site.hits("/private/page.html") == site.hits("/private/script.js") == 0
+    assert site.hits("/allowed.js") == 1
+    assert site.hits("/big.jpg") == 0

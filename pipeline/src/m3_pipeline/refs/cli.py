@@ -10,6 +10,7 @@ from m3_pipeline.config import load_settings
 from m3_pipeline.refs.commons import CommonsClient
 from m3_pipeline.refs.crawl.engine import crawl_pages
 from m3_pipeline.refs.crawl.fetchers import MissingCredentials, open_fetcher
+from m3_pipeline.refs.crawl.robots import RobotsCache
 from m3_pipeline.refs.importer import import_directory
 from m3_pipeline.refs.sources import SubjectSources, load_sources
 from m3_pipeline.refs.store import RefStore
@@ -115,29 +116,30 @@ def crawl(
         delay_s=delay if delay is not None else sources.crawl.delay_s,
     )
     try:
-        with (
-            httpx.Client(
-                headers={"User-Agent": sources.user_agent},
-                timeout=30,
-                follow_redirects=True,
-            ) as http,
-            open_fetcher(
+        with httpx.Client(
+            headers={"User-Agent": sources.user_agent},
+            timeout=30,
+            follow_redirects=True,
+        ) as http:
+            robots = RobotsCache(http, sources.user_agent)
+            with open_fetcher(
                 backend,
                 user_agent=sources.user_agent,
                 env=os.environ,
                 http=http,
-            ) as fetcher,
-        ):
-            report = crawl_pages(
-                subject,
-                urls,
-                settings=crawl_settings,
-                user_agent=sources.user_agent,
-                fetcher=fetcher,
-                http=http,
-                store=RefStore(settings),
-                throttle=Throttle(crawl_settings.delay_s),
-            )
+                allowed=robots.allowed,
+            ) as fetcher:
+                report = crawl_pages(
+                    subject,
+                    urls,
+                    settings=crawl_settings,
+                    user_agent=sources.user_agent,
+                    fetcher=fetcher,
+                    http=http,
+                    store=RefStore(settings),
+                    throttle=Throttle(crawl_settings.delay_s),
+                    robots=robots,
+                )
     except MissingCredentials as exc:
         typer.echo(str(exc), err=True)
         raise typer.Exit(1) from None

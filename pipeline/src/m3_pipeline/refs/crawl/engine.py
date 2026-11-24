@@ -1,9 +1,9 @@
 import logging
 import re
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
 from typing import Protocol
-from urllib.parse import urlsplit
+from urllib.parse import urljoin, urlsplit
 
 import httpx
 
@@ -56,6 +56,27 @@ def _log_blocked(status: int, url: str) -> None:
     )
 
 
+def _fetch_image(
+    http: httpx.Client,
+    url: str,
+    user_agent: str,
+    allowed: Callable[[str], bool],
+    wait: Callable[[str], None],
+) -> httpx.Response | None:
+    redirects = 0
+    while True:
+        wait(url)
+        response = http.get(url, headers={"User-Agent": user_agent}, follow_redirects=False)
+        if not response.has_redirect_location:
+            return response
+        url = urljoin(str(response.url), response.headers["location"])
+        if not allowed(url):
+            return None
+        if redirects == 5:
+            raise httpx.TooManyRedirects("image exceeded 5 redirect hops", request=response.request)
+        redirects += 1
+
+
 def crawl_pages(
     subject: str,
     urls: Sequence[str],
@@ -66,25 +87,36 @@ def crawl_pages(
     http: httpx.Client,
     store: RefStore,
     throttle: Throttle,
+    robots: RobotsCache | None = None,
 ) -> CrawlReport:
     parse_subject(subject)
     report = CrawlReport()
-    robots = RobotsCache(http, user_agent)
+    robots = robots or RobotsCache(http, user_agent)
+
+    def allowed(url: str) -> bool:
+        if robots.allowed(url):
+            return True
+        report.disallowed.append(url)
+        _LOG.warning("robots disallowed: %s", url)
+        return False
 
     def wait(url: str) -> None:
         throttle.wait(urlsplit(url).netloc, max(settings.delay_s, robots.crawl_delay(url) or 0))
 
     for url in urls[: settings.max_pages]:
-        if not robots.allowed(url):
-            report.disallowed.append(url)
+        if not allowed(url):
             continue
         wait(url)
         page = fetcher.fetch(url)
         report.pages_fetched += 1
+        if page.final_url != url and not allowed(page.final_url):
+            continue
         if _blocked_page(page):
             throttle.pause(2 * settings.delay_s)
             wait(url)
             page = fetcher.fetch(url)
+            if page.final_url != url and not allowed(page.final_url):
+                continue
             if _blocked_page(page):
                 report.blocked.append(url)
                 _log_blocked(page.status, url)
@@ -95,12 +127,12 @@ def crawl_pages(
         for image_url in extract_image_urls(page.html, page.final_url):
             if store.known_url(image_url) or store.was_skipped(image_url):
                 continue
-            if not robots.allowed(image_url):
-                report.disallowed.append(image_url)
+            if not allowed(image_url):
                 continue
-            wait(image_url)
             try:
-                response = http.get(image_url, headers={"User-Agent": user_agent})
+                response = _fetch_image(http, image_url, user_agent, allowed, wait)
+                if response is None:
+                    continue
                 if is_blocked(response.status_code, "", ""):
                     _log_blocked(response.status_code, image_url)
                     report.images_failed += 1

@@ -1,4 +1,4 @@
-from collections.abc import Generator, Mapping
+from collections.abc import Callable, Generator, Mapping
 from contextlib import AbstractContextManager, contextmanager
 from typing import Literal, Protocol, cast
 
@@ -18,16 +18,23 @@ class MissingCredentials(Exception):
 
 
 class _PlaywrightFetcher:
-    def __init__(self, page: Page) -> None:
+    def __init__(self, page: Page, allowed: Callable[[str], bool] | None = None) -> None:
         self.page = page
+        self.allowed = allowed
         self.page.route("**/*", self._route)
 
-    @staticmethod
-    def _route(route: Route) -> None:
+    def _route(self, route: Route) -> None:
         # The engine owns image requests so each one gets robots and throttle checks.
-        if route.request.resource_type == "image":
+        request = route.request
+        if request.resource_type == "image" or (
+            self.allowed is not None
+            and not (request.is_navigation_request() and request.frame == self.page.main_frame)
+            and not self.allowed(request.url)
+        ):
             route.abort()
         else:
+            # Browsers load subresources in parallel; the host delay governs only
+            # pages and images the engine chooses to visit, not subrequests.
             route.continue_()
 
     def fetch(self, url: str) -> PageResult:
@@ -45,6 +52,7 @@ def open_fetcher(
     user_agent: str,
     env: Mapping[str, str],
     http: httpx.Client,
+    allowed: Callable[[str], bool] | None = None,
 ) -> AbstractContextManager[PageFetcher]:
     # Validate eagerly: configuration mistakes must fail before context entry.
     if backend == "browserbase":
@@ -57,7 +65,7 @@ def open_fetcher(
             raise MissingCredentials("missing variables: " + ", ".join(missing))
     elif backend != "local":
         raise ValueError(f"unknown browser backend {backend!r}")
-    return _open_fetcher(backend, user_agent=user_agent, env=env, http=http)
+    return _open_fetcher(backend, user_agent=user_agent, env=env, http=http, allowed=allowed)
 
 
 @contextmanager
@@ -67,13 +75,14 @@ def _open_fetcher(
     user_agent: str,
     env: Mapping[str, str],
     http: httpx.Client,
+    allowed: Callable[[str], bool] | None,
 ) -> Generator[PageFetcher]:
     if backend == "local":
         with sync_playwright() as playwright:
             browser = playwright.chromium.launch(headless=True)
             try:
                 context = browser.new_context(user_agent=user_agent)
-                yield _PlaywrightFetcher(context.new_page())
+                yield _PlaywrightFetcher(context.new_page(), allowed)
             finally:
                 browser.close()
         return
@@ -89,7 +98,7 @@ def _open_fetcher(
                     page = context.new_page()
                     cdp = cast(_CDPSession, context.new_cdp_session(page))
                     cdp.send("Network.setUserAgentOverride", {"userAgent": user_agent})
-                    yield _PlaywrightFetcher(page)
+                    yield _PlaywrightFetcher(page, allowed)
                 finally:
                     browser.close()
         finally:
