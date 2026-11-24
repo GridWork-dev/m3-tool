@@ -3,6 +3,7 @@ import { mkdir, readFile, writeFile } from 'node:fs/promises'
 import { dirname } from 'node:path'
 import { parseArgs } from 'node:util'
 import {
+  AnimationChannel,
   type Document,
   getBounds,
   Logger,
@@ -51,6 +52,19 @@ export interface ExportOptions {
   // Generator markers from the raw file. They are copied to `asset.extras.sourceAsset`. Absent
   // means there is nothing to carry, and the key is left out.
   markers?: Record<string, unknown>
+  // Does the simplifying passes for the proxy. The default is `simplifyWithMeshopt`; a test swaps
+  // in one that reduces too little, or nothing, to see what the export does about it.
+  proxySimplifier?: ProxySimplifier
+}
+
+// Simplifies the proxy's copy of the document in place, to `ratio` of the triangles it has.
+export type ProxySimplifier = (copy: Document, ratio: number) => Promise<void>
+
+// The error limit is off (1 is the whole mesh radius): the target alone decides, and a curved car
+// would otherwise stop far above it.
+export const simplifyWithMeshopt: ProxySimplifier = async (copy, ratio) => {
+  await MeshoptSimplifier.ready
+  await copy.transform(simplify({ simplifier: MeshoptSimplifier, ratio, error: 1 }))
 }
 
 // What `score` loads instead of reading the GLB. `bbox_min`, `bbox_max`, `triangles` and
@@ -188,10 +202,8 @@ export async function fitProxyBudget(
 //   keeps a vertex split wherever normals or UVs differ, so a flat-shaded or seam-ridden mesh
 //   (each triangle with vertices of its own) would otherwise stay far above the budget. The proxy
 //   is positions only, so the splits mean nothing to it.
-// - Then `simplify` takes it to PROXY_TRIANGLES through `fitProxyBudget`. The error limit is off
-//   (1 is the whole mesh radius): the target alone decides, and a curved car would otherwise stop
-//   far above it.
-async function decimatedGeometry(doc: Document) {
+// - Then `simplifier` takes it to PROXY_TRIANGLES through `fitProxyBudget`.
+async function decimatedGeometry(doc: Document, simplifier: ProxySimplifier) {
   const copy = cloneDocument(doc)
   for (const mesh of copy.getRoot().listMeshes()) {
     for (const primitive of mesh.listPrimitives()) {
@@ -206,8 +218,7 @@ async function decimatedGeometry(doc: Document) {
   await copy.transform(weld())
   const scene = sceneOf(copy)
   await fitProxyBudget(countTriangles(scene), async (ratio) => {
-    await MeshoptSimplifier.ready
-    await copy.transform(simplify({ simplifier: MeshoptSimplifier, ratio, error: 1 }))
+    await simplifier(copy, ratio)
     return countTriangles(scene)
   })
   return worldGeometry(copy)
@@ -288,6 +299,27 @@ function meshParents(doc: Document): MeshParent[] {
     })
 }
 
+// A node with children and a translation, rotation or scale animation can't be restored: its
+// static matrix would carry quantize's correction, and the animation overwrites that matrix, so
+// playing it would move or distort the mesh. Export refuses it, naming the node.
+function rejectAnimatedMeshParents(parents: MeshParent[]): void {
+  const transformPaths = ['translation', 'rotation', 'scale']
+  for (const { node } of parents) {
+    const animated = node
+      .listParents()
+      .some(
+        (parent) =>
+          parent instanceof AnimationChannel &&
+          transformPaths.includes(parent.getTargetPath() ?? ''),
+      )
+    if (animated) {
+      throw new Error(
+        `${node.getName() || '(unnamed node)'} has children and an animated translation, rotation or scale, which the export cannot keep: quantizing its mesh changes the node's transform, and the animation would overwrite that change`,
+      )
+    }
+  }
+}
+
 // quantize() scales a mesh through the matrix of the node that draws it. For a node with children
 // it moves the mesh to a new unnamed child instead, so the children are not scaled, which leaves
 // the named node (`trunk_lid` with an anchor under it) without its mesh, and a module swap hides
@@ -349,6 +381,9 @@ export async function exportGlb(
     prune({ keepLeaves: true, keepSolidTextures: true }),
   )
 
+  const parents = meshParents(doc)
+  rejectAnimatedMeshParents(parents)
+
   const asset = doc.getRoot().getAsset()
   asset.extras = {
     ...(isRecord(asset.extras) ? asset.extras : {}),
@@ -360,9 +395,11 @@ export async function exportGlb(
   const triangles = countTriangles(scene)
   const bounds = getBounds(scene)
   const nodePositions = namedPositions(scene)
-  const { vertices, faces } = await decimatedGeometry(doc)
+  const { vertices, faces } = await decimatedGeometry(
+    doc,
+    opts.proxySimplifier ?? simplifyWithMeshopt,
+  )
 
-  const parents = meshParents(doc)
   await doc.transform(reorder({ encoder: MeshoptEncoder }), quantize())
   restoreMeshParents(parents)
 
@@ -424,8 +461,12 @@ async function readMarkers(file: string): Promise<Record<string, unknown> | stri
 }
 
 // Exports one GLB and writes `<out minus .glb>.proxy.json` next to it. Exit codes: 0 done, 1 the
-// input could not be exported, 2 bad usage or an unreadable input or markers file.
-export async function runExportGlb(args: string[]): Promise<ExportGlbResult> {
+// input could not be exported, 2 bad usage or an unreadable input or markers file. `testing` only
+// exists for tests (it swaps the proxy's simplifier); the command line never passes it.
+export async function runExportGlb(
+  args: string[],
+  testing: Pick<ExportOptions, 'proxySimplifier'> = {},
+): Promise<ExportGlbResult> {
   let parsed: ReturnType<
     typeof parseArgs<{
       options: { kind: { type: 'string' }; markers: { type: 'string' } }
@@ -477,6 +518,7 @@ export async function runExportGlb(args: string[]): Promise<ExportGlbResult> {
     const { glb, proxy } = await exportGlb(input, {
       kind: values.kind,
       ...(markers === undefined ? {} : { markers }),
+      ...testing,
     })
     await mkdir(dirname(outFile), { recursive: true })
     await writeFile(outFile, glb)

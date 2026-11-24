@@ -23,6 +23,7 @@ import {
   exportGlb,
   fitProxyBudget,
   runExportGlb,
+  simplifyWithMeshopt,
   structureProblems,
 } from '../../../tools/export-glb.ts'
 import { makeBaseCar, makePng, makeProduct, toGlb } from './fixtures.ts'
@@ -88,10 +89,11 @@ function worldVertexKeys(doc: Document): Set<string> {
 
 const sha256 = (bytes: Uint8Array): string => createHash('sha256').update(bytes).digest('hex')
 
-// A car whose `trunk_lid` is animated. quantize() moves the mesh of an animated node onto an
-// unnamed child too, and the export has no way to put it back, so this is an input that makes the
-// export lose a required mesh.
-function carWithAnimatedTrunkLid(): Document {
+// A car whose `trunk_lid` is animated, with an empty child node if asked. quantize() moves the
+// mesh of an animated node onto an unnamed child too. Without children the export has no way to
+// put it back, so the export loses a required mesh. With one it would put the mesh back, but into
+// a transform the animation overwrites.
+function carWithAnimatedTrunkLid(withChild = false): Document {
   const doc = makeBaseCar({ triangles: 2_000 })
   const lid = nodeNamed(doc, 'trunk_lid')
   const buffer = doc.getRoot().listBuffers()[0]
@@ -113,6 +115,7 @@ function carWithAnimatedTrunkLid(): Document {
     .setTargetPath('translation')
     .setSampler(sampler)
   doc.createAnimation('open').addSampler(sampler).addChannel(channel)
+  if (withChild) lid.addChild(doc.createNode('lid_hinge'))
   return doc
 }
 
@@ -403,6 +406,40 @@ describe('a flat-shaded mesh', () => {
   }, 120_000)
 })
 
+// The export uses the budget loop, not only the function: a simplifier that is too weak on its
+// first pass gets a second one, and one that never gets under budget fails the export.
+describe('the proxy budget in an export', () => {
+  test('runs another pass, aimed at the target, when the first leaves too many triangles', async () => {
+    const ratios: number[] = []
+    const { proxy } = await exportGlb(await toGlb(makeBaseCar()), {
+      kind: 'base-car',
+      // The first pass keeps 60% of the triangles instead of the 25% it was asked for.
+      proxySimplifier: async (copy, ratio) => {
+        ratios.push(ratio)
+        await simplifyWithMeshopt(copy, ratios.length === 1 ? 0.6 : ratio)
+      },
+    })
+    expect(ratios).toHaveLength(2)
+    expect(ratios[0]).toBeCloseTo(0.25, 3)
+    expect(ratios[1]).toBeLessThan(0.5) // 30,000 of the roughly 72,000 left
+    expect(proxy.faces.length).toBeLessThanOrEqual(31_000)
+    expect(proxy.faces.length).toBeGreaterThan(10_000)
+  })
+
+  test('fails, and returns nothing to write, when the proxy never gets under budget', async () => {
+    const passes: number[] = []
+    await expect(
+      exportGlb(await toGlb(makeBaseCar()), {
+        kind: 'base-car',
+        proxySimplifier: async (_copy, ratio) => {
+          passes.push(ratio)
+        },
+      }),
+    ).rejects.toThrow(/could not decimate the proxy to 31,000 triangles or fewer: 120,000 left/)
+    expect(passes).toHaveLength(4)
+  })
+})
+
 // What the proxy does when decimation does not reach the budget in one pass.
 describe('fitProxyBudget', () => {
   test('does not simplify a mesh that is already at the target', async () => {
@@ -571,6 +608,13 @@ describe('a mesh node that has children', () => {
         expect(now.max[axis], name).toBeCloseTo(was.max[axis] ?? Number.NaN, 3)
       }
     }
+  })
+
+  test('refuses an animated node, because its animation would overwrite the correction', async () => {
+    const input = await toGlb(carWithAnimatedTrunkLid(true))
+    await expect(exportGlb(input, { kind: 'base-car' })).rejects.toThrow(
+      /trunk_lid has children and an animated translation, rotation or scale/,
+    )
   })
 
   test('puts the children in the proxy where they are', async () => {
@@ -789,6 +833,38 @@ describe('runExportGlb', () => {
     expect(result.stderr.join('\n')).toContain('trunk_lid lost its mesh')
     expect(spawnSync('test', ['-e', out]).status).not.toBe(0)
     expect(spawnSync('test', ['-e', join(dir, 'animated-out.proxy.json')]).status).not.toBe(0)
+  })
+
+  test('exits 1, naming the node, for an animated node that has children', async () => {
+    const animated = join(dir, 'animated-parent.glb')
+    await writeFile(animated, await toGlb(carWithAnimatedTrunkLid(true)))
+    const out = join(dir, 'animated-parent-out.glb')
+    const result = await runExportGlb([animated, out, '--kind', 'base-car'])
+    expect(result.exitCode).toBe(1)
+    expect(result.stdout).toEqual([])
+    expect(result.stderr.join('\n')).toContain('trunk_lid has children and an animated')
+    expect(spawnSync('test', ['-e', out]).status).not.toBe(0)
+    expect(spawnSync('test', ['-e', join(dir, 'animated-parent-out.proxy.json')]).status).not.toBe(
+      0,
+    )
+  })
+
+  test('exits 1 and writes nothing when the proxy cannot be brought within its budget', async () => {
+    const big = join(dir, 'big-car.glb')
+    await writeFile(big, await toGlb(makeBaseCar()))
+    const out = join(dir, 'big-car-out.glb')
+    const passes: number[] = []
+    const result = await runExportGlb([big, out, '--kind', 'base-car'], {
+      proxySimplifier: async (_copy, ratio) => {
+        passes.push(ratio)
+      },
+    })
+    expect(result.exitCode).toBe(1)
+    expect(result.stdout).toEqual([])
+    expect(result.stderr.join('\n')).toMatch(/could not decimate the proxy.*left after 4 passes/)
+    expect(passes).toHaveLength(4)
+    expect(spawnSync('test', ['-e', out]).status).not.toBe(0)
+    expect(spawnSync('test', ['-e', join(dir, 'big-car-out.proxy.json')]).status).not.toBe(0)
   })
 
   test('exits 1 and writes nothing for bytes that are not a GLB', async () => {
