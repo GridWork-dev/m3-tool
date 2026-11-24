@@ -185,3 +185,11 @@ test('the CLI prints the way into a srcdoc violation', async () => {
   expect(code).toBe(1)
   expect(stdout).toBe('index.html: https://shop.example [a href in iframe srcdoc]\n')
 })
+
+test('a dist with the deploy marker version.txt passes: checkLinks reads HTML only', async () => {
+  await write('index.html', '<a href="/about">About</a>')
+  await write('version.txt', '0123456789abcdef0123456789abcdef01234567\n')
+  expect(await checkLinks(dist)).toEqual([])
+  const { code, stdout, stderr } = runCli(dist)
+  expect({ code, stdout, stderr }).toEqual({ code: 0, stdout: '', stderr: '' })
+})

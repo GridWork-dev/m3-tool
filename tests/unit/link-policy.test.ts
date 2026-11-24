@@ -8,6 +8,7 @@ import {
   isAllowedHref,
   isCitationLinkable,
 } from '../../src/lib/link-policy.ts'
+import { modulesReached } from './helpers/modules-reached.ts'
 
 test('relative, root and fragment links are allowed', () => {
   for (const h of ['/about', 'about', '#top', '/e46/mods/']) expect(isAllowedHref(h)).toBe(true)
@@ -150,9 +151,103 @@ describe('citation hosts (spec 7.6, amended 2026-11-23)', () => {
 
 // The policy is shared with code that may reach the browser (a page that decides whether to link a
 // citation), so it carries no dependencies. The HTML parser lives in html-links.ts.
-test('the policy module imports nothing', () => {
-  const source = readFileSync(new URL('../../src/lib/link-policy.ts', import.meta.url), 'utf8')
-  expect(source).not.toMatch(/^\s*import\b/m)
-  expect(source).not.toMatch(/\bimport\s*\(/)
-  expect(source).not.toMatch(/\brequire\s*\(/)
+//
+// A module pulls in another one with a static import, a re-export with a `from`, a dynamic
+// import() or a require(). `modulesReached` finds all of them with TypeScript's parser, so the check
+// below can't be dodged by how a line is written, and a comment or a string can't set it off.
+const reachesAnotherModule = (source: string): boolean => modulesReached(source).length > 0
+
+describe('the check that a module imports nothing', () => {
+  test.each([
+    ["import parse from 'parse5'"],
+    ["  import { parse } from 'parse5'"],
+    ["import type { T } from 'parse5'"],
+    ["import 'parse5'"],
+    ["export { parse } from 'parse5'"],
+    ["export { parse as p, other } from 'parse5'"],
+    ["export type { T } from 'parse5'"],
+    ["export * from 'parse5'"],
+    ["export * as parser from 'parse5'"],
+    ["export type * from 'parse5'"],
+    ["export type * as parser from './x.ts'"],
+    ['export {\n  parse,\n  other,\n} from "parse5"'],
+    ["const m = await import('parse5')"],
+    ["const m = import ( 'parse5' )"],
+    ["const m = require('parse5')"],
+    // Forms a line-anchored regex misses (review M6).
+    ["export{a}from'parse5'"],
+    ["export*from'parse5'"],
+    ["import{a}from'parse5'"],
+    ["const a = 1; export * from 'parse5'"],
+    ["/* c */ export * from 'parse5'"],
+    ["export * as 'x' from 'parse5'"],
+    ['export * as "x" from "parse5"'],
+    ['const m = await import(`parse5`)'],
+    ["import fs = require('parse5')"],
+    ["function f() { return import('parse5') }"],
+    ["const m = [require('a'), 1]"],
+    // A type-level import() is erased at runtime, like `import type`, and counts the same.
+    ["type A = import('parse5').Token"],
+    ["let a: typeof import('parse5')"],
+    ["function f(a: import('parse5').Token): void {}"],
+    ["type G = Array<import('parse5').Token>"],
+    ['type T = typeof import(`parse5`)'],
+  ])('sees %j', (source) => {
+    expect(reachesAnotherModule(source)).toBe(true)
+  })
+
+  test.each([
+    ['export const A = 1'],
+    ["export const FROM = 'x'"],
+    ["export function f() { return 'from here' }"],
+    ["export const from_host = 'a'\nexport const B = 2"],
+    ['// import x from "y"\n// export * from "y"'],
+    ['export type Shape = { a: number }'],
+    ['export interface I { from: string }'],
+    ['/* the list is exported from here */\nexport const L = []'],
+    // Not a load: a property of import, a word in a comment or a string.
+    ['const u = import.meta.url'],
+    ['import.meta.url'],
+    ['// import is a word\nexport const A = 1'],
+    ['const s = "import x from \'y\'"'],
+    ['const t = `export * from "y"`'],
+    ['const re = /import x from/'],
+    ['const o = { require: 1, import: 2 }'],
+  ])('leaves %j alone', (source) => {
+    expect(reachesAnotherModule(source)).toBe(false)
+  })
+
+  test('says which module each form loads, in source order', () => {
+    const source = [
+      "import a from 'one'",
+      "export { b } from 'two'",
+      "export * from 'three'",
+      "const c = await import('four')",
+      "const d = require('five')",
+      "import e = require('six')",
+    ].join('\n')
+    expect(modulesReached(source)).toEqual(['one', 'two', 'three', 'four', 'five', 'six'])
+  })
+
+  test('a type-level import() is reported like import type', () => {
+    expect(modulesReached("import type { A } from 'one'")).toEqual(['one'])
+    expect(modulesReached("type A = import('two').B")).toEqual(['two'])
+    expect(modulesReached("let a: typeof import('three')")).toEqual(['three'])
+  })
+
+  test('a specifier that is not a literal is reported as written, not skipped', () => {
+    expect(modulesReached('const m = await import(name)')).toEqual(['name'])
+    expect(modulesReached('const m = await import()')).toEqual(['<none>'])
+  })
+
+  test('the policy module reaches no other module', () => {
+    const source = readFileSync(new URL('../../src/lib/link-policy.ts', import.meta.url), 'utf8')
+    expect(source.length).toBeGreaterThan(500) // it read the file
+    expect(reachesAnotherModule(source)).toBe(false)
+  })
+
+  test('the same check catches html-links.ts, which does import the parser', () => {
+    const source = readFileSync(new URL('../../src/lib/html-links.ts', import.meta.url), 'utf8')
+    expect(reachesAnotherModule(source)).toBe(true)
+  })
 })
