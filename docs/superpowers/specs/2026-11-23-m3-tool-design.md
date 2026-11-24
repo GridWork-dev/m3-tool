@@ -602,19 +602,21 @@ The roadmap and tasks live in GitHub Issues and milestones, so they're public. D
   - `pnpm shoot <asset> [--view driver]`: screenshots.
   - `pipeline run <asset> --stage <name>`: one pipeline stage.
 
-## 13. Price updater (Phase 3)
+## 13. Price updater (amended 2026-11-23, ADR 0014)
 
-- A weekly scheduled GitHub Action. For each real product with a stored URL, it fetches the current price:
-  - Playwright first.
-  - Browserbase (this project's own key) or an Apify actor for pages that need a full browser.
+- A weekly run, local first: a script plus the `m3-weekly-scrape` skill. A scheduled GitHub Action may replace it later, as its own decision. For each real product with a stored URL, it fetches the current price:
+  - Plain local fetching first: httpx or Scrapling `Fetcher` without stealth; Playwright for JavaScript pages.
+  - Bright Data Web Unlocker for sellers that block us and for marketplaces whose terms forbid automated access.
+  - Browserbase (Developer plan) with captcha solving and stealth on, for JavaScript-heavy pages on the unblock tier.
+  - Evomi residential as a spare unblock lane.
   - Manufacturer list prices where they're published.
 - It adds price observations to the YAML, then opens one PR a week with a table of changes (old → new, big jumps flagged).
-- **Rules:**
-  - Respect robots.txt and site terms.
-  - At most one request per product per week.
-  - A generic user agent, and results are cached.
-  - A source that blocks access, or whose terms forbid it, is dropped, not worked around.
-- Browserbase or Apify spending goes in the spend ledger.
+- **Rules (amended 2026-11-23, ADR 0014):**
+  - Polite tier: respect robots.txt and site terms, generic user agent, results cached.
+  - Unblock tier (marketplaces and blocked sellers): robots.txt is advisory; unblocking is pre-approved by ADR 0014 and never extends to reference photos.
+  - At most one request per product per week, on either tier.
+  - A source that fails even through the unblocker is reported in the weekly run and skipped until it works again.
+- Browserbase, Bright Data and Evomi usage goes in the spend ledger, logged as units even when the marginal cost is $0 under owned plans.
 
 ## 14. Repo layout
 
