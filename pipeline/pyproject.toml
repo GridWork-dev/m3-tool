@@ -6,6 +6,9 @@ requires-python = ">=3.14,<3.15"
 dependencies = [
     "typer==0.29.2",
     "pyyaml==6.0.4",
+    "pydantic==2.14.4",
+    "pillow==13.0.0",
+    "imagehash==4.3.2",
 ]
 
 [project.scripts]
@@ -33,3 +36,4 @@ typeCheckingMode = "strict"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+markers = ["browser: requires installed Playwright Chromium"]
