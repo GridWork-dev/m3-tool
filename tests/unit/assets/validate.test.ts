@@ -12,6 +12,7 @@ import {
   validateDocument,
   validateGlb,
 } from '../../../src/lib/asset-validate.ts'
+import { modulesReached } from '../helpers/modules-reached.ts'
 import {
   jsonOnlyGlb,
   makeBaseCar,
@@ -1024,9 +1025,7 @@ describe('contract values', () => {
       new URL('../../../src/lib/asset-contract.ts', import.meta.url),
       'utf8',
     )
-    expect(source).not.toMatch(/^\s*import\b/m)
-    expect(source).not.toMatch(/\bimport\s*\(/)
-    expect(source).not.toMatch(/\brequire\s*\(/)
+    expect(modulesReached(source)).toEqual([])
   })
 })
 

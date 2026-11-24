@@ -8,6 +8,7 @@ import {
   isAllowedHref,
   isCitationLinkable,
 } from '../../src/lib/link-policy.ts'
+import { modulesReached } from './helpers/modules-reached.ts'
 
 test('relative, root and fragment links are allowed', () => {
   for (const h of ['/about', 'about', '#top', '/e46/mods/']) expect(isAllowedHref(h)).toBe(true)
@@ -151,17 +152,10 @@ describe('citation hosts (spec 7.6, amended 2026-11-23)', () => {
 // The policy is shared with code that may reach the browser (a page that decides whether to link a
 // citation), so it carries no dependencies. The HTML parser lives in html-links.ts.
 //
-// A module pulls in another one with a static import, a dynamic import, a require, or a re-export
-// with a `from`. This sees all four, so the check below can't be dodged by writing
-// `export { parse } from 'parse5'`.
-const REACHES_ANOTHER_MODULE = [
-  /^\s*import\b/m,
-  /\bimport\s*\(/,
-  /\brequire\s*\(/,
-  /^\s*export\s+(?:type\s+)?(?:\*(?:\s+as\s+\w+)?|\{[^}]*\})\s*from\s*['"]/m,
-]
-const reachesAnotherModule = (source: string): boolean =>
-  REACHES_ANOTHER_MODULE.some((pattern) => pattern.test(source))
+// A module pulls in another one with a static import, a re-export with a `from`, a dynamic
+// import() or a require(). `modulesReached` finds all of them with TypeScript's parser, so the check
+// below can't be dodged by how a line is written, and a comment or a string can't set it off.
+const reachesAnotherModule = (source: string): boolean => modulesReached(source).length > 0
 
 describe('the check that a module imports nothing', () => {
   test.each([
@@ -180,6 +174,18 @@ describe('the check that a module imports nothing', () => {
     ["const m = await import('parse5')"],
     ["const m = import ( 'parse5' )"],
     ["const m = require('parse5')"],
+    // Forms a line-anchored regex misses (review M6).
+    ["export{a}from'parse5'"],
+    ["export*from'parse5'"],
+    ["import{a}from'parse5'"],
+    ["const a = 1; export * from 'parse5'"],
+    ["/* c */ export * from 'parse5'"],
+    ["export * as 'x' from 'parse5'"],
+    ['export * as "x" from "parse5"'],
+    ['const m = await import(`parse5`)'],
+    ["import fs = require('parse5')"],
+    ["function f() { return import('parse5') }"],
+    ["const m = [require('a'), 1]"],
   ])('sees %j', (source) => {
     expect(reachesAnotherModule(source)).toBe(true)
   })
@@ -193,8 +199,33 @@ describe('the check that a module imports nothing', () => {
     ['export type Shape = { a: number }'],
     ['export interface I { from: string }'],
     ['/* the list is exported from here */\nexport const L = []'],
+    // Not a load: a property of import, a word in a comment or a string.
+    ['const u = import.meta.url'],
+    ['import.meta.url'],
+    ['// import is a word\nexport const A = 1'],
+    ['const s = "import x from \'y\'"'],
+    ['const t = `export * from "y"`'],
+    ['const re = /import x from/'],
+    ['const o = { require: 1, import: 2 }'],
   ])('leaves %j alone', (source) => {
     expect(reachesAnotherModule(source)).toBe(false)
+  })
+
+  test('says which module each form loads, in source order', () => {
+    const source = [
+      "import a from 'one'",
+      "export { b } from 'two'",
+      "export * from 'three'",
+      "const c = await import('four')",
+      "const d = require('five')",
+      "import e = require('six')",
+    ].join('\n')
+    expect(modulesReached(source)).toEqual(['one', 'two', 'three', 'four', 'five', 'six'])
+  })
+
+  test('a specifier that is not a literal is reported as written, not skipped', () => {
+    expect(modulesReached('const m = await import(name)')).toEqual(['name'])
+    expect(modulesReached('const m = await import()')).toEqual(['<none>'])
   })
 
   test('the policy module reaches no other module', () => {
