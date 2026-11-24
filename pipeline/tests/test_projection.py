@@ -1,6 +1,7 @@
 import hashlib
 import json
 import math
+import re
 import subprocess
 import sys
 from itertools import product
@@ -14,10 +15,14 @@ from numpy.typing import NDArray
 from m3_pipeline.stages.lib import projection
 from m3_pipeline.stages.lib.frames import Vec, contract_to_blender
 from m3_pipeline.stages.lib.projection import (
+    FIT_FOCAL_MM,
     FRAME_MARGIN_PX,
+    MAX_FIT_RENDERS,
     PROXY_MAX_TRIANGLES,
+    RENDER_CAP,
     WHEEL_ANCHORS,
     Camera,
+    CameraInsideMeshError,
     Mesh,
     add_wheel_proxies,
     camera_to_blender,
@@ -266,11 +271,14 @@ def test_fit_camera_keeps_every_parameter_inside_its_bounds() -> None:
     assert 0 <= cam.azimuth_deg < 360
     assert -10 <= cam.elevation_deg <= 60
     assert 3 <= cam.distance_m <= 30
-    assert 24 <= cam.focal_mm <= 200
+    assert cam.focal_mm == FIT_FOCAL_MM
     assert -10 <= cam.roll_deg <= 10
 
 
-def test_fit_camera_uses_at_most_474_renders(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_fit_camera_uses_at_most_600_renders(monkeypatch: pytest.MonkeyPatch) -> None:
+    # Ruling R90: the schedule's worst case, repeats not counted, is under the cap of 600, and
+    # a fit never renders more than that.
+    assert MAX_FIT_RENDERS <= RENDER_CAP == 600
     mesh = car()
     photo = render_mask(mesh, KNOWN)
     real = projection.render_mask
@@ -282,7 +290,32 @@ def test_fit_camera_uses_at_most_474_renders(monkeypatch: pytest.MonkeyPatch) ->
 
     monkeypatch.setattr(projection, "render_mask", counting)
     fit_camera(mesh, photo)
-    assert 324 < len(calls) <= 474
+    assert 108 < len(calls) <= MAX_FIT_RENDERS
+
+
+def test_fit_camera_never_renders_one_camera_twice(monkeypatch: pytest.MonkeyPatch) -> None:
+    # The brief's schedule rendered every focal of a cell, and the mask is the same at any focal.
+    mesh = car()
+    photo = render_mask(mesh, KNOWN)
+    real = projection.render_mask
+    seen: list[tuple[float, float, float, float]] = []
+
+    def recording(mesh: Mesh, cam: Camera, size: int = 256) -> NDArray[np.bool_]:
+        seen.append((cam.azimuth_deg, cam.elevation_deg, cam.distance_m, cam.roll_deg))
+        return real(mesh, cam, size)
+
+    monkeypatch.setattr(projection, "render_mask", recording)
+    fit_camera(mesh, photo)
+    assert len(seen) == len(set(seen))
+
+
+def test_the_mask_does_not_depend_on_the_focal_length() -> None:
+    # The premise of leaving focal out of the search: at one distance a longer lens is a uniform
+    # scale, which the framing takes out.
+    mesh = car()
+    reference = render_mask(mesh, Camera(40.0, 8.0, 7.0, 24.0, 2.0))
+    for focal in (35.0, 50.0, 85.0, 200.0):
+        assert np.array_equal(reference, render_mask(mesh, Camera(40.0, 8.0, 7.0, focal, 2.0)))
 
 
 def test_fit_camera_handles_a_mirrored_photo() -> None:
@@ -299,6 +332,27 @@ def test_fit_camera_is_deterministic_for_a_seed() -> None:
     mesh = car()
     photo = render_mask(mesh, KNOWN)
     assert fit_camera(mesh, photo, seed=7) == fit_camera(mesh, photo, seed=7)
+
+
+def test_fit_camera_records_the_seed_it_ran_with() -> None:
+    mesh = car()
+    photo = render_mask(mesh, KNOWN)
+    assert fit_camera(mesh, photo, seed=7).seed == 7
+    assert fit_camera(mesh, photo).seed == 0
+
+
+def test_the_seed_changes_the_search_not_just_the_record() -> None:
+    # The seed sets the order the parameters are visited in, and on a hard photo that lands the
+    # descent on different cameras. If the seed were ignored, every seed would agree on every
+    # photo and this would fail.
+    mesh = car()
+    outcomes: set[tuple[Camera, float]] = set()
+    for camera in random_cameras(31, 5, -9.0, 9.0):
+        photo = render_mask(mesh, camera)
+        for seed in range(4):
+            fit = fit_camera(mesh, photo, seed=seed)
+            outcomes.add((fit.camera, fit.iou))
+    assert len(outcomes) > 5  # five photos: one outcome each if every seed agreed
 
 
 def test_wrong_proportions_score_lower() -> None:
@@ -321,6 +375,87 @@ def test_fit_camera_scores_a_camera_inside_the_mesh_as_no_match_not_an_error() -
     big = Mesh(car().vertices * 2.2, car().faces)
     photo = render_mask(big, Camera(33.0, 12.0, 20.0, 50.0, 4.0))
     assert fit_camera(big, photo).iou > 0.95
+
+
+def random_cameras(
+    seed: int, count: int, roll_low: float, roll_high: float, signed: bool = False
+) -> list[Camera]:
+    """Cameras spread over the whole circle, 0 to 25 degrees up and 6 to 14 m out, each with a roll
+    between `roll_low` and `roll_high` degrees (and, with `signed`, either way)."""
+    rng = np.random.default_rng(seed)
+    cameras: list[Camera] = []
+    for _ in range(count):
+        roll = float(rng.uniform(roll_low, roll_high))
+        if signed and rng.random() < 0.5:
+            roll = -roll
+        cameras.append(
+            Camera(
+                float(rng.uniform(0, 360)),
+                float(rng.uniform(0, 25)),
+                float(rng.uniform(6, 14)),
+                50.0,
+                roll,
+            )
+        )
+    return cameras
+
+
+def test_the_fit_is_good_on_random_cameras_not_only_on_the_pinned_one() -> None:
+    # The photos are renders of the mesh itself, so the true camera scores 1.0 and every shortfall
+    # is the search stalling. Measured with the schedule of ruling R90 (mean 0.983, median 0.987,
+    # minimum 0.962; the brief's schedule gave a minimum near 0.91 and a median near 0.967 on
+    # similar sets). The floors leave about 0.01 of margin, and fail if the search regresses.
+    mesh = car()
+    scores = [
+        fit_camera(mesh, render_mask(mesh, camera)).iou
+        for camera in random_cameras(2024, 20, -9.0, 9.0)
+    ]
+    assert float(np.median(scores)) >= 0.98
+    assert min(scores) >= 0.95
+
+
+def test_roll_at_the_bound_is_flagged_for_most_tilted_photos_and_never_for_level_ones() -> None:
+    # Task 14 treats the flag as advisory: it catches most, not all, photos taken with a tilted
+    # camera. Measured over 36 tilted photos (|roll| 12 to 20 degrees) with the R90 schedule, 28
+    # flagged (78%; 16 of 40 under the brief's schedule); the floor leaves a margin. A level photo
+    # (|roll| under 5) is never flagged, which is what makes the flag usable at all.
+    mesh = car()
+    tilted = random_cameras(9, 36, 12.0, 20.0, signed=True)
+    flagged = sum(fit_camera(mesh, render_mask(mesh, c)).roll_at_bound for c in tilted)
+    assert flagged >= 26  # measured 28
+    level = random_cameras(109, 24, 0.0, 5.0, signed=True)
+    assert not any(fit_camera(mesh, render_mask(mesh, c)).roll_at_bound for c in level)
+
+
+def test_a_mesh_without_vertices_is_refused() -> None:
+    with pytest.raises(ValueError, match="at least one vertex"):
+        Mesh(np.zeros((0, 3)), np.zeros((0, 3), dtype=np.int64))
+
+
+def test_fit_camera_refuses_a_mesh_without_triangles() -> None:
+    mesh = Mesh(car().vertices, np.zeros((0, 3), dtype=np.int64))
+    with pytest.raises(ValueError, match="no triangles"):
+        fit_camera(mesh, render_mask(car(), KNOWN))
+
+
+def test_fit_camera_does_not_swallow_an_error_that_is_not_a_camera_inside_the_mesh(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    mesh = car()
+    photo = render_mask(mesh, KNOWN)
+
+    def failing(mesh: Mesh, cam: Camera, size: int = 256) -> NDArray[np.bool_]:
+        raise ValueError("something else is wrong")
+
+    monkeypatch.setattr(projection, "render_mask", failing)
+    with pytest.raises(ValueError, match="something else"):
+        fit_camera(mesh, photo)
+
+
+def test_a_camera_inside_the_mesh_has_its_own_error() -> None:
+    cube = box((-5.0, -5.0, -5.0), (5.0, 5.0, 5.0))
+    with pytest.raises(CameraInsideMeshError):
+        render_mask(cube, Camera(0.0, 0.0, 3.0, 50.0))
 
 
 # ---------------------------------------------------------------------------------------------
@@ -521,6 +656,15 @@ def test_load_export_proxy_stops_at_the_exports_cap_of_31000(tmp_path: Path) -> 
     write_export_proxy(path, 31_001)
     with pytest.raises(ValueError, match="31,000"):
         load_export_proxy(path)
+
+
+def test_the_31000_cap_is_the_one_in_the_export_script() -> None:
+    # The export fails rather than write a proxy over its cap, and the loader refuses one over the
+    # same number. Two copies of a number drift, so read the script's.
+    script = Path(__file__).resolve().parents[2] / "tools" / "export-glb.ts"
+    match = re.search(r"^const PROXY_MAX_TRIANGLES = ([0-9_]+)$", script.read_text("utf-8"), re.M)
+    assert match is not None, "tools/export-glb.ts has no `const PROXY_MAX_TRIANGLES = <number>`"
+    assert int(match.group(1).replace("_", "")) == PROXY_MAX_TRIANGLES
 
 
 @pytest.mark.parametrize(

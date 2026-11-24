@@ -32,7 +32,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal, cast
 
 from m3_pipeline.stages.lib.frames import Vec, blender_to_contract, contract_to_blender
-from m3_pipeline.stages.lib.scoring import align_to_photo, iou
+from m3_pipeline.stages.lib.scoring import aligned_iou
 
 if TYPE_CHECKING:
     import numpy as np
@@ -50,30 +50,48 @@ SENSOR_WIDTH_MM = 36.0
 # A vertex nearer to the camera plane than this is behind the camera, as far as a pinhole goes.
 _NEAR_M = 1e-3
 
-# fit_camera: the search space. The grid is 12 azimuths x 3 elevations x 3 focals x 3 distances =
-# 324 renders at roll 0, and each of the best `_STARTS` grid cells is refined by coordinate
-# descent: 5 parameters x 2 directions x `_LEVELS` levels x 3 starts = 150 renders. Total 474.
+# fit_camera: the search space (ruling R90, amending the brief's schedule). Focal length is not
+# searched: at a fixed distance a longer lens is a uniform scale, and the framing and the width
+# match take that out, so the mask, and with it every score, is identical at any focal. The brief's
+# grid and descent spent 246 of their 474 renders on that duplicate. The schedule spends the
+# saving on more starts and a finer second pass, all inside the cap of 600 renders:
+#
+# 1. A grid of 12 azimuths x 3 elevations x 3 distances = 108 renders, at roll 0.
+# 2. The best `_PRESCREEN_CELLS` cells are also rendered at roll plus and minus
+#    `_PRESCREEN_ROLL_DEG`, and each keeps the best of its three rolls. The grid cannot see roll,
+#    and a photo that is tilted ranks its right cell far down at roll 0 (rank 15 to 25 of 108).
+# 3. Coordinate descent over azimuth, elevation, distance and roll, both directions of each, in
+#    stages: the best 10 cells walk levels 0 to 2, the best 4 of those walk levels 2 to 4, and the
+#    best 2 of those walk levels 4 to 6. A level's step is its parameter's first step halved that
+#    many times, so every later stage is a second pass at a smaller step.
 _GRID_AZIMUTHS_DEG = tuple(float(azimuth) for azimuth in range(0, 360, 30))
 _GRID_ELEVATIONS_DEG = (0.0, 10.0, 20.0)
-_GRID_FOCALS_MM = (35.0, 50.0, 85.0)
 _GRID_DISTANCES_M = (5.0, 8.0, 14.0)
-_STARTS = 3
-# Where focal ties are settled: the middle of the grid's focals, and a normal lens.
-_DEFAULT_FOCAL_MM = 50.0
-_LEVELS = 5
-# The first step of each parameter, halved at every level: azimuth, elevation, distance, focal,
-# roll. The azimuth step is half the grid's spacing, so every azimuth is within reach of a cell.
-_FIRST_STEPS = (15.0, 5.0, 3.0, 15.0, 5.0)
+_PRESCREEN_CELLS = 24
+_PRESCREEN_ROLL_DEG = 5.0
+# Each stage: how many of the best candidates it refines, and the levels it walks.
+_STAGES = ((10, (0, 1, 2)), (4, (2, 3, 4)), (2, (4, 5, 6)))
+# The first step of each parameter: azimuth, elevation, distance, roll. The azimuth step is half
+# the grid's spacing, so every azimuth is within reach of a cell, and roll starts with 5 degrees.
+_FIRST_STEPS = (15.0, 5.0, 3.0, 5.0)
+# The renders the schedule can use at most, repeats not counted, and the cap it must stay under.
+MAX_FIT_RENDERS = (
+    len(_GRID_AZIMUTHS_DEG) * len(_GRID_ELEVATIONS_DEG) * len(_GRID_DISTANCES_M)
+    + 2 * _PRESCREEN_CELLS
+    + sum(keep * 2 * len(_FIRST_STEPS) * len(levels) for keep, levels in _STAGES)
+)
+RENDER_CAP = 600
+# The focal every fitted camera carries: it cannot change the score, so it is not searched, and a
+# 50 mm lens is the normal one.
+FIT_FOCAL_MM = 50.0
 # What a fit may not leave. Roll is at most 10 degrees: a photo that needs more was taken with a
-# tilted camera, and `roll_at_bound` says so from 9 degrees on. Focal and distance are sanity
-# bounds, not precision, because after the width normalization they overlap.
+# tilted camera, and `roll_at_bound` says so from 9 degrees on.
 ROLL_LIMIT_DEG = 10.0
 ROLL_AT_BOUND_DEG = 9.0
 _ELEVATION_RANGE_DEG = (-10.0, 60.0)
 _DISTANCE_RANGE_M = (3.0, 30.0)
-_FOCAL_RANGE_MM = (24.0, 200.0)
 
-_Params = tuple[float, float, float, float, float]  # azimuth, elevation, distance, focal, roll
+_Params = tuple[float, float, float, float]  # azimuth, elevation, distance, roll
 
 
 @dataclass(frozen=True, eq=False)
@@ -88,6 +106,8 @@ class Mesh:
 
         if self.vertices.ndim != 2 or self.vertices.shape[1] != 3:
             raise ValueError(f"vertices must be (N, 3), not {self.vertices.shape}")
+        if len(self.vertices) == 0:
+            raise ValueError("a mesh needs at least one vertex")
         if self.vertices.dtype != np.float64:
             raise ValueError(f"vertices must be float64, not {self.vertices.dtype}")
         if self.faces.ndim != 2 or self.faces.shape[1] != 3:
@@ -335,6 +355,10 @@ def _prism(
     return vertices, faces
 
 
+class CameraInsideMeshError(ValueError):
+    """The camera is at or behind part of the mesh, so a pinhole cannot project it."""
+
+
 @dataclass(frozen=True)
 class Camera:
     """A pinhole looking at the bbox center of the mesh it renders. See the module notes for the
@@ -377,7 +401,7 @@ def project_points(vertices: NDArray[np.float64], cam: Camera) -> NDArray[np.flo
     any framing. This is what `render_mask` rasterizes.
 
     The camera looks at the bbox center of `vertices`, so pass the whole mesh. A vertex at or
-    behind the camera plane raises `ValueError`.
+    behind the camera plane raises `CameraInsideMeshError`, a `ValueError`.
     """
     import numpy as np
 
@@ -390,7 +414,7 @@ def project_points(vertices: NDArray[np.float64], cam: Camera) -> NDArray[np.flo
     offsets = vertices - (center + cam.distance_m * away)
     depth = offsets @ forward
     if float(depth.min()) <= _NEAR_M:
-        raise ValueError(
+        raise CameraInsideMeshError(
             f"the camera, {cam.distance_m} m from the bbox center, is inside or behind the mesh"
         )
     scale = cam.focal_mm / SENSOR_WIDTH_MM
@@ -487,22 +511,25 @@ def render_ortho_side(mesh: Mesh, size: int = 512) -> OrthoMask:
 
 @dataclass(frozen=True)
 class CameraFit:
-    """The best camera found, its IoU after `align_to_photo`, and whether its roll ended at the
-    bound (9 degrees or more of the 10 allowed): such a photo is an unusable reference, a tilted
-    camera, and says nothing about the mesh."""
+    """The best camera found, its IoU (`aligned_iou`, after aligning the render to the photo), and
+    whether its roll ended at the bound (9 degrees or more of the 10 allowed): such a photo is
+    probably an unusable reference, a tilted camera, and says nothing about the mesh, but the
+    search misses some tilted photos, so the flag is advisory. `seed` is the seed the search ran
+    with, so a stage can log it. `camera.focal_mm` is `FIT_FOCAL_MM`: focal is not searched.
+    """
 
     camera: Camera
     iou: float
     roll_at_bound: bool
+    seed: int = 0
 
 
 def _clamped(params: _Params) -> _Params:
-    azimuth, elevation, distance, focal, roll = params
+    azimuth, elevation, distance, roll = params
     return (
         azimuth % 360.0,
         min(max(elevation, _ELEVATION_RANGE_DEG[0]), _ELEVATION_RANGE_DEG[1]),
         min(max(distance, _DISTANCE_RANGE_M[0]), _DISTANCE_RANGE_M[1]),
-        min(max(focal, _FOCAL_RANGE_MM[0]), _FOCAL_RANGE_MM[1]),
         min(max(roll, -ROLL_LIMIT_DEG), ROLL_LIMIT_DEG),
     )
 
@@ -510,8 +537,8 @@ def _clamped(params: _Params) -> _Params:
 def _nudged(params: _Params, index: int, delta: float) -> _Params:
     values = list(params)
     values[index] += delta
-    azimuth, elevation, distance, focal, roll = values
-    return _clamped((azimuth, elevation, distance, focal, roll))
+    azimuth, elevation, distance, roll = values
+    return _clamped((azimuth, elevation, distance, roll))
 
 
 def fit_camera(
@@ -522,22 +549,24 @@ def fit_camera(
     seed: int = 0,
     size: int = 256,
 ) -> CameraFit:
-    """The camera whose render of `mesh` best matches `photo_mask`, by IoU after `align_to_photo`.
+    """The camera whose render of `mesh` best matches `photo_mask`, by `aligned_iou`.
 
-    At most 474 renders: a grid of 12 azimuths, 3 elevations, 3 focals and 3 distances at roll 0
-    (324), then coordinate descent from the best three cells, over azimuth, elevation, distance,
-    focal and roll, both directions of each, the step halved five times (150). Roll starts at 0
-    with a 5 degree step and stays within 10 degrees either way. Distance and focal overlap once
-    the width is normalized, so they are searched for the sanity bounds, not for precision. The
-    seed sets the order the five parameters are visited in, so a seed gives one answer.
-    `mirrored` flips the photo mask left to right first. A camera that puts a vertex behind it
-    scores 0.0.
+    Searches azimuth, elevation, distance and roll in at most `MAX_FIT_RENDERS` renders, under
+    the cap of 600 (ruling R90): a grid at roll 0, a roll prescreen of the best cells, then staged
+    coordinate descent that narrows to the best candidates at ever smaller steps (the schedule is
+    set out at `_GRID_AZIMUTHS_DEG`). Roll stays within 10 degrees either way. Focal length is not
+    searched, because it cannot change the score; the camera carries `FIT_FOCAL_MM`. A score is
+    never computed twice for one camera. The seed sets the order the four parameters are visited
+    in, and is recorded in the result. `mirrored` flips the photo mask left to right first. A
+    camera that puts a vertex behind it scores 0.0.
     """
     import numpy as np
 
     photo = np.asarray(photo_mask, dtype=np.bool_)
     if photo.ndim != 2 or not photo.any():
         raise ValueError("the photo mask must be a 2-D mask with at least one pixel set")
+    if len(mesh.faces) == 0:
+        raise ValueError("the mesh has no triangles to render")
     if mirrored:
         photo = np.ascontiguousarray(photo[:, ::-1])
     order_source = np.random.default_rng(seed)
@@ -547,58 +576,53 @@ def fit_camera(
         known = scores.get(params)
         if known is not None:
             return known
-        azimuth, elevation, distance, focal, roll = params
+        azimuth, elevation, distance, roll = params
         try:
-            rendered = render_mask(mesh, Camera(azimuth, elevation, distance, focal, roll), size)
-        except ValueError:
+            rendered = render_mask(
+                mesh, Camera(azimuth, elevation, distance, FIT_FOCAL_MM, roll), size
+            )
+        except CameraInsideMeshError:
             value = 0.0
         else:
-            value = iou(align_to_photo(rendered, photo), photo)
+            value = aligned_iou(rendered, photo)
         scores[params] = value
         return value
 
-    grid = [
-        (azimuth, elevation, distance, focal, 0.0)
+    grid: list[_Params] = [
+        (azimuth, elevation, distance, 0.0)
         for azimuth in _GRID_AZIMUTHS_DEG
         for elevation in _GRID_ELEVATIONS_DEG
-        for focal in _GRID_FOCALS_MM
         for distance in _GRID_DISTANCES_M
     ]
-    # Focal length changes nothing the score sees: at a fixed distance a longer lens is a uniform
-    # scale, and the framing and the width match take that out. Cells that differ only in focal
-    # therefore tie exactly, and the best three cells would be one cell three times. A start is
-    # taken once per azimuth, elevation and distance, at the focal nearest `_DEFAULT_FOCAL_MM`.
-    ranked = sorted(grid, key=lambda p: (-score(p), abs(p[3] - _DEFAULT_FOCAL_MM)))
-    starts: list[_Params] = []
-    taken: set[tuple[float, float, float]] = set()
-    for params in ranked:
-        cell = (params[0], params[1], params[2])
-        if cell not in taken:
-            taken.add(cell)
-            starts.append(params)
-        if len(starts) == _STARTS:
-            break
-
-    best_params, best_iou = starts[0], score(starts[0])
-    for start in starts:
-        current, current_iou = start, score(start)
-        for level in range(_LEVELS):
-            for index in (int(i) for i in order_source.permutation(len(_FIRST_STEPS))):
-                step = _FIRST_STEPS[index] / 2**level
-                # Both directions are tried from where the parameter stands, and the better one
-                # is kept only if it beats it.
-                moved, moved_iou = current, current_iou
-                for delta in (-step, step):
-                    candidate = _nudged(current, index, delta)
-                    candidate_iou = score(candidate)
-                    if candidate_iou > moved_iou:
-                        moved, moved_iou = candidate, candidate_iou
-                current, current_iou = moved, moved_iou
-        if current_iou > best_iou:
-            best_params, best_iou = current, current_iou
-    azimuth, elevation, distance, focal, roll = best_params
+    # `sorted` is stable, so cells with equal IoU keep the grid's order.
+    ranked = sorted(grid, key=lambda params: -score(params))[:_PRESCREEN_CELLS]
+    pool: list[tuple[float, _Params]] = []
+    for cell in ranked:
+        tilted = [_nudged(cell, 3, sign * _PRESCREEN_ROLL_DEG) for sign in (1.0, -1.0)]
+        best_roll = max([cell, *tilted], key=score)
+        pool.append((score(best_roll), best_roll))
+    for keep, levels in _STAGES:
+        refined: list[tuple[float, _Params]] = []
+        for current_iou, current in sorted(pool, key=lambda entry: -entry[0])[:keep]:
+            for level in levels:
+                for index in (int(i) for i in order_source.permutation(len(_FIRST_STEPS))):
+                    step = _FIRST_STEPS[index] / 2**level
+                    # Both directions are tried from where the parameter stands, and the better
+                    # one is kept only if it beats it.
+                    moved, moved_iou = current, current_iou
+                    for delta in (-step, step):
+                        candidate = _nudged(current, index, delta)
+                        candidate_iou = score(candidate)
+                        if candidate_iou > moved_iou:
+                            moved, moved_iou = candidate, candidate_iou
+                    current, current_iou = moved, moved_iou
+            refined.append((current_iou, current))
+        pool = refined
+    best_iou, best_params = max(pool, key=lambda entry: entry[0])
+    azimuth, elevation, distance, roll = best_params
     return CameraFit(
-        camera=Camera(azimuth, elevation, distance, focal, roll),
+        camera=Camera(azimuth, elevation, distance, FIT_FOCAL_MM, roll),
         iou=best_iou,
         roll_at_bound=abs(roll) >= ROLL_AT_BOUND_DEG,
+        seed=seed,
     )

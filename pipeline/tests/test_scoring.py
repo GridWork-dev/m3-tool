@@ -5,6 +5,7 @@ from numpy.typing import NDArray
 from m3_pipeline.stages.lib.dims import Dimensions
 from m3_pipeline.stages.lib.scoring import (
     align_to_photo,
+    aligned_iou,
     dimensions_within,
     iou,
     recommend_threshold,
@@ -99,6 +100,48 @@ def test_align_to_photo_with_an_empty_mask_is_empty() -> None:
     aligned = align_to_photo(photo, empty)
     assert aligned.shape == empty.shape
     assert not aligned.any()
+
+
+def test_aligned_iou_counts_a_render_that_overflows_the_photo_frame() -> None:
+    # Codex's case: a square render against a 180 x 90 rectangle in a 200 x 100 photo. Scaled to
+    # the rectangle's width the render is 180 x 180, taller than the frame, and half of it lies
+    # outside. Those pixels are still foreground, so the union holds them: IoU is 0.5, not the 0.9
+    # that scoring the clipped result gives.
+    rendered = rectangle((64, 64), (8, 55), (8, 55))
+    photo = rectangle((100, 200), (5, 94), (10, 189))
+    assert iou(align_to_photo(rendered, photo), photo) == pytest.approx(0.9, abs=0.02)
+    assert aligned_iou(rendered, photo) == pytest.approx(0.5, abs=0.01)
+
+
+def test_blank_padding_around_the_photo_cannot_change_the_score() -> None:
+    rendered = rectangle((64, 64), (8, 55), (8, 55))
+    photo = rectangle((100, 200), (5, 94), (10, 189))
+    padded = np.pad(photo, ((60, 3), (7, 90)))
+    cropped = photo[5:95, 10:190]
+    scores = [aligned_iou(rendered, mask) for mask in (photo, padded, cropped)]
+    assert scores[1] == scores[0]
+    assert scores[2] == scores[0]
+    # The same holds for a render that fits inside the frame.
+    wide = rectangle((64, 64), (20, 39), (4, 59))
+    assert aligned_iou(wide, np.pad(photo, ((40, 40), (40, 40)))) == aligned_iou(wide, photo)
+
+
+def test_aligned_iou_agrees_with_iou_when_nothing_is_clipped() -> None:
+    rendered = rectangle((64, 64), (10, 29), (5, 44))
+    photo = rectangle((200, 300), (50, 99), (100, 179))
+    assert aligned_iou(rendered, photo) == pytest.approx(
+        iou(align_to_photo(rendered, photo), photo)
+    )
+    same = rectangle((200, 300), (50, 89), (100, 179))
+    assert aligned_iou(rectangle((64, 64), (10, 29), (5, 44)), same) == 1.0
+
+
+def test_aligned_iou_with_an_empty_mask_is_zero() -> None:
+    photo = rectangle((32, 32), (4, 20), (6, 25))
+    empty = np.zeros((32, 32), dtype=np.bool_)
+    assert aligned_iou(empty, photo) == 0.0
+    assert aligned_iou(photo, empty) == 0.0
+    assert aligned_iou(empty, empty) == 0.0
 
 
 def test_dimensions_within_one_percent() -> None:

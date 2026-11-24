@@ -49,49 +49,99 @@ def iou(a: NDArray[np.bool_], b: NDArray[np.bool_]) -> float:
 
 def align_to_photo(rendered: NDArray[np.bool_], photo: NDArray[np.bool_]) -> NDArray[np.bool_]:
     """The render, scaled uniformly until its bounding box is as wide as the photo's, and moved
-    until the two boxes share a center. The result has the photo's shape.
+    until the two boxes share a center, drawn on a canvas of the photo's shape.
 
     A render is framed on its own projected box, and a photo on whatever the photographer chose,
     so their scale and offset say nothing about the car. Matching the width removes both, and the
     height is left to be compared: that is the proportion the score measures. Either mask being
     empty gives an empty result.
+
+    The canvas is the photo's, so a render that reaches past it is cut off. Do not score the result
+    with `iou`: the cut-off pixels would leave the union and reward a render that is too tall.
+    `aligned_iou` scores on a canvas that holds both.
     """
     import numpy as np
-    from PIL import Image
 
     aligned = np.zeros(photo.shape, dtype=np.bool_)
-    rendered_box = _bounding_box(rendered)
-    photo_box = _bounding_box(photo)
-    if rendered_box is None or photo_box is None:
+    placed = _place(rendered, photo)
+    if placed is None:
         return aligned
-    top, bottom, left, right = rendered_box
-    photo_top, photo_bottom, photo_left, photo_right = photo_box
-    width = right - left + 1
-    height = bottom - top + 1
-    photo_width = photo_right - photo_left + 1
-    scaled_width = photo_width
-    scaled_height = max(1, round(height * photo_width / width))
-    crop = np.ascontiguousarray(rendered[top : bottom + 1, left : right + 1])
-    # Pillow scales a bilinear image by area when it shrinks one, so thresholding at half keeps a
-    # shrunk mask's edge where the mean of the covered pixels says it is.
-    image = Image.fromarray(crop.astype(np.uint8) * 255)
-    scaled = np.asarray(image.resize((scaled_width, scaled_height), Image.Resampling.BILINEAR))
-    scaled = scaled >= 128
-    # Box centers match: the scaled box is as wide as the photo's, so it starts at the photo's
-    # left edge, and its rows are centered on the photo box's rows.
-    start_row = math.floor((photo_top + photo_bottom) / 2 - (scaled_height - 1) / 2 + 0.5)
-    start_column = photo_left
+    scaled, start_row, start_column = placed
     rows, columns = aligned.shape
     row_from = max(0, start_row)
-    row_to = min(rows, start_row + scaled_height)
+    row_to = min(rows, start_row + scaled.shape[0])
     column_from = max(0, start_column)
-    column_to = min(columns, start_column + scaled_width)
+    column_to = min(columns, start_column + scaled.shape[1])
     if row_from < row_to and column_from < column_to:
         aligned[row_from:row_to, column_from:column_to] = scaled[
             row_from - start_row : row_to - start_row,
             column_from - start_column : column_to - start_column,
         ]
     return aligned
+
+
+def aligned_iou(rendered: NDArray[np.bool_], photo: NDArray[np.bool_]) -> float:
+    """IoU of the render, aligned as `align_to_photo` aligns it, against the photo, on a canvas
+    that holds both masks.
+
+    No foreground pixel of either mask is cut out of the union, so a render that overflows the
+    photo's frame is charged for the overflow, and blank padding around the photo, which only
+    moves the frame, cannot change the score. Either mask being empty scores 0.0.
+    """
+    import numpy as np
+
+    placed = _place(rendered, photo)
+    if placed is None:
+        return 0.0
+    scaled, start_row, start_column = placed
+    rows, columns = photo.shape
+    row_from = max(0, start_row)
+    row_to = min(rows, start_row + scaled.shape[0])
+    column_from = max(0, start_column)
+    column_to = min(columns, start_column + scaled.shape[1])
+    intersection = 0
+    if row_from < row_to and column_from < column_to:
+        intersection = int(
+            np.count_nonzero(
+                scaled[
+                    row_from - start_row : row_to - start_row,
+                    column_from - start_column : column_to - start_column,
+                ]
+                & photo[row_from:row_to, column_from:column_to]
+            )
+        )
+    union = int(np.count_nonzero(scaled)) + int(np.count_nonzero(photo)) - intersection
+    return intersection / union
+
+
+def _place(
+    rendered: NDArray[np.bool_], photo: NDArray[np.bool_]
+) -> tuple[NDArray[np.bool_], int, int] | None:
+    """The render scaled to the photo box's width, and where its top-left pixel falls in the
+    photo's pixel coordinates (negative, or past the photo's edge, when it overflows). None when
+    either mask is empty."""
+    import numpy as np
+    from PIL import Image
+
+    rendered_box = _bounding_box(rendered)
+    photo_box = _bounding_box(photo)
+    if rendered_box is None or photo_box is None:
+        return None
+    top, bottom, left, right = rendered_box
+    photo_top, photo_bottom, photo_left, photo_right = photo_box
+    width = right - left + 1
+    height = bottom - top + 1
+    photo_width = photo_right - photo_left + 1
+    scaled_height = max(1, round(height * photo_width / width))
+    crop = np.ascontiguousarray(rendered[top : bottom + 1, left : right + 1])
+    # Pillow scales a bilinear image by area when it shrinks one, so thresholding at half keeps a
+    # shrunk mask's edge where the mean of the covered pixels says it is.
+    image = Image.fromarray(crop.astype(np.uint8) * 255)
+    scaled = np.asarray(image.resize((photo_width, scaled_height), Image.Resampling.BILINEAR))
+    # Box centers match: the scaled box is as wide as the photo's, so it starts at the photo's
+    # left edge, and its rows are centered on the photo box's rows.
+    start_row = math.floor((photo_top + photo_bottom) / 2 - (scaled_height - 1) / 2 + 0.5)
+    return scaled >= 128, start_row, photo_left
 
 
 def _bounding_box(mask: NDArray[np.bool_]) -> tuple[int, int, int, int] | None:
