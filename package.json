@@ -17,6 +17,7 @@
     "check:data": "node tools/check-data.ts data",
     "validate-asset": "node tools/validate-asset.ts",
     "check:site": "pnpm lint && pnpm typecheck && pnpm test && pnpm check:data && pnpm build && pnpm check:links",
+    "scrape:week": "uv run --project pipeline pipeline prices week",
     "check:pipeline": "cd pipeline && uv run ruff check && uv run ruff format --check && uv run pyright && uv run pytest",
     "check": "pnpm check:site && pnpm check:pipeline",
     "e2e": "playwright test",

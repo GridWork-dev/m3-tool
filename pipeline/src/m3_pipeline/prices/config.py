@@ -40,7 +40,7 @@ class _Seller(BaseModel):
     model_config = ConfigDict(extra="forbid")
     base_url: str
     tier: Tier
-    currency: Literal["USD", "EUR", "GBP", "CAD"] = "USD"
+    currency: Literal["USD", "EUR"] = "USD"
     price_selectors: tuple[str, ...] = ()
     image_min_side_px: int = 800
     opted_out: bool = False

@@ -205,6 +205,7 @@ def save_report(report: CheckReport) -> Path:
     temp = path.with_suffix(".tmp")
     temp.write_bytes(TypeAdapter(CheckReport).dump_json(report))
     temp.replace(path)
+    (path.parent / "applied.json").unlink(missing_ok=True)
     return path
 
 

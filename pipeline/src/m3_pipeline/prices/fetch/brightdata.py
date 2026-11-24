@@ -30,6 +30,7 @@ class UnlockResult:
     success: bool
     html: str = field(repr=False)
     status: int
+    transferred_bytes: int = 0
 
 
 def redact(text: str) -> str:

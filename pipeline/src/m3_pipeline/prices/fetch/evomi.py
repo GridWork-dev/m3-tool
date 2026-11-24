@@ -27,4 +27,5 @@ def evomi_unlock(url: str, *, proxy_url: str, user_agent: str) -> UnlockResult:
         and not is_blocked(response.status_code, "", response.text[:4096]),
         response.text,
         response.status_code,
+        len(response.content),
     )
