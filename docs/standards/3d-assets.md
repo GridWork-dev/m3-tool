@@ -50,7 +50,7 @@ Every 3D model the site uses is a GLB that passes this contract. The contract va
 
 **Anchors are empty leaves.** An anchor has no mesh, and nothing below it has one. A mesh under an anchor would move, hide or double up with the product that mounts there.
 
-**LODs are separate files.** A lower level of detail is its own GLB, named `<id>.lod<N>.glb` (`e46-coupe-body.lod1.glb`). The main file, `<id>.glb`, is level 0. Each file is validated on its own, as its kind, with the same checks. The triangle range in the budgets table is the main file's, so a base car LOD under 100k triangles fails `triangles` today. Giving LODs their own budget is a Phase 1 decision (spec section 17 leaves the LOD counts to the builder), and it changes the contract, so it goes through a `contract` PR.
+**LODs are separate files.** A lower level of detail is its own GLB, named `<id>.lod<N>.glb` (`e46-coupe-body.lod1.glb`). The main file, `<id>.glb`, is level 0. Each file is validated on its own, as its kind, with the same checks. The triangle range in the budgets table is the main file's, so a base car LOD under 100k triangles fails `triangles` today. The pipeline's `validate` stage checks only `<id>.glb`, so run `pnpm validate-asset` on a LOD by hand. Giving LODs their own budget is a Phase 1 decision (spec section 17 leaves the LOD counts to the builder), and it changes the contract, so it goes through a `contract` PR.
 
 ## Body modules
 
@@ -68,7 +68,7 @@ Both fields are in [the data standard](data.md#body-module-swaps).
 
 **How a swap works.** The configurator hides the base car's module node and shows the replacement asset at the car origin. The base module isn't drawn while the swap is active, so the car never shows two roofs. Removing the swap shows the base module again.
 
-**One asset may cover several modules**. A CSL's roof and trunk lid can be one `body-module` asset: the variant names that id under both `roof` and `trunk_lid`, and a part lists both in `replaces`. The asset has one root node in the car frame, and it is shown once, however many modules name it. The 4.0 m cap on the largest dimension still applies to the whole asset, so a front and rear bumper pair is too long for one. Each module node it covers is hidden on the base car.
+**One asset may cover several modules.** A CSL's roof and trunk lid can be one `body-module` asset: the variant names that id under both `roof` and `trunk_lid`, and a part lists both in `replaces`. The asset has one root node in the car frame, and it is shown once, however many modules name it. The 4.0 m cap on the largest dimension still applies to the whole asset, so a front and rear bumper pair is too long for one. Each module node it covers is hidden on the base car.
 
 **How the base car gets its modules.** The cleanup stage splits the module nodes out of the generated mesh (spec section 9.3), along with `body`, `glass`, the lights, `trim`, `grille` and `undercarriage`.
 

@@ -45,7 +45,7 @@ The schemas reject keys they don't list, so a typo like `brnad:` is an error ins
 - A part's `attributes.kind` matches its category: `wheel` and `hub-ring` go with `wheels`, `tire` with `tires`, `brake-kit` with `brakes`, `suspension` with `suspension`.
 - `inspectWhenBuying: true` needs a non-empty `howToCheck`.
 - A maintenance interval has `miles`, `months` or both.
-- A measured driver eye point has sources. An estimated one may have none. It is the one spec or measurement value in `data/` allowed to go without a source, and its `note` says it is an estimate. (A generic part has no sources of its own either, because it is a computed tier, not a claim.)
+- A measured driver eye point has sources. An estimated one may have none. It is the one sourceless exception the schema names, and its `note` says it is an estimate. (A generic part has no sources of its own either, because it is a computed tier, not a claim.)
 - Required text (names, titles, sellers, publishers) must not be empty or only whitespace. The value is kept as written, not trimmed.
 - A `KnownIssue` with a `fix` also has a `cost`. Without a `fix` the `cost` is optional (see "Safety advice needs evidence").
 - Dimensions are keyed by bodies the generation lists, and there's at least one.
@@ -83,7 +83,7 @@ A `standIn` with `replaces` uses a car-frame stand-in style for those modules, a
 
 The schemas don't say which one wins when a build's part and its variant name the same module: the configurator decides that, and the rule isn't settled yet (open item 5 in spec section 16).
 
-Dates are calendar dates, `YYYY-MM-DD`, such as `2026-11-23`, with no time of day. Write them unquoted or quoted: both parse to the same instant, midnight UTC. A time (`2026-11-23T10:30`), an impossible date (`2026-02-31`) or a Date with a time of day is an error, because a time without a zone means different instants on different machines. The year is 1900 to 2100, so a swapped digit or a missing century is an error, and a `source`'s `accessed` date or a price's `checked` date can't be after today (`future-date`, below).
+Dates are calendar dates, `YYYY-MM-DD`, such as `2026-11-23`, with no time of day. Write them unquoted or quoted: both parse to the same instant, midnight UTC. A time (`2026-11-23T10:30`), an impossible date (`2026-02-31`) or a Date with a time of day is an error, because a time without a zone means different instants on different machines. The year is 1900 to 2100, so a swapped digit or a missing century is an error, and a `source`'s `accessed` date or a price's `checked` date can't be more than a day after today in UTC (`future-date`, below). The day of slack is for contributors east of UTC, who write their own date while it is still yesterday in UTC.
 
 **`check:data` is the gate for dates**. Astro's content loader turns an unquoted YAML date into a `Date` before the schema runs, so it can accept a value that `check:data`'s own loader, which keeps the text and checks it, refuses. Run `check:data` before every build that ships: `pnpm check` does, and CI runs `pnpm check`. The deploy workflow's build job must run it before it builds too.
 
@@ -140,7 +140,7 @@ PRs that touch `data/maintenance/` or `data/issues/` get the `safety` label. The
 
 ## Prices
 
-A price observation is `{ amount, currency, seller, checked, url? }`, for real products only. `checked` can't be after today.
+A price observation is `{ amount, currency, seller, checked, url? }`, for real products only. `checked` can't be more than a day after today (UTC).
 
 - **`seller` and `checked` are required.** A price without both is rejected.
 - **`url` is stored only so the updater can check the price again.** Never render it as a link: the site has no affiliate, ad or store links of any kind, and `check:links` fails the build if one appears.
@@ -191,4 +191,4 @@ It prints one `<file>: <code>: <message>` line per problem, exits 1 if there are
 | `part-bodies-outside-generation` | A part's `fits.bodies` names a body its generation doesn't build | Fix the bodies |
 | `fits-list-empty` | A part's `fits.bodies` or `fits.transmissions` is `[]`, which fits nothing | List at least one, or leave the field out to fit all |
 | `unknown-engine` | A maintenance item or issue names an `engine` that isn't one of its generation's engine codes | Fix the code, or leave `engine` out for every engine |
-| `future-date` | A source's `accessed` or a price's `checked` is after today | Fix the date |
+| `future-date` | A source's `accessed` or a price's `checked` is more than a day after today (UTC) | Fix the date |

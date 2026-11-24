@@ -222,7 +222,7 @@ YAML under `data/`, one entry per file, validated by the Zod schemas in `src/dat
 - `sources[]` (at least one of Tier 1 or Tier 2, section 7.6) and `verified`. (amended 2026-11-23)
 
 **`known issue`**
-- Generation, engine, symptoms, cause, prevention, how common.
+- Generation, engine, symptoms, cause, prevention.
 - `fix` is optional, and `cost` (a range) goes with it: a fix needs a cost, and a Tier 1 or Tier 2 source (section 7.6). An issue known only from forum reports leaves out `fix`, and its `cost` is then optional. (amended 2026-11-23)
 - How common: `rare`, `common` or `very common`.
 - `inspectWhenBuying` plus `howToCheck`.
@@ -300,7 +300,7 @@ YAML under `data/`, one entry per file, validated by the Zod schemas in `src/dat
 **Cross-file checks** (amended 2026-11-23)
 - A variant's body and years fit its generation's bodies and years. A part's `fits.years` and `fits.bodies` fit them too, and an empty `fits.bodies` or `fits.transmissions` is an error.
 - A maintenance item's or issue's `engine` is one of the generation's engine codes.
-- A source's `accessed` date and a price's `checked` date are not after today. Data years are 1900 to 2100.
+- A source's `accessed` date and a price's `checked` date are not after today, with a day of slack for time zones east of UTC. Data years are 1900 to 2100.
 - The estimated driver eye point is the one spec value that may have no source.
 
 **Dates**
@@ -415,11 +415,13 @@ Each visible product gets its own asset, built from its product photos and spec.
 - Export to GLB, then run glTF-Transform: weld, deduplicate, prune, meshopt geometry compression.
 - `prune` is `prune({ keepLeaves: true })`: the default deletes empty leaf nodes, and every anchor is one. (amended 2026-11-23)
 - KTX2 textures must be set explicitly. The `auto` default doesn't produce KTX2.
-- LODs for the Low preset. Each LOD is a separate file named `<id>.lod<N>.glb`, and each is validated on its own (`docs/standards/3d-assets.md`). (amended 2026-11-23)
+- LODs for the Low preset. Each LOD is a separate file named `<id>.lod<N>.glb`, and each is validated on its own (`docs/standards/3d-assets.md`). Until a Phase 1 `contract` PR sets a LOD budget, a base-car LOD under the 100k-triangle floor fails `validate-asset`, and the pipeline's `validate` stage checks only `<id>.glb`. (amended 2026-11-23)
 
 ### 9.6 Asset contract (enforced by `validate`)
 
 **Units and axes:** meters, Y up, nose toward −Z, origin on the ground under the middle of the wheelbase.
+
+`docs/standards/3d-assets.md` has the rules added after this section was written: the ground check through the wheel anchors, unique names, empty-leaf anchors, and the interior's single root named `interior`. (amended 2026-11-23)
 
 **Base car**
 - Nodes: `body`, and one mesh node for each body module: `bumper_front`, `bumper_rear`, `trunk_lid`, `roof` (amended 2026-11-23). A module node isn't an anchor, and a module node without a mesh is an error.

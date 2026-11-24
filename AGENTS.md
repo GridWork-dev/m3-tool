@@ -39,7 +39,7 @@ AGENTS.md  CLAUDE.md -> AGENTS.md  CONTRIBUTING.md  README.md  LICENSE (MIT)  DA
 data/{generations,variants,parts,maintenance,issues}/   YAML, one entry per file (see docs/standards/data.md)
 src/content.config.ts   Astro collections, built from the schemas
 src/data/               schemas.ts (the data contract), loader, cross-file checks, source tiers
-src/lib/                pure logic with unit tests: asset contract, validator, manifest, link policy
+src/lib/                pure logic with unit tests: asset contract, validator, manifest, link policy, HTML link finder
 src/assets/manifest.json  published GLBs (the publish stage writes it)
 src/{pages,layouts,components,styles}/   the site
 pipeline/               Python (uv): assets.toml, src/m3_pipeline/{cli,config,assets,stages/}, tests/

@@ -30,6 +30,6 @@ ADR 0005 set one frame and four kinds. The final review found the contract too l
 ## Consequences
 
 - The wheel anchor range, 0.25 to 0.45 m, suits wheels up to about 20 inches. A larger car changes the contract.
-- A LOD is checked against the full contract for its kind today, so a base car LOD under 100k triangles fails `triangles`. A budget for LODs is a Phase 1 decision and a `contract` PR.
+- A LOD is checked against the full contract for its kind today, so a base car LOD under 100k triangles fails `triangles`. A budget for LODs is a Phase 1 decision and a `contract` PR. The `validate` stage checks only `<id>.glb` until then.
 - `stats.triangles` is `null` for a file that can't be read, so a consumer checks `ok` first.
 - The validator still can't see that a module sits in its slot. The critic and `/lab` do.
