@@ -15,6 +15,10 @@
 # is priced and sent. `free` lists request fields that fal's price text does not charge for; they
 # pass through unchanged. Anything else is refused.
 #
+# Rodin's `tier`, `quality_mesh_option`, `texture_mode` and `material` are not in `free`: fal's
+# price text names only HighPack, but nothing has confirmed that they cost nothing, so they are
+# refused until a task needs one and the first live invoice shows its price.
+#
 # Names a caller sets here are the spike's, not always fal's. Where they differ (`texture`,
 # `detailed_geometry`, `highpack`, `textured`, `multi_view`) the entry's `fields` is the fal name:
 # fal's Tripo `texture` is a boolean beside a separate `texture_quality`, and its Rodin `addons`
@@ -36,7 +40,7 @@ checked = "2026-11-23"
 
 [generators."rodin-fast".price]
 base = "0.10"
-free = ["seed", "tier", "geometry_file_format", "material", "quality_mesh_option", "texture_mode", "use_original_alpha"]
+free = ["seed", "geometry_file_format", "use_original_alpha"]
 
 [generators."rodin-2.5"]
 endpoint = "fal-ai/hyper3d/rodin/v2.5"
@@ -53,7 +57,7 @@ checked = "2026-11-23"
 
 [generators."rodin-2.5".price]
 base = "0.40"
-free = ["seed", "tier", "geometry_file_format", "material", "quality_mesh_option", "texture_mode", "use_original_alpha"]
+free = ["seed", "geometry_file_format", "use_original_alpha"]
 
 [[generators."rodin-2.5".price.options]]
 name = "highpack"

@@ -11,7 +11,8 @@ import base64
 import json
 import logging
 import re
-from collections.abc import Callable, Mapping, Sequence
+import traceback
+from collections.abc import Callable, Iterator, Mapping, Sequence
 from dataclasses import dataclass, field
 from datetime import date
 from decimal import Decimal
@@ -23,6 +24,7 @@ import pytest
 from PIL import Image
 
 import m3_pipeline.stages.lib.fal as fal
+import m3_pipeline.stages.lib.spend as spend_mod
 from m3_pipeline.config import Settings
 from m3_pipeline.stages.lib.fal import (
     CallResult,
@@ -42,7 +44,6 @@ from m3_pipeline.stages.lib.spend import LedgerRow, SpendDenied
 REGISTRY = load_generators(Path(__file__).resolve().parents[1] / "generators.toml")
 KEY = "test-key-id:test-key-secret-0123456789"
 SESSION = "t7-test"
-TODAY = date.today()
 REQUEST_ID = "019a1b2c-3d4e-7f80-9a1b-2c3d4e5f6a7b"
 GLB_URL = "https://v3b.fal.media/files/b/x/model.glb"
 TEXTURE_URL = "https://v3b.fal.media/files/b/x/texture_0.png"
@@ -151,6 +152,9 @@ def session_and_no_real_journal(monkeypatch: pytest.MonkeyPatch) -> None:
         raise AssertionError("a test reached the real spend journal")
 
     monkeypatch.setattr(fal, "default_journal", never)
+    # `authorize` reaches the journal through spend's own name, so a client built without a
+    # journal and without a stubbed `authorize` would create ~/.local/state/m3-tool/ here.
+    monkeypatch.setattr(spend_mod, "default_journal", never)
 
     def no_network(*_args: object, **_kwargs: object) -> object:
         raise AssertionError("a test reached a real network seam")
@@ -171,22 +175,29 @@ def journal(tmp_path: Path) -> Path:
     return tmp_path / "state" / "spend-journal.jsonl"
 
 
+def today() -> date:
+    """Read per call, like `authorize` reads the clock: a run that straddles midnight at import
+    time must not leave the ledger a day behind."""
+    return date.today()
+
+
 def write_ledger(settings: Settings, *rows: tuple[str, str]) -> Path:
     """The ledger under `settings.repo_root`: today's cap row, then one call row per (tag, cost)."""
+    day = today().isoformat()
     header = (
         "# Spend ledger\n\nProse.\n\n"
         "| Date | Session cap | Service | Purpose | Units | Cost (USD) | Running total / cap |\n"
         "|---|---|---|---|---|---|---|\n"
     )
     lines = [
-        f"| {TODAY.isoformat()} | $50 (Phase 0 spike, 3D generation) | — | "
+        f"| {day} | $50 (Phase 0 spike, 3D generation) | — | "
         f"cap approved by the user session:{SESSION} | — | 0.00 | 0.00 / 50.00 |\n"
     ]
     total = Decimal(0)
     for tag, cost in rows:
         total += Decimal(cost)
         lines.append(
-            f"| {TODAY.isoformat()} | $50 (Phase 0 spike, 3D generation) | fal | "
+            f"| {day} | $50 (Phase 0 spike, 3D generation) | fal | "
             f"spike:{tag} test call | 1 | {cost} | {total:f} / 50.00 |\n"
         )
     path = settings.repo_root / "docs" / "spend-ledger.md"
@@ -805,19 +816,23 @@ def test_one_url_is_downloaded_once_and_named_by_the_result_field(
     assert "thumbnail" not in result.files
 
 
-def test_a_result_listing_too_many_files_is_a_failed_call_without_a_download(
+def test_a_result_listing_too_many_files_still_delivers_the_result_field_first(
     settings: Settings, journal: Path, fake: FakeFal
 ) -> None:
+    # The call was paid for and the result field is there: a cap on the extras must not make it
+    # unrecoverable, so the result field comes first and the rest are cut at the cap.
     write_ledger(settings, ("gen-t7-1", "0.40"))
     many = {
         f"file_{index}": {"url": f"https://v3b.fal.media/files/b/x/{index}.png"}
-        for index in range(65)
+        for index in range(70)
     }
-    fake.result = reply(200, {"model_mesh": {"url": GLB_URL}, **many})
-    with pytest.raises(FalError, match="66 files"):
-        client(settings, journal).run(planned(settings), out_dir(settings))
-    assert fake.downloads == []
-    assert statuses(journal, "gen-t7-1")[-1] == "failed"
+    fake.result = reply(200, {**many, "model_mesh": {"url": GLB_URL}})  # the field is listed last
+    result = client(settings, journal).run(planned(settings), out_dir(settings))
+    assert len(result.files) == 64
+    assert "model_mesh" in result.files
+    assert fake.downloads[0] == GLB_URL
+    assert len(fake.downloads) == 64
+    assert statuses(journal, "gen-t7-1")[-1] == "succeeded"
 
 
 def test_file_names_come_from_the_call_and_the_key_never_from_fals_file_name(
@@ -1306,3 +1321,295 @@ def test_the_real_download_stops_at_the_size_cap(
             httpx.Client(transport=transport), "https://x.example/f", dest, timeout_s=5
         )
     assert not list(dest.parent.glob("*"))
+
+
+# --- fix round 1: a transient result error is resumable, never a terminal failure ---
+
+
+@pytest.mark.parametrize("code", [400, 401, 403, 408, 429, 502, 503, 504])
+def test_a_transient_result_error_is_not_a_terminal_failure_and_resume_finishes_it(
+    settings: Settings, journal: Path, fake: FakeFal, code: int
+) -> None:
+    # fal completed the request and was billed, then the result GET hit a gateway hiccup (or an
+    # auth blip). Recording `failed` would make `resume` refuse a paid generation for good.
+    write_ledger(settings, ("gen-t7-1", "0.40"))
+    fake.result = reply(code, {"detail": "temporarily unavailable"})
+    with pytest.raises(FalError, match=rf"resume\('gen-t7-1'.*{code}|{code}.*resume\('gen-t7-1'"):
+        client(settings, journal).run(planned(settings), out_dir(settings))
+    assert statuses(journal, "gen-t7-1") == ["authorized", "submitted"]  # no terminal entry
+
+    fake.result = reply(200, RODIN_RESULT)
+    result = client(settings, journal).resume("gen-t7-1", out_dir(settings))
+    assert len(fake.posts) == 1  # never a second submit
+    assert set(result.files) == {"model_mesh", "textures.0"}
+    assert statuses(journal, "gen-t7-1")[-1] == "succeeded"
+
+
+def test_a_transport_error_on_the_result_fetch_stays_resumable(
+    settings: Settings, journal: Path, fake: FakeFal
+) -> None:
+    write_ledger(settings, ("gen-t7-1", "0.40"))
+    fake.result = httpx.ReadTimeout("slow")
+    with pytest.raises(FalError, match=r"resume\('gen-t7-1'"):
+        client(settings, journal).run(planned(settings), out_dir(settings))
+    assert statuses(journal, "gen-t7-1") == ["authorized", "submitted"]
+    fake.result = reply(200, RODIN_RESULT)
+    client(settings, journal).resume("gen-t7-1", out_dir(settings))
+    assert len(fake.posts) == 1
+
+
+def test_a_transient_error_during_resume_leaves_the_call_resumable(
+    settings: Settings, journal: Path, fake: FakeFal
+) -> None:
+    # `resume` reuses the fetch, so a hiccup there must not write the terminal entry either.
+    write_ledger(settings, ("gen-t7-1", "0.40"))
+    fake.statuses = [in_progress()]
+    with pytest.raises(FalError):
+        client(settings, journal, max_polls=1).run(planned(settings), out_dir(settings))
+    fake.statuses = [completed()]
+    fake.result = reply(503, {"detail": "busy"})
+    with pytest.raises(FalError, match=r"resume\('gen-t7-1'"):
+        client(settings, journal).resume("gen-t7-1", out_dir(settings))
+    assert statuses(journal, "gen-t7-1") == ["authorized", "submitted"]
+    fake.result = reply(200, RODIN_RESULT)
+    result = client(settings, journal).resume("gen-t7-1", out_dir(settings))
+    assert set(result.files) == {"model_mesh", "textures.0"}
+    assert len(fake.posts) == 1
+
+
+@pytest.mark.parametrize("code", [404, 422, 499, 500])
+def test_a_confirmed_model_failure_or_an_expired_result_is_terminal(
+    settings: Settings, journal: Path, fake: FakeFal, code: int
+) -> None:
+    write_ledger(settings, ("gen-t7-1", "0.40"))
+    fake.result = reply(code, {"detail": "gone or rejected"})
+    with pytest.raises(FalError, match=str(code)):
+        client(settings, journal).run(planned(settings), out_dir(settings))
+    assert statuses(journal, "gen-t7-1")[-1] == "failed"
+    gets = len(fake.gets)
+    with pytest.raises(FalError, match="failed"):
+        client(settings, journal).resume("gen-t7-1", out_dir(settings))
+    assert len(fake.gets) == gets
+
+
+# --- fix round 1: a secret never survives in an exception chain ---
+
+LEAKY = f"peer echoed the header Key {KEY}"
+
+
+def assert_clean_chain(error: BaseException, journal: Path | None = None) -> None:
+    secret_half = KEY.split(":")[1]
+    printed = "".join(traceback.format_exception(error))
+    assert KEY not in printed
+    assert secret_half not in printed
+    assert error.__cause__ is None
+    assert error.__context__ is None
+    if journal is not None and journal.exists():
+        assert secret_half not in journal.read_text()
+
+
+def test_a_submit_error_that_echoes_the_key_leaves_no_secret_in_the_chain(
+    settings: Settings, journal: Path, fake: FakeFal
+) -> None:
+    write_ledger(settings, ("gen-t7-1", "0.40"))
+    fake.submit = httpx.RemoteProtocolError(LEAKY)
+    with pytest.raises(FalError) as error:
+        client(settings, journal).run(planned(settings), out_dir(settings))
+    assert_clean_chain(error.value, journal)
+    assert "[redacted]" in str(error.value)
+    assert statuses(journal, "gen-t7-1")[-1] == "outcome-unknown"
+
+
+@pytest.mark.parametrize(
+    "raised", [RuntimeError(LEAKY), httpx.InvalidURL(LEAKY), ValueError(LEAKY)]
+)
+def test_any_exception_from_the_submit_is_outcome_unknown_with_the_key_scrubbed(
+    settings: Settings, journal: Path, fake: FakeFal, raised: Exception
+) -> None:
+    # After the guard the tag is spent and the request may be on the wire: whatever `_post`
+    # raises, the journal says `outcome-unknown` and the message points at the dashboard.
+    write_ledger(settings, ("gen-t7-1", "0.40"))
+    fake.submit = raised
+    with pytest.raises(FalError, match="fal dashboard") as error:
+        client(settings, journal).run(planned(settings), out_dir(settings))
+    assert_clean_chain(error.value, journal)
+    assert len(fake.posts) == 1
+    assert statuses(journal, "gen-t7-1") == ["authorized", "outcome-unknown"]
+
+
+def test_a_poll_error_that_echoes_the_key_leaves_no_secret_in_the_chain(
+    settings: Settings, journal: Path, fake: FakeFal
+) -> None:
+    write_ledger(settings, ("gen-t7-1", "0.40"))
+    fake.statuses = [httpx.RemoteProtocolError(LEAKY)]
+    with pytest.raises(FalError, match="resume") as error:
+        client(settings, journal).run(planned(settings), out_dir(settings))
+    assert_clean_chain(error.value, journal)
+    assert "[redacted]" in str(error.value)
+
+
+def test_a_result_fetch_error_that_echoes_the_key_leaves_no_secret_in_the_chain(
+    settings: Settings, journal: Path, fake: FakeFal
+) -> None:
+    write_ledger(settings, ("gen-t7-1", "0.40"))
+    fake.result = httpx.RemoteProtocolError(LEAKY)
+    with pytest.raises(FalError, match="resume") as error:
+        client(settings, journal).run(planned(settings), out_dir(settings))
+    assert_clean_chain(error.value, journal)
+
+
+def test_a_download_error_that_echoes_the_key_leaves_no_secret_in_the_chain(
+    settings: Settings, journal: Path, fake: FakeFal
+) -> None:
+    write_ledger(settings, ("gen-t7-1", "0.40"))
+    fake.download_errors[GLB_URL] = httpx.RemoteProtocolError(LEAKY)
+    with pytest.raises(FalError, match="resume") as error:
+        client(settings, journal).run(planned(settings), out_dir(settings))
+    assert_clean_chain(error.value, journal)
+    assert statuses(journal, "gen-t7-1")[-1] == "download-failed"
+
+
+def test_a_resume_error_that_echoes_the_key_leaves_no_secret_in_the_chain(
+    settings: Settings, journal: Path, fake: FakeFal
+) -> None:
+    write_ledger(settings, ("gen-t7-1", "0.40"))
+    fake.statuses = [in_progress()]
+    with pytest.raises(FalError):
+        client(settings, journal, max_polls=1).run(planned(settings), out_dir(settings))
+    fake.statuses = [httpx.RemoteProtocolError(LEAKY)]
+    with pytest.raises(FalError) as error:
+        client(settings, journal).resume("gen-t7-1", out_dir(settings))
+    assert_clean_chain(error.value, journal)
+
+
+def test_the_key_is_scrubbed_before_an_error_body_is_cut_to_length(
+    settings: Settings, journal: Path, fake: FakeFal
+) -> None:
+    # The excerpt is cut at 300 characters. A key that straddles the cut must not leave a
+    # fragment, so the scrub comes first. The JSON prefix `{"detail": "` is 12 characters.
+    write_ledger(settings, ("gen-t7-1", "0.40"))
+    fake.submit = reply(401, {"detail": "x" * (295 - 12) + KEY})
+    with pytest.raises(FalError) as error:
+        client(settings, journal).run(planned(settings), out_dir(settings))
+    # The scrub runs first, so the cut can only land inside the replacement text.
+    assert "test-" not in str(error.value)
+    assert "secret" not in str(error.value)
+    assert "test-" not in journal.read_text()
+
+
+# --- fix round 1: downloads never write through a planted symlink ---
+
+
+def test_download_with_refuses_a_part_file_that_is_a_symlink(tmp_path: Path) -> None:
+    victim = tmp_path / "repo" / "tracked.txt"
+    victim.parent.mkdir()
+    victim.write_text("keep me")
+    dest = tmp_path / "out" / "file.glb"
+    dest.parent.mkdir()
+    (dest.parent / "file.glb.part").symlink_to(victim)
+
+    transport = httpx.MockTransport(lambda request: httpx.Response(200, content=b"overwritten"))
+    with pytest.raises(OSError, match="symlink"):
+        fal.download_with(
+            httpx.Client(transport=transport), "https://x.example/f", dest, timeout_s=5
+        )
+
+    assert victim.read_text() == "keep me"
+    assert not dest.exists()
+    assert (dest.parent / "file.glb.part").is_symlink()  # not ours to delete
+
+
+def test_download_with_creates_its_temp_file_exclusively_and_privately(tmp_path: Path) -> None:
+    dest = tmp_path / "out" / "file.glb"
+    part = dest.parent / "file.glb.part"
+    seen: list[int] = []
+
+    def body() -> Iterator[bytes]:
+        # Runs while the response is being read, so the part file exists by now.
+        seen.append(part.stat().st_mode & 0o777)
+        yield b"abc"
+
+    transport = httpx.MockTransport(lambda request: httpx.Response(200, content=body()))
+    fal.download_with(httpx.Client(transport=transport), "https://x.example/f", dest, timeout_s=5)
+    assert dest.read_bytes() == b"abc"
+    assert seen == [0o600]
+    assert not part.exists()
+
+
+def test_download_with_replaces_a_stale_regular_part_file_from_a_crashed_run(
+    tmp_path: Path,
+) -> None:
+    dest = tmp_path / "out" / "file.glb"
+    dest.parent.mkdir()
+    (dest.parent / "file.glb.part").write_bytes(b"half a file from a crash")
+    transport = httpx.MockTransport(lambda request: httpx.Response(200, content=b"whole"))
+    fal.download_with(httpx.Client(transport=transport), "https://x.example/f", dest, timeout_s=5)
+    assert dest.read_bytes() == b"whole"
+
+
+def test_a_planted_part_symlink_fails_the_call_and_leaves_the_target_alone(
+    settings: Settings, journal: Path, fake: FakeFal, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    write_ledger(settings, ("gen-t7-1", "0.40"))
+    victim = settings.repo_root / "tracked.txt"
+    victim.write_text("keep me")
+    target_dir = out_dir(settings)
+    target_dir.mkdir(parents=True)
+    (target_dir / "gen-t7-1.model_mesh.glb.part").symlink_to(victim)
+
+    def real_download(url: str, dest: Path, *, timeout_s: float) -> None:
+        transport = httpx.MockTransport(lambda request: httpx.Response(200, content=b"bad"))
+        fal.download_with(httpx.Client(transport=transport), url, dest, timeout_s=timeout_s)
+
+    monkeypatch.setattr(fal, "_download", real_download)
+    with pytest.raises(FalError, match="symlink"):
+        client(settings, journal).run(planned(settings), out_dir(settings))
+    assert victim.read_text() == "keep me"
+    assert statuses(journal, "gen-t7-1")[-1] == "download-failed"
+    assert len(fake.posts) == 1
+
+
+# --- fix round 1: a big mesh is refused before it is read ---
+
+
+def test_a_mesh_whose_encoding_would_pass_the_body_cap_is_refused_before_it_is_read(
+    settings: Settings, journal: Path, fake: FakeFal, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    write_ledger(settings, ("gen-t7-1", "0.40"))
+    mesh = settings.work_dir / "in" / "big.glb"
+    mesh.parent.mkdir(parents=True)
+    with mesh.open("wb") as handle:
+        handle.truncate(60 * 1024 * 1024)  # under the 150 MB mesh limit, 80 MiB once encoded
+
+    def never_read(self: Path) -> bytes:
+        raise AssertionError(f"{self} was read into memory before the size check")
+
+    monkeypatch.setattr(Path, "read_bytes", never_read)
+    with pytest.raises(GeneratorRefused, match="64 MiB"):
+        client(settings, journal).run(
+            PlannedCall("gen-t7-1", "tripo-segment", (), (), mesh, {}), out_dir(settings)
+        )
+    refused_without_spend(settings, journal, fake)
+
+
+def test_a_mesh_that_fits_the_cap_when_encoded_is_still_accepted(
+    settings: Settings, journal: Path, fake: FakeFal
+) -> None:
+    write_ledger(settings, ("gen-t7-1", "0.40"))
+    mesh = settings.work_dir / "in" / "ok.glb"
+    mesh.parent.mkdir(parents=True)
+    mesh.write_bytes(b"x" * 1000)
+    fake.result = reply(200, {"model_mesh": {"url": GLB_URL}})
+    client(settings, journal).run(
+        PlannedCall("gen-t7-1", "tripo-segment", (), (), mesh, {}), out_dir(settings)
+    )
+    assert len(fake.posts) == 1
+
+
+# --- fix round 1: the test guards themselves ---
+
+
+def test_the_autouse_guard_blocks_both_default_journal_names() -> None:
+    for module in (fal, spend_mod):
+        with pytest.raises(AssertionError, match="real spend journal"):
+            module.default_journal()

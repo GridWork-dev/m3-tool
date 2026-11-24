@@ -201,6 +201,16 @@ def test_the_priced_standard_geometry_is_accepted() -> None:
         ("tripo-segment", {"seed": 1}),
         ("rodin-2.5", {"enable_safety_checker": False}),
         ("hunyuan-3.1-pro", {"generate_type": "Geometry"}),
+        # Rodin's quality levers are absent from fal's price text, which names only HighPack, and
+        # nothing has confirmed they are free: they fail closed until a live invoice does.
+        ("rodin-2.5", {"tier": "Gen-2.5-Extreme-High"}),
+        ("rodin-2.5", {"quality_mesh_option": "2M Triangle"}),
+        ("rodin-2.5", {"texture_mode": "high"}),
+        ("rodin-2.5", {"material": "PBR"}),
+        ("rodin-fast", {"tier": "Gen-2.5-Low"}),
+        ("rodin-fast", {"quality_mesh_option": "Auto"}),
+        ("rodin-fast", {"texture_mode": "low"}),
+        ("rodin-fast", {"material": "Shaded"}),
     ],
 )
 def test_an_option_with_no_price_rule_is_refused(key: str, options: dict[str, object]) -> None:
@@ -231,8 +241,9 @@ def test_a_value_outside_the_priced_values_is_refused(key: str, options: dict[st
 
 
 def test_free_options_do_not_change_the_price() -> None:
-    free = {"seed": 7, "material": "PBR", "tier": "Gen-2.5-Low", "quality_mesh_option": "Auto"}
+    free = {"seed": 7, "geometry_file_format": "glb", "use_original_alpha": True}
     assert price_usd(GENERATORS["rodin-2.5"], free) == Decimal("0.40")
+    assert price_usd(GENERATORS["rodin-fast"], free) == Decimal("0.10")
 
 
 # --- the request fields ---
@@ -603,3 +614,35 @@ def test_a_forbidden_endpoint_is_refused_even_when_a_registry_entry_names_it() -
     registry = {**GENERATORS, "rogue": rogue}
     with pytest.raises(GeneratorRefused, match="hitem3d/"):
         check_endpoint_allowed(rogue.endpoint, registry)
+
+
+@pytest.mark.parametrize(
+    "endpoint",
+    ["fal-ai/hunyuan-3d/v3.1/pro/image-to-3d", "fal-ai/hunyuan-3d/v3.2/pro/image-to-3d"],
+)
+def test_the_loader_refuses_a_hunyuan_endpoint_without_the_host_country_flag(
+    tmp_path: Path, endpoint: str
+) -> None:
+    # The territory rule hangs on a data flag, so an entry that names a Hunyuan endpoint without
+    # it would run on an EU host. The loader refuses it.
+    text = REGISTRY_PATH.read_text("utf-8").replace(
+        'endpoint = "fal-ai/trellis-2"', f'endpoint = "{endpoint}"'
+    )
+    with pytest.raises(GeneratorRefused, match="requires_host_country"):
+        load_generators(write_registry(tmp_path, text))
+
+
+def test_the_loader_accepts_a_hunyuan_endpoint_with_the_flag(tmp_path: Path) -> None:
+    text = (
+        REGISTRY_PATH.read_text("utf-8")
+        .replace(
+            'endpoint = "fal-ai/trellis-2"', 'endpoint = "fal-ai/hunyuan-3d/v3.2/pro/image-to-3d"'
+        )
+        .replace(
+            'kind = "image-to-3d"\ninput_kind = "images"\nmin_images = 1\nmax_images = 1\n',
+            'kind = "image-to-3d"\ninput_kind = "images"\nmin_images = 1\nmax_images = 1\n'
+            "requires_host_country = true\n",
+        )
+    )
+    loaded = load_generators(write_registry(tmp_path, text))
+    assert loaded["trellis-2"].requires_host_country

@@ -550,6 +550,14 @@ def _generator(path: Path, key: str, raw: object) -> Generator:
         raise _fail(path, where, f"endpoint {endpoint!r} is not a fal endpoint id")
     if _forbidden_reason(endpoint):
         raise GeneratorRefused(f"{path.name}: {where}: endpoint {endpoint!r}: {_EXCLUDED_FAMILIES}")
+    requires_host_country = _flag(path, where, table, "requires_host_country", default=False)
+    if "hunyuan" in endpoint.lower() and not requires_host_country:
+        # The territory rule hangs on this flag, not on the endpoint, so an entry that names a
+        # Hunyuan endpoint without it would run on an EU, UK or South Korea host.
+        raise GeneratorRefused(
+            f"{path.name}: {where}: a Hunyuan endpoint ({endpoint!r}) must set "
+            "requires_host_country = true: Tencent's territory limit applies to it"
+        )
     kind = _text(path, where, table, "kind")
     input_kind = _text(path, where, table, "input_kind")
     if kind not in ("image-to-3d", "segment", "image-edit"):
@@ -616,7 +624,7 @@ def _generator(path: Path, key: str, raw: object) -> Generator:
         result_field=_text(path, where, table, "result_field"),
         experiment_only=_flag(path, where, table, "experiment_only", default=False),
         price=_price(path, f"{where}.price", table.get("price")),
-        requires_host_country=_flag(path, where, table, "requires_host_country", default=False),
+        requires_host_country=requires_host_country,
         positional=_flag(path, where, table, "positional", default=False),
         required_slots=required,
         source=_text(path, where, table, "source"),
