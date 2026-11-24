@@ -11,7 +11,7 @@ All commands below assume `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` are
 - **What:** the Astro build in `dist/`, served as Workers static assets. Config is `wrangler.jsonc`. Unknown paths return the built `404.html` with a 404 status.
 - **Public:** yes, at `https://m3-tool.broken-wood-97a9.workers.dev`. Pages carry `noindex` until the public beta.
 - **Recreate:** `pnpm build && pnpm run deploy`. Use `pnpm run deploy`, not `pnpm deploy`: `deploy` is a pnpm built-in, so the bare form doesn't run the script.
-- **Deployed by:** `.github/workflows/deploy.yml` on every push to `main`, in two jobs ([ADR 0011](../docs/decisions/0011-deploy-pipeline-hardening.md)). The `build` job installs, checks and builds with no secrets, and uploads `dist/` and `wrangler.jsonc`. The `deploy` job downloads them on a fresh runner and runs `npx --yes wrangler@<version> deploy`, with the secrets on that step only. It then smoke-tests the live site: a 200 on `/` with the not-affiliated notice, and a 404 on `/__nope`.
+- **Deployed by:** `.github/workflows/deploy.yml` on every push to `main`, in two jobs ([ADR 0011](../docs/decisions/0011-deploy-pipeline-hardening.md)). The `build` job installs, checks and builds with no secrets, and uploads `dist/` only. The `deploy` job runs on a fresh runner. It takes `wrangler.jsonc` and `infra/deploy/` from git, downloads the site from the build job, checks the config against an allowlist (`infra/deploy/check-config.ts`), installs wrangler from `infra/deploy/package-lock.json` with `npm ci --ignore-scripts`, and runs that binary with the secrets on the two wrangler steps only. It then smoke-tests the live site (`infra/deploy/smoke.sh`): `/version.txt` must show the deployed commit, `/` must be a 200 with the not-affiliated notice, and `/__nope` a 404.
 - **Names:** `M3_CF_DEPLOY_TOKEN` and `M3_CF_ACCOUNT_ID` (GitHub Actions secrets), read by the two wrangler steps of the `deploy` job and nothing else.
 
 ### PR previews
@@ -20,7 +20,7 @@ All commands below assume `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` are
 - **Public:** yes, at `https://pr-<n>-m3-tool.broken-wood-97a9.workers.dev`. The same workflow posts the URL as a single PR comment that starts with `<!-- m3-tool-preview -->` and updates it on every push.
 - **Recreate:** `pnpm build && pnpm wrangler versions upload --preview-alias pr-<n>`.
 - **Limits:** the jobs run only for PRs from this repo, because forks get no secrets, and not for a PR that a bot (Renovate, Dependabot) opened or pushed. They are not a required status check. `check`, `e2e` and `gitleaks` stay the merge gate.
-- **Names:** the same two Actions secrets as the Worker. The preview token is the production token: Cloudflare has no scope that can upload a preview version and not deploy.
+- **Names:** the same two Actions secrets as the Worker. The preview token is the production token, and a same-repo PR runs its own `deploy.yml` with it before review. That is an accepted risk for one maintainer. The planned fix is a separate preview Worker with its own token, and the production token in a GitHub `production` environment limited to `main`.
 
 ### R2 bucket `m3-tool-models`
 
@@ -61,8 +61,8 @@ GitHub Actions secrets:
 
 ## Notes
 
-- **Pinned actions and wrangler.** Every action in the workflows is pinned to a commit SHA with a version comment, and the `deploy` job runs wrangler at the exact version in package.json. Renovate waits three days after a release and doesn't automerge `wrangler` or GitHub Actions updates, so merge those by hand. A wrangler bump fails `tests/unit/workflows.test.ts` until the pin in `deploy.yml` is changed to match.
-- **What a PR proves.** A pull request runs its own `deploy.yml`, so its CI shows the build job, the preview upload and the comment. The production deploy and the smoke test run only on a push to `main`.
+- **Pinned actions and a locked wrangler.** Every action in the workflows is pinned to a commit SHA with a version comment. The repo setting "Require actions to be pinned to a full-length commit SHA" (`sha_pinning_required`) is on, so GitHub refuses an unpinned action even if a PR edits a workflow. The `deploy` job runs the wrangler in `infra/deploy/`, at the exact version in the root package.json, from an npm lockfile with install scripts off. Renovate waits three days after a release and never automerges `wrangler`, GitHub Actions or `infra/deploy`, so merge those by hand. A wrangler bump that changes only one of the two package files fails `tests/unit/workflows.test.ts`.
+- **What a PR proves.** A pull request runs its own `deploy.yml`, with the secrets, so its CI shows the build job, the config check, the locked install, the preview upload and the comment. The production deploy and the smoke test run only on a push to `main`.
 
 - **Bootstrap token expiry.** `m3-tool-bootstrap` expires on 2026-12-07. Nothing in CI depends on it. After that date, `main` deploys keep running from GitHub Actions, because `m3-tool-deploy` exists only there and the laptop has no copy. If the laptop ever needs to deploy again, mint a new short-lived token through the API.
 - **Analytics.** Cloudflare Web Analytics waits for the beta domain (Phase 1). The workers.dev URL isn't a good fit, and the site is `noindex` until then.

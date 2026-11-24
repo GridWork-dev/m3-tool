@@ -317,7 +317,7 @@ YAML under `data/`, one entry per file, validated by the Zod schemas in `src/dat
 ## 8. Hosting and infrastructure
 
 - **Site:** Cloudflare Workers static assets. Static requests are free and unlimited. The free plan allows 25 MiB per file and 20,000 files per version.
-- **Deploys:** GitHub Actions. `main` runs `wrangler deploy`. Each PR runs `wrangler versions upload` and gets its preview URL as a comment. (This replaced Workers Builds on 2026-11-23, by the user's choice: no GitHub app dependency, and the same Node 26 toolchain as CI.) The workflow is a build job with no secrets and a deploy job that runs no project code, skips forks and bots, and smoke-tests production after a deploy (ADR 0011). (amended 2026-11-23)
+- **Deploys:** GitHub Actions. `main` runs `wrangler deploy`. Each PR runs `wrangler versions upload` and gets its preview URL as a comment. (This replaced Workers Builds on 2026-11-23, by the user's choice: no GitHub app dependency, and the same Node 26 toolchain as CI.) The workflow is a build job with no secrets and a deploy job that takes only the built static files from it, skips forks and bots, and smoke-tests production after a deploy (ADR 0011). (amended 2026-11-23)
 - **Credentials:** Cloudflare tokens are minted through the API from the account's key-management token, one narrowly scoped token per purpose. Nothing is created by hand in the dashboard.
 - **R2 buckets:**
   - `<name>-models`: public, behind a custom domain, with content-hashed GLB names that can be cached forever.

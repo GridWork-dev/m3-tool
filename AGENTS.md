@@ -46,7 +46,7 @@ pipeline/               Python (uv): assets.toml, src/m3_pipeline/{cli,config,as
 tools/                  check-data.ts, check-links.ts, validate-asset.ts (run with node)
 tests/{unit,e2e,fixtures}/   fixtures hold the sample data; visual tests arrive in Phase 1
 docs/{standards,decisions,superpowers/specs,superpowers/plans}/  docs/spend-ledger.md  (index: docs/README.md)
-infra/                  Cloudflare resources, the main ruleset, R2 CORS (see infra/README.md)
+infra/                  Cloudflare resources, the main ruleset, R2 CORS (see infra/README.md); infra/deploy/ is the deploy job's locked wrangler, config check and smoke test
 .github/workflows/ (ci, deploy)  .githooks/pre-push  renovate.json  biome.json  mise.toml  wrangler.jsonc
 ```
 
@@ -97,7 +97,7 @@ Phase 1 adds `src/configurator/`, `tests/visual/` and `pipeline/blender/`.
 
 Zero approvals are required, because the repo has one maintainer who can't approve their own PR. The review happens before the merge instead. See `infra/github-ruleset.json`.
 
-**Deploys** run from GitHub Actions (`deploy.yml`), not Workers Builds ([ADR 0001](docs/decisions/0001-static-site-on-workers.md), amended by [ADR 0011](docs/decisions/0011-deploy-pipeline-hardening.md)). Two jobs: `build` has no secrets, and builds, checks and uploads the site. `deploy` runs on a fresh runner with no checkout and a pinned `npx wrangler@<version>`, the only place the Cloudflare secrets exist. A push to `main` runs `wrangler deploy`, then a smoke test of the live site. Each same-repo PR that isn't from a bot gets a preview at `pr-<n>-m3-tool.broken-wood-97a9.workers.dev`, posted as a PR comment that starts with `<!-- m3-tool-preview -->`. The wrangler version in `deploy.yml` must equal package.json's, and a test checks it. Run the local deploy script as `pnpm run deploy`, because `pnpm deploy` is a pnpm built-in. Details are in [infra/README.md](infra/README.md).
+**Deploys** run from GitHub Actions (`deploy.yml`), not Workers Builds ([ADR 0001](docs/decisions/0001-static-site-on-workers.md), amended by [ADR 0011](docs/decisions/0011-deploy-pipeline-hardening.md)). Two jobs: `build` has no secrets, builds and checks the site, and uploads `dist/` only. `deploy` runs on a fresh runner and takes nothing from the build job but those static files. It takes `wrangler.jsonc` and `infra/deploy/` from git, checks the config against an allowlist, installs wrangler from `infra/deploy/package-lock.json` with scripts off, and runs it with the Cloudflare secrets, which exist on those two steps only. A push to `main` runs `wrangler deploy`, then a smoke test that waits for `/version.txt` to show the commit. Each same-repo PR that isn't from a bot gets a preview at `pr-<n>-m3-tool.broken-wood-97a9.workers.dev`, posted as a PR comment that starts with `<!-- m3-tool-preview -->`. The wrangler version in `infra/deploy/package.json` must equal the root package.json's, and a test checks it. Run the local deploy script as `pnpm run deploy`, because `pnpm deploy` is a pnpm built-in. Details are in [infra/README.md](infra/README.md).
 
 ## Model routing
 

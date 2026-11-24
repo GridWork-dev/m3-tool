@@ -1,6 +1,6 @@
 # 0001. Static site on Workers static assets
 
-- **Status:** Accepted 2026-11-23. The deploy bullets are amended by [0011](0011-deploy-pipeline-hardening.md): a build job with no secrets, a deploy job that runs no project code, and pinned actions.
+- **Status:** Accepted 2026-11-23. The deploy bullets are amended by [0011](0011-deploy-pipeline-hardening.md): a build job with no secrets, a deploy job that takes only static files from it, and pinned actions.
 - **Date:** 2026-11-23
 
 ## Context
