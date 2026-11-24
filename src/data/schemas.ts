@@ -545,7 +545,8 @@ export const MaintenanceItem = z
     // Absent means every market. A document for one market supports that market only (data.md).
     markets: z.array(Market).min(1).optional(),
     title: Text,
-    // `miles` and `months` may sit beside a `trigger` only when the source gives both.
+    // `miles` and `months` may sit beside a `trigger` only when the source gives both, and never
+    // beside `lifetime-fill`.
     interval: z
       .strictObject({
         miles: z.int().positive().optional(),
@@ -558,6 +559,14 @@ export const MaintenanceItem = z
           interval.months !== undefined ||
           interval.trigger !== undefined,
         'an interval needs at least one of miles, months or trigger',
+      )
+      // A lifetime fill has no scheduled change, so a number beside it would contradict it. A
+      // shorter interval that specialists recommend goes in `notes`, not here.
+      .refine(
+        (interval) =>
+          interval.trigger !== 'lifetime-fill' ||
+          (interval.miles === undefined && interval.months === undefined),
+        'a lifetime-fill interval has no miles or months',
       ),
     parts: z.array(Text),
     fluids: z.array(Text),
@@ -592,7 +601,7 @@ export const KnownIssue = z
     cause: Text,
     // Optional (spec 7.6, amended 2026-11-23): an issue known only from forum reports publishes its
     // symptoms, cause and frequency, and no fix. A fix needs a Tier 1 or Tier 2 source, which
-    // quality.ts checks. It does not need a cost (ADR 0014): a sourced fix is not dropped for lack
+    // quality.ts checks. It does not need a cost (ADR 0016): a sourced fix is not dropped for lack
     // of a price, and the site shows "no sourced cost" when `cost` is absent.
     fix: Text.optional(),
     prevention: Text.optional(),

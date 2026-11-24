@@ -1,4 +1,4 @@
-# 0014. Optional costs, interval triggers and markets
+# 0016. Optional costs, interval triggers and markets
 
 - **Status:** Accepted 2026-11-23
 - **Date:** 2026-11-23
@@ -17,7 +17,7 @@ The first E46 safety data (the known issues PR) hit four limits of the maintenan
 
 - **`MaintenanceItem.cost` is optional.** Absent, the site shows "no sourced cost", never zero. A cost that is given is validated as before.
 - **A `KnownIssue`'s `fix` no longer requires a `cost`.** The refinement is dropped, and the same "no sourced cost" rule applies. A fix still needs a Tier 1 or Tier 2 source.
-- **`MaintenanceItem.interval` gains an optional `trigger`**: `oil-service`, `inspection-i`, `inspection-ii`, `lifetime-fill` or `condition-based`. An interval needs at least one of `miles`, `months` or `trigger`. `miles` and `months` may sit beside a trigger only when the source gives both. The site shows the trigger, not a made-up mileage.
+- **`MaintenanceItem.interval` gains an optional `trigger`**: `oil-service`, `inspection-i`, `inspection-ii`, `lifetime-fill` or `condition-based`. An interval needs at least one of `miles`, `months` or `trigger`. `miles` and `months` may sit beside a trigger only when the source gives both, and never beside `lifetime-fill`, which the schema rejects. The site shows the trigger, not a made-up mileage.
 - **`MaintenanceItem` gains an optional `markets`**: a non-empty list of `us` or `euro`, with no repeats. Absent means every market. A document for one market supports that market only (R61).
 - `data.md` says what each trigger means and when to use each new field.
 
@@ -32,6 +32,6 @@ The first E46 safety data (the known issues PR) hit four limits of the maintenan
 ## Consequences
 
 - The Phase 1 pages must render an absent cost as "no sourced cost", a trigger as its name, and `markets` as the markets covered.
-- Nothing in the schema stops `lifetime-fill` from carrying `miles` or `months`, or a trigger from carrying a number the source doesn't give. The data verifier and the `safety` spot-check look at both.
+- The schema can't see sources, so nothing stops a trigger from carrying a number the source doesn't give. The data verifier and the `safety` spot-check look at that.
 - Existing data is unchanged: every current entry stays valid.
 - This is a contract change, so it comes in a `contract` PR, and the E46 maintenance items follow it.

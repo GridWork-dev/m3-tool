@@ -180,7 +180,7 @@ Safety advice never rests on a forum post alone. This is weaker than `verified` 
 An interval is `miles`, `months`, a `trigger`, or a mix, and it says what the source says.
 
 - **Give a number only when the source gives one.** BMW's E46 documents give a number for a few services (oil at least once a year, brake fluid every two years, spark plugs at 60,000 miles in the 2005 US checklist). For the others they name the service that carries it. Record that as the `trigger`. The site shows the trigger, not a made-up mileage, so don't turn a trigger into miles from a forum, from a typical figure, or by reading one number across from another document.
-- **`miles` and `months` may sit beside a `trigger` only when the source gives both** the service and its number. A source that names only the service supports the trigger alone. The schema can't see the source, so the data verifier and the `safety` spot-check look at this.
+- **`miles` and `months` may sit beside a `trigger` only when the source gives both** the service and its number. A source that names only the service supports the trigger alone. The schema can't see the source, so the data verifier and the `safety` spot-check look at this. The one exception it does enforce is `lifetime-fill`, which takes no number at all.
 - **A shorter interval that specialists recommend is not the interval.** It goes in `notes`, labelled as theirs, with its own source. It never replaces BMW's number or trigger.
 
 On the E46 the Service Interval Indicator works out when the next service is due from how the car is driven, and shows OIL SERVICE or INSPECTION with the distance left. The record pages of BMW's 2004 US M3 booklet list the services as Engine Oil Service, Inspection I, Engine Oil Service, Inspection II, so the distance between two of them is not a fixed number. The triggers:
@@ -190,7 +190,7 @@ On the E46 the Service Interval Indicator works out when the next service is due
 | `oil-service` | The service the indicator shows as OIL SERVICE. |
 | `inspection-i` | The service the indicator shows as INSPECTION and BMW lists as Inspection I. |
 | `inspection-ii` | Inspection II, which BMW says includes everything in Inspection I and more. |
-| `lifetime-fill` | BMW says the fluid or part is a lifetime fill with no scheduled change. Give no `miles` or `months`. The schema doesn't enforce that. |
+| `lifetime-fill` | BMW says the fluid or part is a lifetime fill with no scheduled change. It takes no `miles` or `months`: the schema rejects them. |
 | `condition-based` | BMW's Condition Based Service decides from its own monitoring of that part. BMW started it with the E65, so no E46 item uses it. |
 
 ### Markets

@@ -1,6 +1,6 @@
 # FIXTURE DATA. Invented values for tests; not a real known issue.
 # A fix backed by a Tier 2 source and no cost, because no source gives one. The fix is published
-# and the site shows "no sourced cost" (ADR 0014).
+# and the site shows "no sourced cost" (ADR 0016).
 id: fixture-fix-without-cost
 generation: e46
 engine: FIXTURE-ENGINE

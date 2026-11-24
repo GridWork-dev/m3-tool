@@ -643,6 +643,34 @@ describe('maintenance item and known issue', () => {
     expect(issuePaths(zero)).toContain('interval.miles')
   })
 
+  test('a lifetime-fill interval may not also carry miles or months', () => {
+    expect(
+      MaintenanceItem.safeParse(edit(maintenance(), 'interval', { trigger: 'lifetime-fill' }))
+        .success,
+    ).toBe(true)
+    for (const extra of [{ miles: 100000 }, { months: 48 }, { miles: 100000, months: 48 }]) {
+      const r = MaintenanceItem.safeParse(
+        edit(maintenance(), 'interval', { trigger: 'lifetime-fill', ...extra }),
+      )
+      expect(r.success, JSON.stringify(extra)).toBe(false)
+      expect(issuePaths(r), JSON.stringify(extra)).toContain('interval')
+      expect(issueMessages(r).join(' '), JSON.stringify(extra)).toMatch(/lifetime-fill/)
+    }
+    // Every other trigger may still carry a number the source gives.
+    for (const trigger of MAINTENANCE_TRIGGERS.filter((t) => t !== 'lifetime-fill')) {
+      const withNumbers = { trigger, miles: 60000, months: 48 }
+      expect(
+        MaintenanceItem.safeParse(edit(maintenance(), 'interval', withNumbers)).success,
+        trigger,
+      ).toBe(true)
+    }
+    // Miles or months without any trigger are unaffected.
+    expect(
+      MaintenanceItem.safeParse(edit(maintenance(), 'interval', { miles: 100000, months: 48 }))
+        .success,
+    ).toBe(true)
+  })
+
   test('the interval takes no keys beyond miles, months and trigger', () => {
     const r = MaintenanceItem.safeParse(
       edit(maintenance(), 'interval', { trigger: 'oil-service', hours: 100 }),
