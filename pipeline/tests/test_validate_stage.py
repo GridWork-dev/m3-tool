@@ -17,8 +17,12 @@ ASSET = AssetSpec("e46-coupe-body", "base-car", "e46", "e46-coupe")
 REPO = load_settings({}).repo_root
 
 
+def _export_path(work_dir: Path) -> Path:
+    return work_dir / "assets/e46-coupe-body/export/e46-coupe-body.glb"
+
+
 def _export(work_dir: Path) -> Path:
-    glb = work_dir / "assets/e46-coupe-body/export/e46-coupe-body.glb"
+    glb = _export_path(work_dir)
     glb.parent.mkdir(parents=True)
     glb.write_bytes(b"x")
     return glb
@@ -307,3 +311,61 @@ def test_stages_register_when_the_package_is_imported_fresh() -> None:
         # Membership, not equality: later plans register more stages.
         registered = ast.literal_eval(out.stdout.strip())
         assert isinstance(registered, list) and "validate" in registered
+
+
+# ---------------------------------------------------------------------------------------------
+# The export folder stays out of the repo (Task 0 ledger N4): the stage reads the GLB and
+# writes a report there, and refuses both when the folder resolves into the repo.
+# ---------------------------------------------------------------------------------------------
+
+
+def test_refuses_an_export_folder_inside_the_repo_for_both_the_read_and_the_write(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    settings = Settings(repo_root=repo, work_dir=repo / "work")
+    glb = _export(settings.work_dir)  # the GLB exists, so only the guard can stop the read
+    stale = _stale_report(settings.work_dir)
+    calls = _stub_validator(monkeypatch, 0, json.dumps({"ok": True, "issues": []}))
+    r = validate(ASSET, settings)
+    assert not r.ok and r.outputs == []
+    assert "inside the repo" in r.messages[0]
+    assert calls == []  # node never read the GLB in the repo
+    assert stale.exists() and glb.read_bytes() == b"x"  # and nothing in the repo was touched
+
+
+def test_refuses_a_glb_that_is_a_link_into_the_repo(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    settings = Settings(repo_root=repo, work_dir=tmp_path / "work")
+    target = repo / "elsewhere.glb"
+    target.write_bytes(b"repo file")
+    link = _export_path(settings.work_dir)
+    link.parent.mkdir(parents=True)
+    link.symlink_to(target)
+    calls = _stub_validator(monkeypatch, 0, json.dumps({"ok": True, "issues": []}))
+    r = validate(ASSET, settings)
+    assert not r.ok and "inside the repo" in r.messages[0]
+    assert calls == []
+    assert not _report_path(settings.work_dir).exists()
+
+
+def test_refuses_a_report_that_is_a_link_into_the_repo(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    settings = Settings(repo_root=repo, work_dir=tmp_path / "work")
+    _export(settings.work_dir)
+    target = repo / "report.json"
+    target.write_text("repo file", "utf-8")
+    _report_path(settings.work_dir).symlink_to(target)
+    calls = _stub_validator(monkeypatch, 0, json.dumps({"ok": True, "issues": []}))
+    r = validate(ASSET, settings)
+    assert not r.ok and "inside the repo" in r.messages[0]
+    assert calls == []
+    assert target.read_text("utf-8") == "repo file"
+    assert _report_path(settings.work_dir).is_symlink()  # the link was not followed or replaced

@@ -45,4 +45,5 @@ def run_stage(name: str, asset: AssetSpec, settings: Settings) -> StageResult:
 # A stage registers itself when its module is imported, so every stage module is imported here.
 # These imports stay at the bottom: the modules import StageResult and register from this package,
 # which must be fully defined by then.
+from m3_pipeline.stages import export as export  # noqa: E402
 from m3_pipeline.stages import validate as validate  # noqa: E402
