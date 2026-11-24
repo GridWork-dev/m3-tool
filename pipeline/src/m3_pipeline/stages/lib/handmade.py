@@ -23,6 +23,7 @@ from typing import Literal, cast
 
 from m3_pipeline.config import Settings, load_settings
 from m3_pipeline.stages.lib.paths import require_work_dir_outside_repo, subject_body
+from m3_pipeline.stages.lib.viewset_io import viewset_path
 
 Kind = Literal["base-car", "interior"]
 
@@ -133,7 +134,7 @@ def build_handmade_viewset(work_dir: Path, subject: str, kind: Kind, picks: Sequ
         "licenses": licenses,
         "rejected": {},
     }
-    dest = work_dir / "refs" / "viewsets" / f"{subject}.json"
+    dest = viewset_path(work_dir, subject)
     _write_atomic(dest, (json.dumps(doc, indent=2) + "\n").encode("utf-8"))
     return dest
 
