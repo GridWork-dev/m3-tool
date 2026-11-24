@@ -50,6 +50,10 @@ class PageFetchError(Exception):
         super().__init__(reason)
 
 
+def _needs_js(html: str) -> bool:
+    return "enable javascript" in html.lower()
+
+
 class _Unlocker(Protocol):
     def __call__(self, http: httpx.Client, url: str) -> UnlockResult: ...
 
@@ -87,9 +91,15 @@ def _unblock(url: str, http: httpx.Client) -> FetchedPage:
             usage[service] = 1
             continue
         usage[service] = 1
-        if result.success and not is_blocked(result.status, "", result.html[:4096]):
+        if (
+            result.success
+            and not is_blocked(result.status, "", result.html[:4096])
+            and not _needs_js(result.html)
+        ):
             return FetchedPage(result.html, url, result.status, service, usage)
-    raise PageFetchError(url, "blocked: all unblock services failed or lack credentials", usage)
+    raise PageFetchError(
+        url, "blocked: all unblock services failed, lack credentials or returned shells", usage
+    )
 
 
 def _render_polite(
@@ -99,6 +109,7 @@ def _render_polite(
     robots: RobotsCache,
     throttle: Throttle,
 ) -> FetchedPage:
+    from playwright.sync_api import Error as PlaywrightError
     from playwright.sync_api import sync_playwright
 
     def route_request(route: Route) -> None:
@@ -122,6 +133,8 @@ def _render_polite(
             return FetchedPage(
                 page.content(), page.url, response.status if response else 0, "polite"
             )
+        except PlaywrightError as exc:
+            raise PageFetchError(url, "javascript rendering failed") from exc
         finally:
             browser.close()
 
@@ -169,10 +182,17 @@ def fetch_page(
             return _unblock(url, http)
         if not 200 <= status < 300:
             raise PageFetchError(original, f"HTTP {status}")
-        if "enable javascript" in html.lower():
+        if _needs_js(html):
             if playwright_page_factory:
-                with playwright_page_factory() as page:
-                    result = page.fetch(url)
+                try:
+                    with playwright_page_factory() as page:
+                        result = page.fetch(url)
+                except PageFetchError:
+                    raise
+                except Exception as exc:
+                    # One unavailable page must not abort the whole collection:
+                    # check_prices recovers per URL from PageFetchError only.
+                    raise PageFetchError(original, "javascript rendering failed") from exc
             else:
                 result = _render_polite(url, http, cfg, robots, throttle)
             if not robots.allowed(result.final_url):

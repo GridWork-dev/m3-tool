@@ -125,6 +125,64 @@ def test_evomi_is_the_last_rung(monkeypatch: pytest.MonkeyPatch) -> None:
     assert calls == ["brightdata", "browserbase", "evomi"]
 
 
+def test_javascript_shell_from_an_unblock_rung_escalates_to_the_next(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    calls: list[str] = []
+
+    def shell(http: httpx.Client, url: str) -> UnlockResult:
+        calls.append("brightdata")
+        return UnlockResult(True, "<p>Please enable JavaScript to continue</p>", 200)
+
+    def rendered(http: httpx.Client, url: str) -> UnlockResult:
+        calls.append("browserbase")
+        return UnlockResult(True, "<p>$100</p>", 200)
+
+    monkeypatch.setattr(tier, "_brightdata", shell)
+    monkeypatch.setattr(tier, "_browserbase", rendered)
+    with httpx.Client(transport=httpx.MockTransport(lambda r: pytest.fail("direct fetch"))) as http:
+        page = fetch(http, replace(SELLER, tier="unblock"))
+    assert page.via == "browserbase" and calls == ["brightdata", "browserbase"]
+    assert page.usage == {"brightdata": 1, "browserbase": 1}
+
+
+def test_a_failing_javascript_render_becomes_a_page_error() -> None:
+    from collections.abc import Iterator
+    from contextlib import contextmanager
+    from types import SimpleNamespace
+
+    from playwright.sync_api import TimeoutError as PlaywrightTimeout
+
+    @contextmanager
+    def factory() -> Iterator[SimpleNamespace]:
+        def fetch_page(url: str) -> object:
+            raise PlaywrightTimeout("navigation timed out")
+
+        yield SimpleNamespace(fetch=fetch_page)
+
+    clock = FakeClock()
+
+    def respond(r: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            404 if r.url.path == "/robots.txt" else 200,
+            text="<p>please enable javascript</p>",
+        )
+
+    with (
+        httpx.Client(transport=httpx.MockTransport(respond)) as http,
+        pytest.raises(tier.PageFetchError, match="javascript rendering failed"),
+    ):
+        tier.fetch_page(
+            "https://example.test/p",
+            seller=SELLER,
+            cfg=PricingConfig("test-agent", {SELLER.id: SELLER}),
+            http=http,
+            playwright_page_factory=factory,
+            robots=RobotsCache(http, "test-agent"),
+            throttle=Throttle(0, clock=clock.now, sleep=clock.sleep),
+        )
+
+
 def test_prices_session_payload_is_the_inverse_of_refs() -> None:
     p, r = prices_session_payload("project"), browserbase_session_payload("project")
     assert p["projectId"] == "project" and p["timeout"] == 900 and p["proxies"] is False
