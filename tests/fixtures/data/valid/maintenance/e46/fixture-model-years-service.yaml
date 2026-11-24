@@ -1,0 +1,20 @@
+# FIXTURE DATA. Invented values for tests; not a real service interval.
+# A schedule the source gives for some model years only (2001 to 2003), so the item says which,
+# with a number from the source and the wording the number depends on in `notes`.
+id: fixture-model-years-service
+generation: e46
+engine: FIXTURE-ENGINE
+modelYears: [2001, 2003]
+title: Fixture model-years service
+interval:
+  months: 48
+parts: [fixture part]
+fluids: [fixture fluid]
+inspectWhenBuying: false
+sources:
+  - title: Fixture service bulletin
+    publisher: Fixture Co
+    tier: 1
+    accessed: 2026-11-23
+verified: true
+notes: Every 4 years, from the date of production.
