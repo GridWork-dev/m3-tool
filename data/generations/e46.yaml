@@ -33,7 +33,7 @@ sources:
   - title: BMW M3 E46 [2000 .. 2006] wheel fitment, 3.2i (S54B32)
     publisher: Koleso.ee (Astela OÜ)
     url: https://koleso.ee/en/valuveljed/bmw/m3/263/e46-2000-2006/544
-    tier: 2
+    tier: 3
     accessed: 2026-11-23
     note: 'Tire retailer''s page. Lists generation "E46 [2000 .. 2006]", production 2000 - 2006, engine "3.2 L, S54B32, I6".'
 dimensions:
@@ -97,7 +97,7 @@ fitment:
     - title: BMW M3 E46 [2000 .. 2006] wheel fitment, 3.2i (S54B32)
       publisher: Koleso.ee (Astela OÜ)
       url: https://koleso.ee/en/valuveljed/bmw/m3/263/e46-2000-2006/544
-      tier: 2
+      tier: 3
       accessed: 2026-11-23
       note: "Tire retailer's fitment data. Lists the OEM front as 225/45R18 on 8Jx18 ET47 and the OEM rear as 255/40R18 on 9Jx18 ET26, bolt pattern 5x120 and center bore 72.6 mm."
     - title: ALY59367 BMW M3 Wheel/Rim Hyper Silver #36112229950
