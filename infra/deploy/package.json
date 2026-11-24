@@ -1,0 +1,9 @@
+{
+  "name": "m3-tool-deploy",
+  "private": true,
+  "type": "module",
+  "description": "The wrangler the deploy job runs, installed from its own lockfile with scripts off.",
+  "dependencies": {
+    "wrangler": "4.167.0"
+  }
+}
