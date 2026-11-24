@@ -9,6 +9,8 @@ antialiased, so the truth is exact to a pixel.
 
 from dataclasses import dataclass
 
+import numpy as np
+from numpy.typing import NDArray
 from PIL import Image, ImageDraw
 
 BACKGROUND = (0xD9, 0xD9, 0xD9)
@@ -115,3 +117,60 @@ def add_contact_shadows(
         bottom = cy + truth.tire_radius_px - lift_px
         x = cx + shift
         draw.ellipse((x - width / 2, bottom - height, x + width / 2, bottom), fill=color)
+
+
+@dataclass(frozen=True)
+class ProxyRender:
+    """Task 9's side render of a car-profile mesh with its real wheel proxies, and the truth in
+    its pixels: the columns of the wheel centers, the tire radius, and the scale."""
+
+    mask: NDArray[np.bool_]
+    px_per_m: float
+    front_column: float
+    rear_column: float
+    tire_radius_px: float
+
+
+def render_proxy_car(size: int, underside_m: tuple[float, float] = (0.15, 0.15)) -> ProxyRender:
+    """The E46 coupe's side plates (4.492 m long, 1.372 m tall, wheelbase 2.731 m, underside at
+    `underside_m` nose and tail) plus `add_wheel_proxies`' 24-sided tires of the stock 225/45ZR18,
+    seen by `render_ortho_side` on a `size` px canvas: nose toward the right."""
+    from m3_pipeline.stages.lib.dims import tire_radius_m, tire_width_m
+    from m3_pipeline.stages.lib.projection import Mesh, add_wheel_proxies, render_ortho_side
+
+    half = LENGTH_MM / 2000
+    nose_sill, tail_sill = underside_m
+    pieces = [
+        [(-half, nose_sill), (half, tail_sill), (half, 0.80), (-half, 0.80)],  # (z, y)
+        [(-0.55, 0.80), (1.65, 0.80), (1.15, 1.372), (0.05, 1.372)],  # the cabin, toward the tail
+    ]
+    vertices: list[tuple[float, float, float]] = []
+    faces: list[tuple[int, int, int]] = []
+    for x in (-0.89, 0.89):
+        for piece in pieces:
+            base = len(vertices)
+            vertices += [(x, y, z) for z, y in piece]
+            faces += [(base, base + 1, base + 2), (base, base + 2, base + 3)]
+    body = Mesh(np.array(vertices, dtype=np.float64), np.array(faces, dtype=np.int64))
+
+    radius, width = tire_radius_m("225/45ZR18"), tire_width_m("225/45ZR18")
+    front_z, rear_z = -WHEELBASE_MM / 2000, WHEELBASE_MM / 2000
+    anchors = {
+        "wheel_FL": (0.75, radius, front_z),
+        "wheel_FR": (-0.75, radius, front_z),
+        "wheel_RL": (0.75, radius, rear_z),
+        "wheel_RR": (-0.75, radius, rear_z),
+    }
+    mesh = add_wheel_proxies(
+        body, anchors, dict.fromkeys(anchors, radius), dict.fromkeys(anchors, width)
+    )
+    ortho = render_ortho_side(mesh, size)
+    origin_column = ortho.origin_px[0]
+    # A pixel's z is -(column - origin) / px_per_m, so a wheel at z sits at origin - z * px_per_m.
+    return ProxyRender(
+        mask=ortho.mask,
+        px_per_m=ortho.px_per_m,
+        front_column=origin_column - front_z * ortho.px_per_m,
+        rear_column=origin_column - rear_z * ortho.px_per_m,
+        tire_radius_px=radius * ortho.px_per_m,
+    )

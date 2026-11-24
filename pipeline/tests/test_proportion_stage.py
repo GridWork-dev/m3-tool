@@ -248,4 +248,5 @@ def test_an_unmeasurable_wheel_pair_says_why_in_the_report_and_the_messages(
     assert set(report) == {"ok", "error", "side_sha256"}
     assert str(report["error"]).startswith("wheels not found")
     assert "residual" in str(report["error"]) or "radius" in str(report["error"])
+    assert "a floor or contact shadow may have merged into the silhouette" in str(report["error"])
     assert "wheels not found" in " ".join(result.messages)

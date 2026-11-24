@@ -62,10 +62,13 @@ _MAX_RADIUS_SHARE = 0.40
 _BAND_SHARE = 0.03
 _BAND_MIN_PX = 1.5
 # The gates a circle must pass, each a share of the radius or of the arc:
-# - Residual, the RMS distance of the points on the circle from it: at most 1% of the radius.
-#   Pixel rounding alone is 0.3 px (0.4% of an 80 px radius) and blur, noise and JPEG add up to
-#   0.5% at that size. The wrong circles that shadows shifted under the tires produce measure
-#   1.2% to 2.6% (the check against the shadow repros is in the tests).
+# - Residual, the RMS distance of the points on the circle from it: at most 1% of the radius, and
+#   never less than `_MIN_RESIDUAL_PX`. Pixel rounding alone is 0.3 px (0.4% of an 80 px radius)
+#   and blur, noise and JPEG add up to 0.5% at that size. The wrong circles that shadows shifted
+#   under the tires produce measure 1.2% to 2.6% (the check against the shadow repros is in the
+#   tests). The floor is twice the 0.3 px of rounding: at a radius under 60 px (a 512 px render of
+#   a car) 1% would ask for less error than rounding and a 24-sided tire make, and a render has
+#   no shadows to guard against. At 60 px and above the floor is not reached.
 # - Coverage, the share of the arc below the underside that lies on the circle: at least 85%. A
 #   clean tire is 100%, and a splitter that runs into the bump takes about 6%. Over 300 floor
 #   shadows of every size and offset that passed, the wheelbase was within 0.3% of the truth at
@@ -75,9 +78,15 @@ _BAND_MIN_PX = 1.5
 #   too loosely.
 # - Radii: the two wheels differ by at most 10% of their mean (staggered fitments are within 3%).
 _MAX_RESIDUAL = 0.01
+_MIN_RESIDUAL_PX = 0.6
 _MIN_COVERAGE = 0.85
 _MIN_ARC_DEG = 60.0
 _MAX_RADIUS_SPREAD = 0.10
+
+
+# The usual reason no bump is usable: generators add a contact shadow, and any shadow darker than
+# the mask tolerance joins the silhouette, fills the gap under the car or merges with the tires.
+_SHADOW_HINT = "a floor or contact shadow may have merged into the silhouette"
 
 
 class SilhouetteError(ValueError):
@@ -88,9 +97,11 @@ def mask_from_image(img: Image.Image, *, tolerance: int = 24) -> NDArray[np.bool
     """The car's silhouette: True where the picture differs from its plain background.
 
     The background color is the mean of the four corner patches. The corners must agree within
-    `tolerance` (a color distance in RGB), and so must a 4-px strip along the whole border: a
-    gradient, a vignette or a floor shadow has no single background color to subtract. The
-    mask is the pixels farther than `tolerance` from that color, opened to drop specks.
+    `tolerance` (a color distance in RGB). So must the 4-px strip along each side of the border,
+    for at least half of its length: a gradient, a vignette or a floor shadow along an edge
+    differs over most of it and has no single background color to subtract, while a car that runs
+    off an edge covers a stretch of it and is reported as touching the border instead. The mask
+    is the pixels farther than `tolerance` from that color, opened to drop specks.
 
     Raises SilhouetteError("background not uniform"), SilhouetteError("touches the image border")
     or SilhouetteError("empty"). An image too small to hold a car and a border is "empty".
@@ -168,9 +179,10 @@ class WheelFit:
 class SideMeasure:
     """What a side silhouette says, in pixels. `front_center` and `rear_center` are `(x, y)`.
 
-    The synthesized side view has the nose toward the left of the image, so the left wheel is the
-    front one. A mask that faces right swaps the two names; the wheelbase and radius don't care.
-    `wheels` is the evidence, front first; the brief's six fields don't depend on it.
+    `measure_side` decides which wheel is the front one from its `nose_left` argument (the
+    synthesized side view has the nose toward the left, `render_ortho_side` toward the right); the
+    wheelbase and radius don't care. `wheels` is the evidence, front first; the brief's six fields
+    don't depend on it.
     """
 
     length_px: float
@@ -182,7 +194,7 @@ class SideMeasure:
     wheels: tuple[WheelFit, ...] = ()
 
 
-def measure_side(mask: NDArray[np.bool_]) -> SideMeasure:
+def measure_side(mask: NDArray[np.bool_], *, nose_left: bool = True) -> SideMeasure:
     """Length and height from the bounding box, wheels from circle fits.
 
     Take the lowest filled pixel of every column (the bottom contour). The body's underside is the
@@ -193,6 +205,10 @@ def measure_side(mask: NDArray[np.bool_]) -> SideMeasure:
     give each threshold and the reason for it). The two best-supported circles must agree in
     radius. `wheelbase_px` is the distance
     between their centers and `wheel_radius_px` their mean radius.
+
+    The nose direction is not detected: `nose_left` (the synthesized side view's convention) makes
+    the left-hand wheel the front one, and `nose_left=False` the right-hand one, as in
+    `render_ortho_side`'s mask. `front_center`, `rear_center` and `wheels` follow it.
 
     Never measures off a contour that isn't a circle: raises SilhouetteError("wheels not found:
     ...") with the reason for every bump it turned down, and also for an empty mask.
@@ -234,10 +250,12 @@ def measure_side(mask: NDArray[np.bool_]) -> SideMeasure:
             reasons.append(outcome)
     if len(fits) < 2:
         found = f"{len(fits)} usable of {len(bumps)} bump(s) below the underside"
-        raise SilhouetteError("wheels not found: " + "; ".join([found, *reasons]))
+        hint = [_SHADOW_HINT] if not fits else []
+        raise SilhouetteError("wheels not found: " + "; ".join([found, *reasons, *hint]))
 
     best = sorted(fits, key=lambda fit: -fit.inliers)[:2]
-    front, rear = sorted(best, key=lambda fit: fit.center[0])
+    left, right = sorted(best, key=lambda fit: fit.center[0])
+    front, rear = (left, right) if nose_left else (right, left)
     mean_radius = (front.radius_px + rear.radius_px) / 2
     if abs(front.radius_px - rear.radius_px) > _MAX_RADIUS_SPREAD * mean_radius:
         raise SilhouetteError(
@@ -331,13 +349,18 @@ def _fit_wheel(
     if not on.any():
         return f"{label}: the contour is nowhere on the circle (coverage 0%)"
     coverage = float(on.sum()) / float(zone.sum())
-    residual = float(np.sqrt(np.mean(error[on] ** 2))) / radius
+    rms_px = float(np.sqrt(np.mean(error[on] ** 2)))
+    residual = rms_px / radius
+    residual_limit_px = max(_MAX_RESIDUAL * radius, _MIN_RESIDUAL_PX)
     angles = np.degrees(np.arctan2(xs[on] - cx, edge[on] - cy))  # 0 at the bottom of the circle
     arc_deg = float(angles.max() - angles.min())
 
     failed: list[str] = []
-    if residual > _MAX_RESIDUAL:
-        failed.append(f"residual {residual:.1%} of the radius, over {_MAX_RESIDUAL:.0%}")
+    if rms_px > residual_limit_px:
+        failed.append(
+            f"residual {residual:.1%} of the radius ({rms_px:.2f} px), over "
+            f"{residual_limit_px:.2f} px"
+        )
     if coverage < _MIN_COVERAGE:
         failed.append(f"coverage {coverage:.0%} of the arc, under {_MIN_COVERAGE:.0%}")
     if arc_deg < _MIN_ARC_DEG:
