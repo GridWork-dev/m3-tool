@@ -21,7 +21,7 @@ sources:
     publisher: BMW Group
     url: https://newsroom.bmwgroup.com/emea/international-presskit--twenty-years-of-the-bmw-m3
     tier: 1
-    accessed: 2026-11-23
+    accessed: 2026-11-24
     note: 'BMW Media Information 7/2007. Lists "BMW M3 (E46)" with a coupe and a convertible, dates the coupe''s debut to 2000 and the convertible to 2001, says production of the E46-based M3 ended in 2006, gives the engine as a straight-six displacing 3,246 cc, and says that engine is ''the first power unit suitable for all countries and national specifications'', throttled to 333 SAE-hp on the US version.'
   - title: "BMW M3 Owner's Manual, online edition for part no. 01 41 0 157 628 (09/03): Engine data, p. 150"
     publisher: BMW AG
@@ -31,16 +31,16 @@ sources:
     note: "Archive.org copy. Displacement 198.1 cu in / 3,246 cm3, 6 cylinders, bore 87 mm, stroke 91 mm."
   - title: "SI B 11 04 04: Service Action: E46 M3 S54 Connecting Rod Bearings Replacement (October 2004)"
     publisher: BMW of North America, LLC
-    url: https://cdn.shopify.com/s/files/1/0533/1684/5721/files/S54_Bearing_shell_Service_Bulletin.pdf
+    url: https://web.archive.org/web/20240714182416/https://cdn.shopify.com/s/files/1/0533/1684/5721/files/S54_Bearing_shell_Service_Bulletin.pdf?v=1692985245
     tier: 1
     accessed: 2026-11-24
-    note: "BMW service bulletin, a third-party copy hosted on cdn.shopify.com, a Shopify store's CDN, not by BMW. Tier 1 under data.md's rule for copies (R77), judged as in e46-rod-bearing-wear-us: the file is the whole 12-page native PDF (created 1 October 2004 according to its metadata, with a 2004 BMW NA copyright line), not retyped; its number and scope are corroborated by Jalopnik ('SIB 11-04-04', a service action on early 2001 to 2003 cars); the Wayback CDX index held no snapshot of the file on 2026-11-24, and none was created. The Q&A and the two customer letters it lists as attachments are not in the copy. Used here only for the engine code: its model line reads 'E46 M3 coupe/convertible with S54B32 engine produced from 02/12/2001 up to 05/22/2003'. It is a BMW NA document, so it names the code for the US cars; BMW's press kit (above) says the 3,246 cc straight-six is one engine for all countries and national specifications, throttled on the US version, so the code names the generation's engine. Its repair content is not used."
+    note: "BMW service bulletin, a third-party copy: the file was published on cdn.shopify.com, a Shopify store's CDN, not by BMW, and the url is the existing Wayback snapshot of 2024-07-14 of that file, which is byte-identical to the vendor's file (same SHA-256 on 2026-11-24; no snapshot was created). Tier 1 under data.md's rule for copies (R77), judged as in e46-rod-bearing-wear-us: the file is the whole 12-page native PDF (created 1 October 2004 according to its metadata, with a 2004 BMW NA copyright line), not retyped; its number and scope are corroborated by Jalopnik ('SIB 11-04-04', a service action on early 2001 to 2003 cars). The Q&A and the two customer letters it lists as attachments are not in the copy. Its header says it 'supersedes SI B11 04 04 dated October 2004'. Used here only for the engine code: its model line reads 'E46 M3 coupe/convertible with S54B32 engine produced from 02/12/2001 up to 05/22/2003'. That range is the bulletin's affected range, not the engine's run: BMW's press kit (above) describes the one engine for the whole generation. The bulletin is a BMW NA document, so it names the code for the US cars; under R85 (data.md, 'What counts as verified') the code covers every market, because the press kit, an independent Tier 1 document for all markets, says of the 3,246 cc straight-six 'One engine for all countries.' and that it is throttled on the US version. Its repair content is not used."
   - title: "ST041 M3 Complete Vehicle: E46 M3 Technical Data"
     publisher: BMW Technical Training
     url: https://archive.org/download/BMWTechnicalTrainingDocuments/ST041%20M3%20Complete%20Vehicle/1%20M3%20Complete%20Vehicle.pdf
     tier: 2
-    accessed: 2026-11-23
-    note: "Copy hosted on archive.org; the file carries no publisher line. Tier 2 under data.md's rule for copies (R77): the file has no issuer line and no module number (its cover gives only 'Model: E46 M3' and 'Production Date: 01/2001'), so the manufacturer's identifiers are not intact. Its engine table gives engine type S54B32 (in-line, 6-cylinder, 4-valve) and engine size 3246 ccm, and its text calls the engine one that 'is used worldwide'. The displacement and cylinder count also rest on the owner's manual and BMW's press kit (Tier 1) and the engine code on SI B 11 04 04 (Tier 1), so no value here depends on this copy."
+    accessed: 2026-11-24
+    note: "Copy hosted on archive.org; the file carries no publisher line. Tier 2 under data.md's rule for copies (R77): the file has no issuer line and no module number (its cover gives only 'Model: E46 M3' and 'Production Date: 01/2001'), so the manufacturer's identifiers are not intact, and it is one chapter ('1 M3 Complete Vehicle', 22 pages) of a multi-file module, not the whole document. Its engine table gives engine type S54B32 (in-line, 6-cylinder, 4-valve) and engine size 3246 ccm, and its text calls the engine one that 'is used worldwide'. The displacement and cylinder count also rest on the owner's manual and BMW's press kit (Tier 1) and the engine code on SI B 11 04 04 (Tier 1), so no value here depends on this copy."
   - title: BMW M3 E46 [2000 .. 2006] wheel fitment, 3.2i (S54B32)
     publisher: Koleso.ee (Astela OÜ)
     url: https://koleso.ee/en/valuveljed/bmw/m3/263/e46-2000-2006/544
@@ -66,8 +66,8 @@ dimensions:
         publisher: BMW Technical Training
         url: https://archive.org/download/BMWTechnicalTrainingDocuments/ST041%20M3%20Complete%20Vehicle/1%20M3%20Complete%20Vehicle.pdf
         tier: 2
-        accessed: 2026-11-23
-        note: "BMW training module for the E46 M3 coupe (production date 01/2001), copy hosted on archive.org; the file carries no publisher line. Tier 2 under data.md's rule for copies (R77): the file has no issuer line and no module number, so the manufacturer's identifiers are not intact. Its specifications table gives length 4492, width 1780, height (unladen) 1372 and wheelbase 2731 mm, and engine type S54B32. It has no track widths. The owner's manual (Tier 1) gives all six dimensions, so no coupe value depends on this copy."
+        accessed: 2026-11-24
+        note: "BMW training module for the E46 M3 coupe (production date 01/2001), copy hosted on archive.org; the file carries no publisher line. Tier 2 under data.md's rule for copies (R77): the file has no issuer line and no module number, so the manufacturer's identifiers are not intact, and it is one chapter ('1 M3 Complete Vehicle', 22 pages) of a multi-file module, not the whole document. Its specifications table gives length 4492, width 1780, height (unladen) 1372 and wheelbase 2731 mm, and engine type S54B32. It has no track widths. The owner's manual (Tier 1) gives all six dimensions, so no coupe value depends on this copy."
 driverEyePoint:
   xMm: -370
   yMm: 1100
