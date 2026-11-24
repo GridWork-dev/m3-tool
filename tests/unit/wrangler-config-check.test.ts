@@ -12,6 +12,12 @@ import {
   parseJsonc,
 } from '../../infra/deploy/check-config.ts'
 
+// The characters under test are built from their code points: a formatter turns a \u escape into
+// the invisible character itself, which nobody can read in the source.
+const LS = String.fromCharCode(0x2028) // line separator
+const PS = String.fromCharCode(0x2029) // paragraph separator
+const BOM = String.fromCharCode(0xfeff) // byte order mark
+
 const root = fileURLToPath(new URL('../../', import.meta.url))
 const CLI = `${root}infra/deploy/check-config.ts`
 const committed = readFileSync(`${root}wrangler.jsonc`, 'utf8')
@@ -221,13 +227,152 @@ describe('JSONC: comments and trailing commas, as wrangler allows', () => {
   })
 
   test('a byte order mark is ignored', () => {
-    expect(checkWranglerConfig(`﻿${committed}`)).toEqual([])
+    expect(checkWranglerConfig(`${BOM}${committed}`)).toEqual([])
   })
 
   test('parseJsonc throws on text that is not JSON once comments and trailing commas are gone', () => {
     expect(() => parseJsonc('{name: 1}')).toThrow()
     expect(() => parseJsonc("{'name': 1}")).toThrow()
     expect(() => parseJsonc('{"a": 1,, }')).toThrow()
+  })
+})
+
+describe('comment terminators, as wrangler reads them (review N1)', () => {
+  // wrangler parses with jsonc-parser, which ends a // comment at \n, at \r\n, and at a lone \r.
+  // A checker that ends it at \n only reads `// note<CR>"build": {...}` as one comment while
+  // wrangler reads a build command.
+  test.each([
+    ['LF', '\n'],
+    ['CRLF', '\r\n'],
+    ['a lone CR', '\r'],
+  ])('a // comment ends at %s', (_label, terminator) => {
+    expect(parseJsonc(`{"a":1, // note${terminator}"b":2}`)).toEqual({ a: 1, b: 2 })
+  })
+
+  const REVIEWER_REPRO =
+    '{"name":"m3-tool","compatibility_date":"2026-11-23","assets":{"directory":"./dist"}, // note\r' +
+    '"build":{"command":"echo RAN_BUILD_COMMAND > pwned.txt"}\n}'
+
+  test("the reviewer's reproduction is refused, and the build command is named", () => {
+    const problems = checkWranglerConfig(REVIEWER_REPRO)
+    expect(problems.join('\n')).toContain('"build"')
+    expect(problems.join('\n')).toMatch(/carriage return/i)
+  })
+
+  test('so is a main script hidden the same way', () => {
+    const problems = checkWranglerConfig('{"name":"m3-tool", // note\r"main":"x.js"}')
+    expect(problems.join('\n')).toContain('"main"')
+  })
+
+  test('the CLI exits 1 for the reproduction', async () => {
+    const { mkdtemp, writeFile, rm } = await import('node:fs/promises')
+    const { tmpdir } = await import('node:os')
+    const { join } = await import('node:path')
+    const dir = await mkdtemp(join(tmpdir(), 'wrangler-config-'))
+    try {
+      const file = join(dir, 'wrangler.jsonc')
+      await writeFile(file, REVIEWER_REPRO)
+      const result = spawnSync(process.execPath, [CLI, file], { encoding: 'utf8', cwd: root })
+      expect(result.status).toBe(1)
+      expect(result.stderr).toContain('"build"')
+    } finally {
+      await rm(dir, { recursive: true, force: true })
+    }
+  })
+
+  test('a file with CRLF line endings throughout is fine', () => {
+    expect(checkWranglerConfig(committed.replace(/\r?\n/g, '\r\n'))).toEqual([])
+  })
+})
+
+describe('what is refused outright, because two parsers might read it differently (defense in depth)', () => {
+  const valid = '{"name":"m3-tool","compatibility_date":"2026-11-23"}'
+
+  test.each([
+    ['a lone carriage return between tokens', '{"name":"m3-tool"\r}', /carriage return/i],
+    [
+      'a lone carriage return inside a comment',
+      '{"name":"m3-tool" /* a\rb */}',
+      /carriage return/i,
+    ],
+    [
+      'a lone carriage return before a line feed pair',
+      '{"name":"m3-tool",\r\r\n"compatibility_date":"2026-11-23"}',
+      /carriage return/i,
+    ],
+    [
+      'a line separator (U+2028) in whitespace',
+      `{"name":"m3-tool",${LS}"compatibility_date":"2026-11-23"}`,
+      /U\+2028|line separator/i,
+    ],
+    [
+      'a line separator (U+2028) in a comment',
+      `{"name":"m3-tool", // note${LS}"build":{}\n}`,
+      /U\+2028|line separator/i,
+    ],
+    [
+      'a paragraph separator (U+2029)',
+      `{"name":"m3-tool",${PS}"compatibility_date":"2026-11-23"}`,
+      /U\+2029|paragraph separator/i,
+    ],
+    ['a line separator inside a string', `{"name":"m3${LS}tool"}`, /U\+2028|line separator/i],
+    [
+      'a byte order mark after the first character',
+      `${valid.slice(0, 1)}${BOM}${valid.slice(1)}`,
+      /byte order mark/i,
+    ],
+    ['two byte order marks at the start', `${BOM}${BOM}${valid}`, /byte order mark/i],
+    ['a byte order mark at the end', `${valid}${BOM}`, /byte order mark/i],
+  ])('%s', (_label, text, message) => {
+    const problems = checkWranglerConfig(text)
+    expect(problems.length).toBeGreaterThan(0)
+    expect(problems.join('\n')).toMatch(message)
+  })
+
+  test('a single byte order mark at the start is accepted, as wrangler accepts it', () => {
+    expect(checkWranglerConfig(`${BOM}${valid}`)).toEqual([])
+  })
+
+  describe('duplicate keys, at any level', () => {
+    test.each([
+      ['at the top level', '{"name":"m3-tool","name":"other"}', '"name"'],
+      [
+        'in assets',
+        '{"name":"m3-tool","assets":{"directory":"./dist","directory":"./other"}}',
+        '"directory"',
+      ],
+      ['hidden behind an escape', '{"name":"m3-tool","\\u006eame":"other"}', '"name"'],
+      ['across a comment', '{"name":"m3-tool", /* c */ "name":"other"}', '"name"'],
+      [
+        'in an object inside an array',
+        '{"name":"m3-tool","assets":{"directory":"./dist"},"extra":[{"a":1,"a":2}]}',
+        '"a"',
+      ],
+      ['in a nested object three deep', '{"name":"m3-tool","x":{"y":{"z":1,"z":2}}}', '"z"'],
+    ])('%s', (_label, text, key) => {
+      const problems = checkWranglerConfig(text)
+      expect(problems.join('\n')).toMatch(/duplicate/i)
+      expect(problems.join('\n')).toContain(key)
+    })
+
+    test('the same key in different objects is not a duplicate', () => {
+      const text =
+        '{"name":"m3-tool","assets":{"directory":"./dist"},"x":{"directory":"a"},"y":[{"directory":"b"},{"directory":"c"}]}'
+      expect(checkWranglerConfig(text).join('\n')).not.toMatch(/duplicate/i)
+    })
+
+    test('a key that matches a string value is not a duplicate', () => {
+      expect(checkWranglerConfig('{"name":"name"}')).toEqual([])
+      expect(checkWranglerConfig('{"name":"m3-tool","compatibility_date":"2026-11-23"}')).toEqual(
+        [],
+      )
+    })
+
+    test('a duplicate of a key the allowlist refuses is reported as both', () => {
+      const problems = checkWranglerConfig('{"name":"m3-tool","build":{},"build":{}}')
+      expect(problems.join('\n')).toMatch(/duplicate/i)
+      expect(problems.join('\n')).toContain('is not allowed')
+    })
   })
 })
 
