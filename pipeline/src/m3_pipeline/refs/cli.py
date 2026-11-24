@@ -1,4 +1,5 @@
 from dataclasses import asdict
+from pathlib import Path
 from typing import Annotated
 
 import httpx
@@ -6,8 +7,10 @@ import typer
 
 from m3_pipeline.config import load_settings
 from m3_pipeline.refs.commons import CommonsClient
+from m3_pipeline.refs.importer import import_directory
 from m3_pipeline.refs.sources import SubjectSources, load_sources
 from m3_pipeline.refs.store import RefStore
+from m3_pipeline.refs.subjects import parse_subject
 from m3_pipeline.refs.throttle import Throttle
 
 refs_app = typer.Typer(help="Reference photo collection and curation")
@@ -56,3 +59,28 @@ def commons(
         )
     for key, value in asdict(report).items():
         typer.echo(f"{key}={value}")
+
+
+@refs_app.command("import")
+def import_photos(
+    directory: Annotated[Path, typer.Argument(exists=True, file_okay=False)],
+    subject: Annotated[str, typer.Option("--subject")],
+    source_note: Annotated[str, typer.Option("--source-note")],
+    license_short: Annotated[str | None, typer.Option("--license")] = None,
+) -> None:
+    """Import local photos without changing the originals."""
+    try:
+        parse_subject(subject)
+    except ValueError as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(2) from None
+    report = import_directory(
+        RefStore(load_settings()),
+        directory,
+        subject=subject,
+        source_note=source_note,
+        license_short=license_short,
+    )
+    typer.echo(f"added={report.added} known={report.known} skipped={len(report.skipped)}")
+    for path, reason in report.skipped:
+        typer.echo(f"skipped {path}: {reason}")
