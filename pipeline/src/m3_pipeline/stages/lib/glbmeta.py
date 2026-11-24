@@ -106,6 +106,62 @@ def mesh_stats(path: Path) -> MeshStats:
     )
 
 
+@dataclass(frozen=True)
+class PartStats:
+    """One mesh-bearing node: name (`node-<index>` if unnamed), triangles and world box."""
+
+    name: str
+    triangles: int
+    bbox_min: Vec
+    bbox_max: Vec
+
+
+def part_stats(path: Path) -> tuple[PartStats, ...]:
+    """The parts of a split mesh: one entry per node of the default scene that uses a mesh, in
+    scene order, measured the way `mesh_stats` measures the whole file. A mesh shared by two
+    nodes is two parts. A node with no geometry (no POSITION bounds) is not a part."""
+    doc = _read_json(path)
+    nodes = _objects(doc, "nodes", path)
+    meshes = _objects(doc, "meshes", path)
+    accessors = _objects(doc, "accessors", path)
+    parts: list[PartStats] = []
+    for index, world in _walk_scene(doc, nodes, path):
+        node = nodes[index]
+        if node.get("mesh") is None:
+            continue
+        mesh = _at(meshes, node["mesh"], "mesh", path)
+        triangles = 0
+        lows: list[Vec] = []
+        highs: list[Vec] = []
+        for primitive in _objects(mesh, "primitives", path):
+            triangles += _triangles(primitive, accessors, path)
+            bounds = _position_bounds(primitive, accessors, path)
+            if bounds is not None:
+                low, high = _transformed_box(world, *bounds)
+                lows.append(low)
+                highs.append(high)
+        if not lows:
+            continue
+        name = node.get("name")
+        parts.append(
+            PartStats(
+                name=name if isinstance(name, str) and name else f"node-{index}",
+                triangles=triangles,
+                bbox_min=(
+                    min(v[0] for v in lows),
+                    min(v[1] for v in lows),
+                    min(v[2] for v in lows),
+                ),
+                bbox_max=(
+                    max(v[0] for v in highs),
+                    max(v[1] for v in highs),
+                    max(v[2] for v in highs),
+                ),
+            )
+        )
+    return tuple(parts)
+
+
 def read_glb_asset_block(path: Path) -> dict[str, object]:
     """The file's `asset` object: `version`, and when present `generator`, `copyright`, `extras`."""
     asset = _read_json(path).get("asset")
