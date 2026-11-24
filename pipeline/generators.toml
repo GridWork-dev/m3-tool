@@ -1,0 +1,265 @@
+# The fal endpoints the Phase 0.6 spike may call, with their field names and price rules.
+#
+# Facts dated 2026-11-23: each endpoint's own `llms.txt` page (the `source` of every entry) and,
+# for two field shapes the page leaves open, its OpenAPI schema, read with no paid call. A call
+# to anything not listed here is refused (`check_endpoint_allowed`). To add an endpoint, read its
+# live price from fal, add an entry here in a small tooling PR, add a ledger row, and only then
+# call it. `image-edit` is absent on purpose: the fallback stays off.
+#
+# Price rules. `base` is the price when every option is at its lowest priced value. Each
+# `[[...price.options]]` entry is one option the spike may set, under the name the caller uses.
+# A value lists what it adds to `base` and the fal request fields it becomes (`fields`), so the
+# price and the request come from the same entry and cannot disagree. A value with no entry is
+# refused (`PriceUnknown`): the price of Meshy's `geometry_resolution = "2k"` is unconfirmed, so
+# it has none. An option left out takes its `default`, which is what fal does, and that default
+# is priced and sent. `free` lists request fields that fal's price text does not charge for; they
+# pass through unchanged. Anything else is refused.
+#
+# Names a caller sets here are the spike's, not always fal's. Where they differ (`texture`,
+# `detailed_geometry`, `highpack`, `textured`, `multi_view`) the entry's `fields` is the fal name:
+# fal's Tripo `texture` is a boolean beside a separate `texture_quality`, and its Rodin `addons`
+# is an object `{ high_pack = true }`, not a list.
+
+[generators."rodin-fast"]
+endpoint = "fal-ai/hyper3d/rodin/v2.5/fast"
+kind = "image-to-3d"
+input_kind = "images"
+min_images = 1
+max_images = 5
+# The first image feeds material generation, so the order is the priority order.
+slot_order = ["front_34", "rear_34", "side", "front", "rear"]
+image_field = "image_urls"
+result_field = "model_mesh"
+experiment_only = false
+source = "https://fal.ai/models/fal-ai/hyper3d/rodin/v2.5/fast/llms.txt"
+checked = "2026-11-23"
+
+[generators."rodin-fast".price]
+base = "0.10"
+free = ["seed", "tier", "geometry_file_format", "material", "quality_mesh_option", "texture_mode", "use_original_alpha"]
+
+[generators."rodin-2.5"]
+endpoint = "fal-ai/hyper3d/rodin/v2.5"
+kind = "image-to-3d"
+input_kind = "images"
+min_images = 1
+max_images = 5
+slot_order = ["front_34", "rear_34", "side", "front", "rear"]
+image_field = "image_urls"
+result_field = "model_mesh"
+experiment_only = false
+source = "https://fal.ai/models/fal-ai/hyper3d/rodin/v2.5/llms.txt"
+checked = "2026-11-23"
+
+[generators."rodin-2.5".price]
+base = "0.40"
+free = ["seed", "tier", "geometry_file_format", "material", "quality_mesh_option", "texture_mode", "use_original_alpha"]
+
+[[generators."rodin-2.5".price.options]]
+name = "highpack"
+default = false
+values = [
+  { value = false, add = "0.00", fields = {} },
+  { value = true, add = "0.80", fields = { addons = { high_pack = true } } },
+]
+
+[generators."tripo-h3.1"]
+endpoint = "tripo3d/h3.1/multiview-to-3d"
+kind = "image-to-3d"
+input_kind = "images"
+# fal: "2 to 4 image URLs ... Order: [front, left, back, right]. Front view is required." The
+# spike has no right-side slot, so three can be sent; a fourth has no slot name.
+min_images = 2
+max_images = 4
+slot_order = ["front", "side", "rear"]
+# The list is positional: a rear image sent without a side image would land in the left slot.
+positional = true
+required_slots = ["front"]
+image_field = "image_urls"
+result_field = "model_mesh"
+experiment_only = false
+source = "https://fal.ai/models/tripo3d/h3.1/multiview-to-3d/llms.txt"
+checked = "2026-11-23"
+
+[generators."tripo-h3.1".price]
+base = "0.20"
+free = ["face_limit", "model_seed", "texture_seed", "pbr"]
+
+# fal's price text: $0.20 without textures, $0.30 standard textures, $0.40 HD textures. `pbr`
+# defaults to true and "if true, texture is also enabled", so "none" sends `pbr = false` too.
+[[generators."tripo-h3.1".price.options]]
+name = "texture"
+default = "standard"
+values = [
+  { value = "none", add = "0.00", fields = { texture = false, pbr = false } },
+  { value = "standard", add = "0.10", fields = { texture = true, texture_quality = "standard" } },
+  { value = "hd", add = "0.20", fields = { texture = true, texture_quality = "detailed" } },
+]
+
+[[generators."tripo-h3.1".price.options]]
+name = "detailed_geometry"
+default = false
+values = [
+  { value = false, add = "0.00", fields = { geometry_quality = "standard" } },
+  { value = true, add = "0.20", fields = { geometry_quality = "detailed" } },
+]
+
+[[generators."tripo-h3.1".price.options]]
+name = "quad"
+default = false
+values = [
+  { value = false, add = "0.00", fields = { quad = false } },
+  { value = true, add = "0.05", fields = { quad = true } },
+]
+
+[generators."meshy-7.1"]
+endpoint = "fal-ai/meshy/v7.1/multi-image-to-3d"
+kind = "image-to-3d"
+input_kind = "images"
+# fal: "1 to 4 images ... If more than 4 images are provided, only the first 4 will be used."
+min_images = 1
+max_images = 4
+# Meshy treats the first image as the front view.
+slot_order = ["front", "side", "rear", "front_34"]
+required_slots = ["front"]
+image_field = "image_urls"
+result_field = "model_glb"
+experiment_only = false
+source = "https://fal.ai/models/fal-ai/meshy/v7.1/multi-image-to-3d/llms.txt"
+checked = "2026-11-23"
+
+[generators."meshy-7.1".price]
+base = "0.80"
+free = ["topology", "target_polycount", "symmetry_mode", "should_remesh", "enable_pbr"]
+
+# $0.80 without textures, $1.20 with. `should_texture` defaults to true on fal.
+[[generators."meshy-7.1".price.options]]
+name = "textured"
+default = true
+values = [
+  { value = false, add = "0.00", fields = { should_texture = false } },
+  { value = true, add = "0.40", fields = { should_texture = true } },
+]
+
+# fal's page does not say what "2k" costs (Meshy's own table adds 5 credits), so only "standard"
+# is priced and sent by default. Rigging and animation are priced on fal but unlisted here.
+[[generators."meshy-7.1".price.options]]
+name = "geometry_resolution"
+default = "standard"
+values = [
+  { value = "standard", add = "0.00", fields = { geometry_resolution = "standard" } },
+]
+
+[generators."hunyuan-3.1-pro"]
+endpoint = "fal-ai/hunyuan-3d/v3.1/pro/image-to-3d"
+kind = "image-to-3d"
+input_kind = "images"
+min_images = 1
+max_images = 8
+# Labeled endpoint: each image goes in its own field. The first four are the slots the spike
+# uses (`view_slots` renames its views to them); the rest are the endpoint's other labels.
+slot_order = ["front", "back", "left", "left-front 45", "right", "top", "bottom", "right-front 45"]
+required_slots = ["front"]
+result_field = "model_glb"
+# Provenance only: recorded in candidates.json, never enforced. The host-country rule is separate.
+experiment_only = true
+requires_host_country = true
+source = "https://fal.ai/models/fal-ai/hunyuan-3d/v3.1/pro/image-to-3d/llms.txt"
+checked = "2026-11-23"
+
+[generators."hunyuan-3.1-pro".slot_fields]
+front = "input_image_url"
+back = "back_image_url"
+left = "left_image_url"
+right = "right_image_url"
+top = "top_image_url"
+bottom = "bottom_image_url"
+"left-front 45" = "left_front_image_url"
+"right-front 45" = "right_front_image_url"
+
+[generators."hunyuan-3.1-pro".view_slots]
+rear = "back"
+side = "left"
+front_34 = "left-front 45"
+
+[generators."hunyuan-3.1-pro".price]
+base = "0.375"
+free = []
+
+[[generators."hunyuan-3.1-pro".price.options]]
+name = "pbr"
+default = false
+values = [
+  { value = false, add = "0.00", fields = { enable_pbr = false } },
+  { value = true, add = "0.15", fields = { enable_pbr = true } },
+]
+
+# fal bills "multi-view images" when more than one image is sent. The client sets this from the
+# image count and refuses a value that disagrees, so a multi-view call is never priced as one.
+[[generators."hunyuan-3.1-pro".price.options]]
+name = "multi_view"
+derive = "multi_image"
+default = false
+values = [
+  { value = false, add = "0.00", fields = {} },
+  { value = true, add = "0.15", fields = {} },
+]
+
+# "Custom face count adds $0.15": setting `face_count` at all is charged, so leaving it out is
+# the free path.
+[[generators."hunyuan-3.1-pro".price.options]]
+name = "face_count"
+field = "face_count"
+min = 40000
+max = 1500000
+add = "0.15"
+
+[generators."trellis-2"]
+endpoint = "fal-ai/trellis-2"
+kind = "image-to-3d"
+input_kind = "images"
+min_images = 1
+max_images = 1
+# One image in one field (`image_url` is a plain string), so it is a labeled endpoint of one slot.
+slot_order = ["front_34"]
+result_field = "model_glb"
+experiment_only = false
+source = "https://fal.ai/models/fal-ai/trellis-2/llms.txt"
+checked = "2026-11-23"
+
+[generators."trellis-2".slot_fields]
+front_34 = "image_url"
+
+[generators."trellis-2".price]
+base = "0.25"
+free = ["seed", "texture_size", "decimation_target", "remesh"]
+
+# `resolution` is an integer enum on fal (512, 1024, 1536; default 1024).
+[[generators."trellis-2".price.options]]
+name = "resolution"
+default = 1024
+values = [
+  { value = 512, add = "0.00", fields = { resolution = 512 } },
+  { value = 1024, add = "0.05", fields = { resolution = 1024 } },
+  { value = 1536, add = "0.10", fields = { resolution = 1536 } },
+]
+
+[generators."tripo-segment"]
+endpoint = "tripo3d/tripo/segment"
+kind = "segment"
+input_kind = "mesh"
+min_images = 0
+max_images = 0
+mesh_field = "mesh_url"
+# fal: "GLB, OBJ, FBX or STL (max 150MB)".
+max_mesh_bytes = 150000000
+result_field = "model_mesh"
+experiment_only = false
+source = "https://fal.ai/models/tripo3d/tripo/segment/llms.txt"
+checked = "2026-11-23"
+
+# fal prints "$0.01 per units" and no unit count. Tripo's own price is 40 credits, $0.40, so the
+# conservative figure is priced.
+[generators."tripo-segment".price]
+base = "0.40"
+free = []
