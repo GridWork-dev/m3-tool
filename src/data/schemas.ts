@@ -51,6 +51,9 @@ const isUtcMidnight = (date: Date): boolean =>
   date.getUTCSeconds() === 0 &&
   date.getUTCMilliseconds() === 0
 
+// A year outside this range is a typo (a swapped digit, a missing century), not a date in the data.
+const DATE_YEARS = { min: 1900, max: 2100 } as const
+
 export const DateLike = z
   .union([z.string(), z.date()], { error: DATE_MESSAGE })
   .transform((value, ctx): Date => {
@@ -58,11 +61,21 @@ export const DateLike = z
       ctx.addIssue({ code: 'custom', message })
       return z.NEVER
     }
+    let date: Date
     if (typeof value === 'string') {
       if (!DATE_ONLY.test(value)) return fail(DATE_MESSAGE)
-      return parseCalendarDate(value) ?? fail('is not a real calendar date')
+      const parsed = parseCalendarDate(value)
+      if (!parsed) return fail('is not a real calendar date')
+      date = parsed
+    } else {
+      if (!isUtcMidnight(value)) return fail('must be at UTC midnight, with no time of day')
+      date = value
     }
-    return isUtcMidnight(value) ? value : fail('must be at UTC midnight, with no time of day')
+    const year = date.getUTCFullYear()
+    if (year < DATE_YEARS.min || year > DATE_YEARS.max) {
+      return fail(`year ${year} is outside ${DATE_YEARS.min} to ${DATE_YEARS.max}`)
+    }
+    return date
   })
 
 const Body = z.enum(['coupe', 'convertible', 'sedan'])
@@ -499,9 +512,14 @@ export const KnownIssue = z
     title: Text,
     symptoms: z.array(Text).min(1),
     cause: Text,
-    fix: Text,
+    // Optional (spec 7.6, amended 2026-11-23): an issue known only from forum reports publishes its
+    // symptoms, cause and frequency, and no fix. A fix needs a Tier 1 or Tier 2 source, which
+    // quality.ts checks, and a cost, which the refinement below checks.
+    fix: Text.optional(),
     prevention: Text.optional(),
-    cost: z.strictObject({ currency: z.literal('USD'), diy: Range.optional(), shop: Range }),
+    cost: z
+      .strictObject({ currency: z.literal('USD'), diy: Range.optional(), shop: Range })
+      .optional(),
     // Kebab-case like ids, so the YAML value is `very-common`. The UI renders it with a space.
     frequency: z.enum(['rare', 'common', 'very-common']),
     inspectWhenBuying: z.boolean(),
@@ -509,5 +527,14 @@ export const KnownIssue = z
     sources: z.array(Source).min(1),
     verified: z.boolean(),
   })
-  .superRefine(requireHowToCheck)
+  .superRefine((issue, ctx) => {
+    requireHowToCheck(issue, ctx)
+    if (issue.fix !== undefined && issue.cost === undefined) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['cost'],
+        message: 'a known issue with a fix needs a cost; leave out both, or give both',
+      })
+    }
+  })
 export type KnownIssue = z.infer<typeof KnownIssue>
