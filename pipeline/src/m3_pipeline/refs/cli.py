@@ -7,6 +7,7 @@ import httpx
 import typer
 
 from m3_pipeline.config import load_settings
+from m3_pipeline.refs.classify import LabelImportError, export_batches, import_labels
 from m3_pipeline.refs.commons import CommonsClient
 from m3_pipeline.refs.crawl.engine import crawl_pages
 from m3_pipeline.refs.crawl.fetchers import MissingCredentials, open_fetcher
@@ -152,3 +153,29 @@ def crawl(
             typer.echo(f"{key}={value}")
     if backend == "browserbase":
         typer.echo("browserbase sessions used: 1")
+
+
+classify_app = typer.Typer(help="Export classification batches and import labels")
+refs_app.add_typer(classify_app, name="classify")
+
+
+@classify_app.command("export")
+def classify_export(
+    subject: Annotated[str, typer.Option("--subject")],
+    batch_size: Annotated[int, typer.Option(min=1)] = 40,
+) -> None:
+    """Write image batches and instructions for a vision-capable harness."""
+    result = export_batches(RefStore(load_settings()), subject, batch_size=batch_size)
+    typer.echo(f"images={result.images} batches={len(result.batches)} directory={result.directory}")
+
+
+@classify_app.command("import")
+def classify_import(path: Annotated[Path, typer.Argument(exists=True, dir_okay=False)]) -> None:
+    """Validate every line before changing any labels."""
+    try:
+        result = import_labels(RefStore(load_settings()), path)
+    except LabelImportError as exc:
+        for error in exc.errors:
+            typer.echo(error, err=True)
+        raise typer.Exit(1) from None
+    typer.echo(f"labeled={result.labeled} relabeled={result.relabeled}")
