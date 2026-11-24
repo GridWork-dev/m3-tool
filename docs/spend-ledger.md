@@ -11,3 +11,4 @@ Every paid API call is logged here, such as 3D generation now and scraping later
 | Date | Session cap | Service | Purpose | Units | Cost (USD) | Running total / cap |
 |---|---|---|---|---|---|---|
 | 2026-11-23 | $50 (Phase 0 spike, 3D generation) | — | cap approved by the user | — | 0.00 | 0.00 / 50.00 |
+| 2026-11-23 | $0 incremental this phase (owned: Browserbase Developer, Bright Data credit, Evomi prepaid) | Browserbase / Bright Data / Evomi | price and product-page scraping cap approved by the user (ADR 0009) | browser-hrs / requests / GB | 0.00 | 0.00 / 0.00 incremental |

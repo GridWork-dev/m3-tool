@@ -46,7 +46,7 @@ Reference photos are copyrighted images by other people. Handle them as follows.
   - Record the source URL, author, license and date for every image.
 - **No bot-blocking workarounds.** The tooling has no feature for getting past a block. A blocked page is logged and skipped.
 - **Prefer licensed images.** Wikimedia Commons is the main source, because its license metadata is machine-readable. A Creative Commons share-alike photo that fed a model is credited on `/about`.
-- **A seller whose terms forbid automated access is skipped** for prices too.
+- **A seller whose terms forbid automated access is skipped for reference photos.** Prices and product pages may instead retry through an unblocking service; that exception is [ADR 0009](../decisions/0009-price-scraping-unblock.md), and it never extends to photo collection.
 
 ## Generator license gates
 
