@@ -128,6 +128,7 @@ jobs:
       # notice, and answer 404 for an unknown path. See infra/deploy/smoke.sh. No secrets.
       - name: Smoke test production
         if: github.event_name == 'push'
+        timeout-minutes: 4 # the script gives up after 180 seconds; this is the backstop
         env:
           EXPECTED_SHA: ${{ github.sha }}
         run: bash infra/deploy/smoke.sh

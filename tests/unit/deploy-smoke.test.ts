@@ -21,6 +21,7 @@ interface Site {
 
 let server: Server | undefined
 afterEach(() => {
+  server?.closeAllConnections()
   server?.close()
   server = undefined
 })
@@ -64,7 +65,7 @@ function run(url: string, env: Record<string, string> = {}) {
         SMOKE_BASE_URL: url,
         EXPECTED_SHA: SHA,
         SMOKE_SLEEP: '0.05',
-        SMOKE_ATTEMPTS: '6',
+        SMOKE_TIMEOUT: '1',
         ...env,
       },
     })
@@ -82,7 +83,7 @@ function run(url: string, env: Record<string, string> = {}) {
 describe('the smoke test of a production deploy', () => {
   test('passes when the live site serves this commit, the notice, and a 404 for an unknown path', async () => {
     const site = await serve({ version: () => SHA })
-    const result = await run(site.url)
+    const result = await run(site.url, { SMOKE_TIMEOUT: '5' })
     expect(result.code).toBe(0)
     expect(site.hits()).toContain('/version.txt')
     expect(site.hits()).toContain('/')
@@ -92,7 +93,7 @@ describe('the smoke test of a production deploy', () => {
   test('waits for the new version: the old one is served first, then this commit', async () => {
     const old = 'f'.repeat(40)
     const site = await serve({ version: (request) => (request < 3 ? old : SHA) })
-    const result = await run(site.url)
+    const result = await run(site.url, { SMOKE_TIMEOUT: '5' })
     expect(result.code).toBe(0)
     expect(site.hits().filter((path) => path === '/version.txt')).toHaveLength(4)
   })
@@ -137,7 +138,7 @@ describe('the smoke test of a production deploy', () => {
   })
 
   test('fails when the site is not reachable', async () => {
-    const result = await run('http://127.0.0.1:1', { SMOKE_ATTEMPTS: '2' })
+    const result = await run('http://127.0.0.1:1')
     expect(result.code).toBe(1)
     expect(result.out).toContain('::error::')
   })
@@ -148,10 +149,49 @@ describe('the smoke test of a production deploy', () => {
     expect(result.code).not.toBe(0)
   })
 
-  test('is bounded: it gives up in about two minutes at its defaults, and the loop is not unbounded', () => {
+  test('is bounded: at its defaults it gives up after 180 seconds in all, and the loops end at that deadline', () => {
     const script = readFileSync(SCRIPT, 'utf8')
-    expect(script).toMatch(/SMOKE_ATTEMPTS:-12/)
+    expect(script).toMatch(/SMOKE_TIMEOUT:-180/)
     expect(script).toMatch(/SMOKE_SLEEP:-10/)
+    expect(script).not.toMatch(/SMOKE_ATTEMPTS/)
+    expect(script).toMatch(/deadline=\$\(\(SECONDS \+ /)
+  })
+
+  // The worst case is the point: a site that accepts connections and never answers. Each request
+  // is held to what is left of the budget, and nothing sleeps past it, so the total is the budget
+  // plus the last request's second or two, not budget plus a full request timeout per poll.
+  describe('the total time is capped, even when the site hangs', () => {
+    const hang = async (): Promise<string> => {
+      server = createServer(() => {}) // never answers
+      const listening = server
+      await new Promise<void>((resolve) => listening.listen(0, '127.0.0.1', resolve))
+      return `http://127.0.0.1:${(listening.address() as AddressInfo).port}`
+    }
+
+    test('a site that never answers ends the run at the budget, not many request timeouts later', async () => {
+      const url = await hang()
+      const started = Date.now()
+      const result = await run(url, { SMOKE_TIMEOUT: '3', SMOKE_SLEEP: '1' })
+      const elapsed = Date.now() - started
+      expect(result.code).toBe(1)
+      expect(result.out).toContain('::error::')
+      expect(elapsed).toBeGreaterThanOrEqual(2000)
+      expect(elapsed).toBeLessThan(7000) // 3 s plus the last request and bash startup
+    }, 20_000)
+
+    test('a site that serves the version but then hangs on the home page ends at the budget too', async () => {
+      server = createServer((req, res) => {
+        if (req.url?.startsWith('/version.txt')) res.writeHead(200).end(`${SHA}\n`)
+        // every other path hangs
+      })
+      const listening = server
+      await new Promise<void>((resolve) => listening.listen(0, '127.0.0.1', resolve))
+      const url = `http://127.0.0.1:${(listening.address() as AddressInfo).port}`
+      const started = Date.now()
+      const result = await run(url, { SMOKE_TIMEOUT: '3', SMOKE_SLEEP: '1' })
+      expect(result.code).toBe(1)
+      expect(Date.now() - started).toBeLessThan(8000)
+    }, 20_000)
   })
 
   test('asks the production URL by default, and for the sentence the e2e test checks', () => {

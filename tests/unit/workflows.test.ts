@@ -18,6 +18,7 @@ interface Step {
   id?: string
   shell?: string
   'working-directory'?: string
+  'timeout-minutes'?: number
   env?: Record<string, string>
   with?: Record<string, unknown>
 }
@@ -402,6 +403,10 @@ describe('a smoke test follows the production deploy', () => {
     expect(smoke.if).toBe("github.event_name == 'push'")
     expect(smoke.env).toEqual({ EXPECTED_SHA: expr('github.sha') })
     expect(smoke.run).toBe('bash infra/deploy/smoke.sh')
+  })
+
+  test("the step has a backstop of four minutes, over the script's own 180 second budget", () => {
+    expect(smoke['timeout-minutes']).toBe(4)
   })
 
   test('the build job writes the marker the smoke test polls for', () => {
