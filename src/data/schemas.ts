@@ -118,6 +118,20 @@ export type PriceObservation = z.infer<typeof PriceObservation>
 // Generation
 // ---------------------------------------------------------------------------------------------
 
+// A path to a value in the same file that falls below data.md's verification rule: dot-separated
+// keys, such as `paints.A08.code` or `years.1`. The schema checks only the shape of the text.
+// quality.ts checks that each path points at a value and that none is listed twice, and
+// unverified.ts holds the grammar (see data.md, "Unverified values").
+const UNVERIFIED_PATH_PATTERN = /^[A-Za-z0-9_-]+(\.[A-Za-z0-9_-]+)*$/
+const UnverifiedPath = z
+  .string()
+  .regex(
+    UNVERIFIED_PATH_PATTERN,
+    'must be dot-separated keys such as paints.A08.code, with no spaces, brackets or empty parts',
+  )
+// Optional: an entry with nothing below the rule leaves it out.
+const Unverified = z.array(UnverifiedPath).optional()
+
 const WheelSize = z.strictObject({
   diameterIn: z.number().positive(),
   widthIn: z.number().positive(),
@@ -187,6 +201,8 @@ export const Generation = z
     // Covers the identity fields: name, chassis, years, engines and bodies. Dimensions, the eye
     // point and fitment carry their own.
     sources: z.array(Source).min(1),
+    // The values in this file that fall below the verification rule, as paths.
+    unverified: Unverified,
   })
   .superRefine((generation, ctx) => {
     const bodies: readonly string[] = generation.bodies
@@ -267,6 +283,8 @@ export const Variant = z.strictObject({
     note: Text.optional(),
   }),
   sources: z.array(Source).min(1),
+  // The values in this file that fall below the verification rule, as paths.
+  unverified: Unverified,
 })
 export type Variant = z.infer<typeof Variant>
 

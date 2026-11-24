@@ -43,3 +43,9 @@ sources:
     publisher: Fixture Co
     tier: 1
     accessed: 2026-11-23
+unverified:
+  - years.1
+  - paints.FX1
+  - paints.FX1.code
+  - factoryWheels.fixture-factory-wheel.front.offsetMm
+  - interiors.fixture-interior.color

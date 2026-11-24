@@ -30,8 +30,8 @@ The schemas in [`src/data/schemas.ts`](../../src/data/schemas.ts) are the contra
 
 | Collection | Schema | What it holds |
 |---|---|---|
-| `generations` | `Generation` | Chassis, production years, engines, bodies and their sources, dimensions per body, driver eye point, stock wheel fitment per axle |
-| `variants` | `Variant` | Market, body, transmissions, packages, paints, factory wheels, interiors, which assets render it (base car, interior, body modules) |
+| `generations` | `Generation` | Chassis, production years, engines, bodies and their sources, dimensions per body, driver eye point, stock wheel fitment per axle, and which values are unverified |
+| `variants` | `Variant` | Market, body, transmissions, packages, paints, factory wheels, interiors, which assets render it (base car, interior, body modules), and which values are unverified |
 | `parts` | `Part` | A product or a generic tier, with fitment attributes, options, prices, labor, 3D model (and the body modules it replaces), sources |
 | `maintenance` | `MaintenanceItem` | A service interval with parts, fluids, cost ranges and a buyer's inspection note |
 | `issues` | `KnownIssue` | A known problem with symptoms, cause, fix, cost range and how common it is |
@@ -135,6 +135,36 @@ Tier 3 alone is enough for symptoms and "how common". The entry stays `verified:
 
 A model-wide statement in a Tier 1 source, or in two Tier 2 sources from different publishers, covers every variant it does not explicitly exclude, and a document for one market covers that market only.
 
+### Unverified values in variants and generations
+
+A part, maintenance item or issue is verified or not as a whole (`verified`). A variant or a generation is different: most of the file meets the rule (one Tier 1 source, or two independent Tier 2 sources), and a few values fall short, such as a paint's code, a wheel offset or the CSL's end year. List those in the file's optional `unverified` field, as paths:
+
+```yaml
+unverified:
+  - paints.A08.code
+  - factoryWheels.optional-19.rear.offsetMm
+```
+
+A path says that the value it names, and everything under it, is below the rule. Leave the field out when nothing is. Pages that show a variant or a generation read the field, not the comments, and mark each covered value "unverified" next to the value, the way a part carries the badge. A value is covered when its own path is listed, or the path of an object or element above it.
+
+**Path grammar.** A path is dot-separated keys, from the top of the file down to one value.
+
+- **Fields and record keys** are written as in the file: `fitment.front.stock.offsetMm`, `dimensions.coupe.lengthMm`, `render.modules.trunk_lid`.
+- **A list element is named by its `id`, or by its `code`** (paints and engines), never by its position, so reordering a list can't move a mark: `factoryWheels.optional-19.front.offsetMm`, `paints.A08.code`.
+- **A fixed-length list names its values by position, from 0.** Only `years` is one: `years.1` is the end year.
+- **A list with no key** (`transmissions`, `sources`) is named whole, because nothing stable tells its elements apart.
+- **A path may stop at an object, a list or an element.** It then covers everything under it: `paints.A08` covers that paint's code, name, finish and base colour, and its place in the list.
+
+**Choose the smallest existing field that carries the claim:**
+
+- A claim about one value is that value's path: `paints.A08.code`.
+- A claim carried by text inside a field is the path of the field that carries it. The label "Style 163M" is part of a wheel's `name`, so the path is `factoryWheels.competition-19-style-163m.name`. A leather colour appears in both `name` and `color`, so list both.
+- A claim that a variant offers something (a paint's availability) is the path of the element, such as `paints.A08`: "this paint's presence on this variant is unverified". The path covers the whole element, so it can mark more than the claim. That is the safe direction.
+- A claim about something with no field of its own is the path of the field that holds the text. A package has no years field, so its dates are in its `summary`, and `packages.competition-package.summary` marks them.
+- A claim with no field and no element to point at can't be listed: a paint's months (the schema has no field for them), or that a paint was not offered on a variant. Say so in the file's header comment, next to the reason, until a field exists.
+
+Listing a value and the object above it is allowed, so each claim keeps its own path. Listing one path twice is an error. The file's header comment keeps the reasons each value falls short: the field says which values, the comment says why.
+
 ### Safety advice needs evidence
 
 Safety advice never rests on a forum post alone. This is weaker than `verified` and applies even to an unverified entry:
@@ -205,3 +235,5 @@ It prints one `<file>: <code>: <message>` line per problem, exits 1 if there are
 | `fits-list-empty` | A part's `fits.bodies` or `fits.transmissions` is `[]`, which fits nothing | List at least one, or leave the field out to fit all |
 | `unknown-engine` | A maintenance item or issue names an `engine` that isn't one of its generation's engine codes | Fix the code, or leave `engine` out for every engine |
 | `future-date` | A source's `accessed` or a price's `checked` is more than a day after today (UTC) | Fix the date |
+| `unverified-path-missing` | A path in `unverified` doesn't point at a value: no such field, key or element, an element named by position, a position on a list with no key, a position past the end of a fixed-length list, or a path below a plain value | Fix the path; the message says where it stops |
+| `unverified-path-duplicate` | The same path is listed twice in `unverified` | Remove the repeat |
