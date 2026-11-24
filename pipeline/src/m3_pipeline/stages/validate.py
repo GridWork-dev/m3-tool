@@ -14,14 +14,10 @@ from typing import cast
 from m3_pipeline.assets import AssetSpec
 from m3_pipeline.config import Settings
 from m3_pipeline.stages import StageResult, register
-
-
-def _run_process(cmd: list[str]) -> subprocess.CompletedProcess[str]:
-    return subprocess.run(cmd, capture_output=True, text=True, check=False)
-
+from m3_pipeline.stages.lib.proc import run_process
 
 # Tests replace this to avoid starting node.
-_run: Callable[[list[str]], subprocess.CompletedProcess[str]] = _run_process
+_run: Callable[[list[str]], subprocess.CompletedProcess[str]] = run_process
 
 
 @register("validate")
