@@ -150,9 +150,61 @@ describe('citation hosts (spec 7.6, amended 2026-11-23)', () => {
 
 // The policy is shared with code that may reach the browser (a page that decides whether to link a
 // citation), so it carries no dependencies. The HTML parser lives in html-links.ts.
-test('the policy module imports nothing', () => {
-  const source = readFileSync(new URL('../../src/lib/link-policy.ts', import.meta.url), 'utf8')
-  expect(source).not.toMatch(/^\s*import\b/m)
-  expect(source).not.toMatch(/\bimport\s*\(/)
-  expect(source).not.toMatch(/\brequire\s*\(/)
+//
+// A module pulls in another one with a static import, a dynamic import, a require, or a re-export
+// with a `from`. This sees all four, so the check below can't be dodged by writing
+// `export { parse } from 'parse5'`.
+const REACHES_ANOTHER_MODULE = [
+  /^\s*import\b/m,
+  /\bimport\s*\(/,
+  /\brequire\s*\(/,
+  /^\s*export\s+(?:type\s+)?(?:\*(?:\s+as\s+\w+)?|\{[^}]*\})\s*from\s*['"]/m,
+]
+const reachesAnotherModule = (source: string): boolean =>
+  REACHES_ANOTHER_MODULE.some((pattern) => pattern.test(source))
+
+describe('the check that a module imports nothing', () => {
+  test.each([
+    ["import parse from 'parse5'"],
+    ["  import { parse } from 'parse5'"],
+    ["import type { T } from 'parse5'"],
+    ["import 'parse5'"],
+    ["export { parse } from 'parse5'"],
+    ["export { parse as p, other } from 'parse5'"],
+    ["export type { T } from 'parse5'"],
+    ["export * from 'parse5'"],
+    ["export * as parser from 'parse5'"],
+    ["export type * from 'parse5'"],
+    ["export type * as parser from './x.ts'"],
+    ['export {\n  parse,\n  other,\n} from "parse5"'],
+    ["const m = await import('parse5')"],
+    ["const m = import ( 'parse5' )"],
+    ["const m = require('parse5')"],
+  ])('sees %j', (source) => {
+    expect(reachesAnotherModule(source)).toBe(true)
+  })
+
+  test.each([
+    ['export const A = 1'],
+    ["export const FROM = 'x'"],
+    ["export function f() { return 'from here' }"],
+    ["export const from_host = 'a'\nexport const B = 2"],
+    ['// import x from "y"\n// export * from "y"'],
+    ['export type Shape = { a: number }'],
+    ['export interface I { from: string }'],
+    ['/* the list is exported from here */\nexport const L = []'],
+  ])('leaves %j alone', (source) => {
+    expect(reachesAnotherModule(source)).toBe(false)
+  })
+
+  test('the policy module reaches no other module', () => {
+    const source = readFileSync(new URL('../../src/lib/link-policy.ts', import.meta.url), 'utf8')
+    expect(source.length).toBeGreaterThan(500) // it read the file
+    expect(reachesAnotherModule(source)).toBe(false)
+  })
+
+  test('the same check catches html-links.ts, which does import the parser', () => {
+    const source = readFileSync(new URL('../../src/lib/html-links.ts', import.meta.url), 'utf8')
+    expect(reachesAnotherModule(source)).toBe(true)
+  })
 })
