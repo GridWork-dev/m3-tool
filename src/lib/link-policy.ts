@@ -46,7 +46,13 @@ export function isAllowedHref(href: string): boolean {
   // A string with a scheme parses on its own: only https to an allowlisted host passes.
   if (URL.canParse(href)) {
     const url = new URL(href)
-    return url.protocol === 'https:' && ALLOWED_HOSTS.includes(url.hostname)
+    // No credentials either: `https://user:pw@github.com` is a link that carries a login.
+    return (
+      url.protocol === 'https:' &&
+      url.username === '' &&
+      url.password === '' &&
+      ALLOWED_HOSTS.includes(url.hostname)
+    )
   }
   // Without a scheme it resolves against the site. If the host moved, the href was
   // protocol-relative (`//shop.example.com`, or `/\shop.example.com`, which browsers

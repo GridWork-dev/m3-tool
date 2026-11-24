@@ -1,10 +1,10 @@
 import type { Dirent } from 'node:fs'
 import { readdir, readFile } from 'node:fs/promises'
 import { join, relative } from 'node:path'
-import { findLinks, isLinkAllowed } from '../src/lib/html-links.ts'
+import { describeLink, findLinks, isLinkAllowed } from '../src/lib/html-links.ts'
 
-// `source` names the element and attribute (`base href`, `form action`), and is left out for an
-// ordinary anchor.
+// `source` says how the link got there (`base href`, `form action`, `meta refresh`, `a href in
+// iframe srcdoc`), and is left out for an ordinary anchor.
 export type LinkViolation = { file: string; href: string; source?: string }
 
 // Returns one violation per disallowed href. Throws, rather than returning [], when there is
@@ -34,10 +34,9 @@ export async function checkLinks(distDir: string): Promise<LinkViolation[]> {
     for (const link of findLinks(html)) {
       if (isLinkAllowed(link)) continue
       const file = relative(distDir, path)
+      const source = describeLink(link)
       violations.push(
-        link.element === 'a'
-          ? { file, href: link.value }
-          : { file, href: link.value, source: `${link.element} ${link.attribute}` },
+        source === undefined ? { file, href: link.value } : { file, href: link.value, source },
       )
     }
   }

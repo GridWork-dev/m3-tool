@@ -131,6 +131,181 @@ describe('finding links with an HTML parser (R33)', () => {
     })
   })
 
+  describe('elements that load a page or send the form (R39 review, Codex P2 and M4)', () => {
+    test.each([
+      ['object', 'data', `<object data="${SHOP}/x"></object>`],
+      ['embed', 'src', `<embed src="${SHOP}/x">`],
+      ['frame', 'src', `<frameset><frame src="${SHOP}/x"></frameset>`],
+      ['button', 'formaction', `<form><button formaction="${SHOP}/x">Buy</button></form>`],
+      ['input', 'formaction', `<form><input type="submit" formaction="${SHOP}/x"></form>`],
+    ] as const)('<%s %s> is found, and a shop in it is a violation', (element, attribute, html) => {
+      const links = findLinks(html)
+      expect(links).toContainEqual({ element, attribute, value: `${SHOP}/x` })
+      const found = links.find((link) => link.element === element)
+      expect(found && isLinkAllowed(found)).toBe(false)
+    })
+
+    test.each([
+      `<object data="/model.glb"></object>`,
+      `<embed src="/doc.pdf">`,
+      `<frameset><frame src="/part.html"></frameset>`,
+      `<form><button formaction="/search">Go</button></form>`,
+      `<form><input type="submit" formaction="/search"></form>`,
+    ])('a link that stays on the site is fine: %s', (html) => {
+      const links = findLinks(html).filter((link) => link.element !== 'form')
+      expect(links).toHaveLength(1)
+      expect(links.every(isLinkAllowed)).toBe(true)
+    })
+
+    test('a button or input without formaction has no link', () => {
+      expect(findLinks('<form><button>Go</button><input type="submit"></form>')).toEqual([])
+    })
+
+    test('attribute names are case-insensitive, and entities are decoded', () => {
+      expect(hrefs(`<form><button FORMACTION="https&#58;//shop.example"></button></form>`)).toEqual(
+        [SHOP],
+      )
+    })
+  })
+
+  describe('<meta http-equiv="refresh">', () => {
+    const refresh = (content: string) =>
+      findLinks(`<head><meta http-equiv="refresh" content="${content}"></head>`)
+
+    test.each([
+      ['a url after a semicolon', '0;url=https://shop.example', SHOP],
+      ['an uppercase URL= and spaces', '5; URL = https://shop.example/p', `${SHOP}/p`],
+      ['a single-quoted url', "0; url='https://shop.example'", SHOP],
+      ['a double-quoted url', '0; url=&quot;https://shop.example&quot;', SHOP],
+      ['a comma as the separator', '0,https://shop.example', SHOP],
+      ['whitespace as the separator', '0 https://shop.example', SHOP],
+      ['no url= prefix', '0;https://shop.example', SHOP],
+      ['padding around everything', '  3 ;  url = https://shop.example  ', SHOP],
+      ['a decimal delay', '0.5;url=https://shop.example', SHOP],
+      ['an entity-encoded url', '0;url=https&#58;//shop.example', SHOP],
+      ['a relative url', '0;url=/about', '/about'],
+    ])('%s', (_label, content, target) => {
+      expect(refresh(content)).toEqual([{ element: 'meta', attribute: 'content', value: target }])
+    })
+
+    test('a refresh to a shop is a violation, and one to the site is fine', () => {
+      const [shop] = refresh(`0;url=${SHOP}`)
+      const [home] = refresh('0;url=/')
+      expect(shop && isLinkAllowed(shop)).toBe(false)
+      expect(home && isLinkAllowed(home)).toBe(true)
+    })
+
+    test.each(['5', '', '0;', '0;url=', '  ', '0; url = '])(
+      'a refresh with no target (%j) has no link',
+      (content) => {
+        expect(refresh(content)).toEqual([])
+      },
+    )
+
+    test('http-equiv is matched without regard to case', () => {
+      for (const value of ['Refresh', 'REFRESH', 'refresh']) {
+        expect(
+          findLinks(`<meta HTTP-EQUIV="${value}" content="0;url=${SHOP}">`),
+          value,
+        ).toHaveLength(1)
+      }
+    })
+
+    test('other meta tags are not links', () => {
+      expect(findLinks(`<meta http-equiv="content-type" content="0;url=${SHOP}">`)).toEqual([])
+      expect(findLinks(`<meta name="refresh" content="0;url=${SHOP}">`)).toEqual([])
+      expect(findLinks('<meta http-equiv="refresh">')).toEqual([])
+      expect(findLinks(`<meta content="0;url=${SHOP}">`)).toEqual([])
+    })
+
+    test('a refresh inside <noscript> counts, as it does for a visitor without scripting', () => {
+      expect(
+        findLinks(
+          `<head><noscript><meta http-equiv="refresh" content="0;url=${SHOP}"></noscript></head>`,
+        ),
+      ).toHaveLength(1)
+    })
+  })
+
+  describe('<iframe srcdoc> is a page of its own', () => {
+    test('the example from the review: an anchor in srcdoc is found and is a violation', () => {
+      const html = `<iframe srcdoc="<a href='${SHOP}'>Shop</a>"></iframe>`
+      const links = findLinks(html)
+      expect(links).toEqual([
+        { element: 'a', attribute: 'href', value: SHOP, via: 'iframe srcdoc' },
+      ])
+      expect(links.some((link) => !isLinkAllowed(link))).toBe(true)
+      expect(hrefs(html)).toEqual([SHOP])
+    })
+
+    test('entity-encoded markup in srcdoc is decoded before it is parsed', () => {
+      const html = `<iframe srcdoc="&lt;a href=&quot;${SHOP}&quot;&gt;Shop&lt;/a&gt;"></iframe>`
+      expect(hrefs(html)).toEqual([SHOP])
+    })
+
+    test('an entity in the inner href is decoded too', () => {
+      const html = `<iframe srcdoc="<a href='https&#58;//shop.example'>Shop</a>"></iframe>`
+      expect(hrefs(html)).toEqual([SHOP])
+    })
+
+    test('srcdoc inside srcdoc is followed, at any depth, and the path is recorded', () => {
+      const inner = `<iframe srcdoc="&lt;a href='${SHOP}'&gt;x&lt;/a&gt;"></iframe>`
+      const outer = `<iframe srcdoc="${inner.replaceAll('&', '&amp;').replaceAll('"', '&quot;')}"></iframe>`
+      expect(findLinks(outer)).toEqual([
+        { element: 'a', attribute: 'href', value: SHOP, via: 'iframe srcdoc > iframe srcdoc' },
+      ])
+    })
+
+    test('every kind of link inside srcdoc is checked: a form, a base, a refresh, an area', () => {
+      const doc = [
+        `<base href="${SHOP}/">`,
+        `<form action="${SHOP}/f"></form>`,
+        `<meta http-equiv="refresh" content="0;url=${SHOP}/m">`,
+        `<map name="m"><area href="${SHOP}/a"></map>`,
+      ].join('')
+      const html = `<iframe srcdoc="${doc.replaceAll('"', '&quot;')}"></iframe>`
+      const links = findLinks(html)
+      expect(links.map((link) => link.element).sort()).toEqual(['area', 'base', 'form', 'meta'])
+      expect(links.every((link) => link.via === 'iframe srcdoc')).toBe(true)
+      expect(links.some(isLinkAllowed)).toBe(false)
+    })
+
+    test('the iframe keeps its own src check, beside the srcdoc', () => {
+      const html = `<iframe src="${SHOP}/frame" srcdoc="<a href='/ok'>ok</a>"></iframe>`
+      expect(findLinks(html)).toEqual([
+        { element: 'iframe', attribute: 'src', value: `${SHOP}/frame` },
+        { element: 'a', attribute: 'href', value: '/ok', via: 'iframe srcdoc' },
+      ])
+    })
+
+    test('a srcdoc with only allowed links has no violation, and an empty one has no links', () => {
+      const ok = findLinks(`<iframe srcdoc="<a href='/about'>About</a>"></iframe>`)
+      expect(ok).toHaveLength(1)
+      expect(ok.every(isLinkAllowed)).toBe(true)
+      expect(findLinks('<iframe srcdoc=""></iframe>')).toEqual([])
+      expect(findLinks('<iframe srcdoc="plain text"></iframe>')).toEqual([])
+    })
+
+    test('the srcdoc attribute is not itself a link value', () => {
+      expect(hrefs(`<iframe srcdoc="${SHOP}"></iframe>`)).toEqual([])
+    })
+
+    test('a srcdoc inside a <template> or a <noscript> is followed too', () => {
+      expect(
+        hrefs(`<template><iframe srcdoc="<a href='${SHOP}'>x</a>"></iframe></template>`),
+      ).toEqual([SHOP])
+      expect(
+        hrefs(`<noscript><iframe srcdoc="<a href='${SHOP}'>x</a>"></iframe></noscript>`),
+      ).toEqual([SHOP])
+    })
+
+    test('findHrefs includes srcdoc links and still leaves <base> out', () => {
+      const html = `<iframe srcdoc="<base href='${SHOP}'><a href='/a'>a</a>"></iframe>`
+      expect(hrefs(html)).toEqual(['/a'])
+      expect(findLinks(html).some((link) => link.element === 'base')).toBe(true)
+    })
+  })
+
   describe('<base href>', () => {
     test('any <base href> is a violation, even one that points at the site itself', () => {
       for (const value of ['/', 'https://github.com/', `${SHOP}/`, 'https://x.example']) {

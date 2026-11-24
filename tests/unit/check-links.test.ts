@@ -140,3 +140,48 @@ test('the CLI names the element of a violation that is not an anchor', async () 
   expect(code).toBe(1)
   expect(stdout).toBe('index.html: https://x.example/ [base href]\nindex.html: //shop.example\n')
 })
+
+test('checkLinks follows an iframe srcdoc, and names the way in', async () => {
+  await write(
+    'index.html',
+    `<iframe srcdoc="<a href='https://shop.example/p'>Shop</a>"></iframe><iframe srcdoc="<a href='/ok'>ok</a>"></iframe>`,
+  )
+  expect(await checkLinks(dist)).toEqual([
+    { file: 'index.html', href: 'https://shop.example/p', source: 'a href in iframe srcdoc' },
+  ])
+})
+
+test('checkLinks flags object, embed, a form button, an input and a meta refresh, and names each', async () => {
+  await write(
+    'index.html',
+    [
+      '<object data="https://shop.example/o"></object>',
+      '<embed src="https://shop.example/e">',
+      '<form><button formaction="https://shop.example/b">b</button>',
+      '<input type="submit" formaction="https://shop.example/i"></form>',
+      '<meta http-equiv="refresh" content="0;url=https://shop.example/m">',
+    ].join(''),
+  )
+  const violations = await checkLinks(dist)
+  expect(violations.map(({ href, source }) => [href, source])).toEqual([
+    ['https://shop.example/o', 'object data'],
+    ['https://shop.example/e', 'embed src'],
+    ['https://shop.example/b', 'button formaction'],
+    ['https://shop.example/i', 'input formaction'],
+    ['https://shop.example/m', 'meta refresh'],
+  ])
+})
+
+test('checkLinks flags credentials in an otherwise allowed host', async () => {
+  await write('index.html', '<a href="https://user:pw@github.com/x">x</a>')
+  expect(await checkLinks(dist)).toEqual([
+    { file: 'index.html', href: 'https://user:pw@github.com/x' },
+  ])
+})
+
+test('the CLI prints the way into a srcdoc violation', async () => {
+  await write('index.html', `<iframe srcdoc="<a href='https://shop.example'>x</a>"></iframe>`)
+  const { code, stdout } = runCli(dist)
+  expect(code).toBe(1)
+  expect(stdout).toBe('index.html: https://shop.example [a href in iframe srcdoc]\n')
+})

@@ -22,6 +22,21 @@ test('flags an absolute link to a store host', () => {
 test('flags protocol-relative links', () => {
   expect(isAllowedHref('//shop.example.com/wheels')).toBe(false)
 })
+test.each([
+  'https://user:pw@github.com/x',
+  'https://user@github.com/x',
+  'https://:pw@github.com/x',
+  'https://user:pw@archive.org/x',
+  'https://user:pw@newsroom.bmwgroup.com/x',
+])('refuses credentials in an allowed host: %s', (href) => {
+  expect(isAllowedHref(href)).toBe(false)
+})
+
+test('a host that merely follows an @ is not the userinfo trick in reverse', () => {
+  expect(isAllowedHref('https://github.com@evil.example/x')).toBe(false) // the host is evil.example
+  expect(isAllowedHref('https://github.com/user@example')).toBe(true) // an @ in the path is fine
+})
+
 test('matches hosts exactly, not by suffix', () => {
   expect(isAllowedHref('https://evilgithub.com/x')).toBe(false)
   expect(isAllowedHref('https://gist.github.com/x')).toBe(false)
