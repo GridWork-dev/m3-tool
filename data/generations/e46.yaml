@@ -69,8 +69,10 @@ driverEyePoint:
 # 255/35 ZR 19 in the owner's manual, 19x8 ET47 and 19x9.5 ET27 at BimmerWorld). Those are not
 # modelled.
 # Below data.md's verification rule (no Tier 1 source and fewer than two distinct Tier 2
-# publishers), now that Koleso.ee is Tier 3: the stock widthIn and offsetMm on both axles (Hubcap
-# Haven is the only Tier 2 publisher). A generation has no verified field, so this comment is the
+# publishers), now that Koleso.ee is Tier 3: the stock offsetMm on both axles (Hubcap Haven is the
+# only Tier 2 publisher), and the stock widthIn for the European cars (a US document does not
+# speak for them). BMW NA's 2006 press kit (Tier 1) gives the widths of 8 and 9 inches for the US
+# cars. A generation has no verified field, so this comment is the
 # record. The stock tire sizes (owner's manual, Tier 1), the 5x120 bolt pattern (Apex's E46 M3
 # page, Tier 1, and Hubcap Haven and BimmerWorld) and the 72.56 mm center bore (Apex's E46 M3
 # page, Tier 1, and BimmerWorld) meet the rule. Apex states the bore its own wheel is made with
@@ -125,6 +127,12 @@ fitment:
       tier: 2
       accessed: 2026-11-23
       note: "Retailer listing for a replacement wheel under OE part number 36112229960 (option code Style 67, fitment rear): 18x9, 5 lugs, 120 mm bolt pattern, 26 mm offset."
+    - title: "PRESS KIT: 2006 BMW M3 (description, highlights, options and features, pricing)"
+      publisher: BMW Group
+      url: https://newsroom.bmwgroup.com/americas/press-kit-2006-bmw-m3
+      tier: 1
+      accessed: 2026-11-23
+      note: "BMW of North America press kit for the 2006 model year (release dated 15 December 2005), US models only, read from the page's download links. Features table: 'M Double Spoke (design #67M)' 18 x 8.0 front and 18 x 9.0 rear, standard on the coupe and the convertible, with 225/45ZR-18 front and 255/40ZR-18 rear tires. Tier 1 source for the stock widths of 8 and 9 inches on the US cars. It gives no offsets, and a US document does not speak for the European cars, whose widths rest on Hubcap Haven alone at Tier 2."
     - title: BMW Wheel Info and Tech Tips
       publisher: BimmerWorld
       url: https://www.bimmerworld.com/About-Us/Wheel-Info-Tech/

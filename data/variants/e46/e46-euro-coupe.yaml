@@ -2,29 +2,43 @@
 # here on 2026-11-23. The Euro Competition Package, which BMW UK sold as the M3 CS, is the
 # competition-package entry, as ZCP is on the US coupe. Right-hand-drive cars are not a separate
 # variant.
-# Model-wide statements (ruling R61): a statement about "the M3" or "the E46 M3" in a Tier 1 or
-# Tier 2 source covers every variant it does not explicitly exclude, and every file in this
-# directory is read that way. Here that covers smg (BMW Twenty Years speaks of 'the BMW M3
-# equipped with SMG', Motor1 of the E46 with the SMG II).
-# Paints. Only Interlagos Blue Metallic has a Tier 1 source for this market (BMW France and BMW
-# Canada, November 2004, with the Competition Package). For the other twelve, BMW's documents I
-# could open are US ones, and which paints the European coupe (BL91, and BL92 for the
-# right-hand-drive cars) offered rests on the BMW M Registry chart (Tier 3, which BIMMERtips
-# repeats) alone; Auto123's 2005 preview (Tier 2) only says buyers had 'the entire M3 color
-# pallet' and does not name a market. The codes come from AutomotiveTouchup (Tier 2, one
-# publisher) and agree with the two Tier 3 tables. The schema has no years field on a paint, so
-# the months are here: Alpine White III 300 09/2000 to 08/2006; Jet Black 668 09/2000 to
-# 08/2006; Imola Red 405 09/2000 to 08/2006; Laguna Seca Blue 448 09/2000 to 08/2004; Carbon
-# Black Metallic 416 09/2000 to 08/2006; Titanium Silver Metallic 354 09/2000 to 08/2006; Steel
-# Grey Metallic 400 09/2000 to 02/2003; Silver Grey Metallic A08 03/2003 to 08/2006; Topaz Blue
-# Metallic 364 09/2000 to 02/2003; Mystic Blue Metallic A07 02/2003 to 08/2006; Interlagos Blue
-# Metallic A30 12/2004 to 05/2006; Oxford Green Metallic 430 09/2000 to 08/2004; Phoenix Yellow
-# Metallic 445 09/2000 to 02/2005. Interlagos Blue Metallic came with the Competition Package
-# only (the registry says 'ZCP only' on the BL91 and 'CS only' on the BL92).
-# finish follows BMW's own names: 'Metallic' in the name means metallic, and the four names
-# without it (Alpine White III, Jet Black, Imola Red, Laguna Seca Blue) are solid, which
-# BIMMERtips's count of four solid and ten metallic colours supports (Tier 3). No paint is
-# recorded as pearl.
+# Model-wide statements (docs/standards/data.md, ruling R61): a model-wide statement in a Tier 1
+# source, or in two Tier 2 sources from different publishers, covers every variant it does not
+# explicitly exclude, and a document for one market covers that market only. Every file in this
+# directory is read that way. Here that covers smg (BMW Twenty Years, Tier 1, speaks of 'the BMW
+# M3 equipped with SMG'; Motor1 says the same of the E46).
+# Paints. Interlagos Blue Metallic is the only paint with a Tier 1 source for this market: BMW
+# France (25 November 2004, available from December 2004 in Germany) says the package 'propose,
+# en option, une nouvelle couleur extérieure, le bleu métallisé Interlagos'. That offers it with
+# the package and does not say it was available only with it. BMW Canada says Alu Tec trim and
+# Interlagos Blue are 'available exclusively with the package', but that is the Canadian coupe,
+# so for Europe exclusivity rests on the registry (Tier 3: 'ZCP only' on the BL91, 'CS only' on
+# the BL92). For the other twelve paints, BMW's documents I could open are US ones, so which
+# paints the European coupe (BL91, and BL92 for right-hand-drive cars) offered rests on the BMW
+# M Registry chart (Tier 3, which BIMMERtips partly repeats) alone; Auto123's 2005 preview (Tier
+# 2) only says buyers had 'the entire M3 color pallet' and names no market. The names Imola Red,
+# Carbon Black Metallic, Laguna Seca Blue and Phoenix Yellow Metallic are BMW's (US documents);
+# the seven others (Alpine White III, Jet Black, Titanium Silver Metallic, Steel Grey Metallic,
+# Topaz Blue Metallic, Mystic Blue Metallic, Oxford Green Metallic) and every code come from
+# AutomotiveTouchup (Tier 3: a vehicle-keyed colour lookup), which the two other Tier 3 tables
+# repeat. Name variants: the registry calls 405 'Imola Red II' and 430 'Oxford Green II
+# metallic', and BIMMERtips calls 668 'Black II', 405 'Imola Red II' and 430 'Oxford Green II
+# Metallic'; the names used here are BMW's own US wording where a BMW document gives one and
+# AutomotiveTouchup's otherwise. The schema has no years field on a paint, so the months are
+# here: Alpine White III 300 09/2000 to 08/2006; Jet Black 668 09/2000 to 08/2006; Imola Red 405
+# 09/2000 to 08/2006; Laguna Seca Blue 448 09/2000 to 08/2004; Carbon Black Metallic 416 09/2000
+# to 08/2006; Titanium Silver Metallic 354 09/2000 to 08/2006; Steel Grey Metallic 400 09/2000
+# to 02/2003; Silver Grey Metallic A08 03/2003 to 08/2006; Topaz Blue Metallic 364 09/2000 to
+# 02/2003; Mystic Blue Metallic A07 02/2003 to 08/2006; Interlagos Blue Metallic A30 12/2004 to
+# 05/2006; Oxford Green Metallic 430 09/2000 to 08/2004; Phoenix Yellow Metallic 445 09/2000 to
+# 02/2005.
+# finish follows the paint's name: 'Metallic' in it means metallic. For Carbon Black Metallic,
+# Silver Grey Metallic, Interlagos Blue Metallic, Phoenix Yellow Metallic that is BMW's own name
+# (Tier 1). The metallic finishes of Titanium Silver Metallic, Steel Grey Metallic, Topaz Blue
+# Metallic, Mystic Blue Metallic, Oxford Green Metallic follow names no BMW document gives (Tier
+# 3). Alpine White III, Jet Black, Imola Red, Laguna Seca Blue are recorded as solid only
+# because 'Metallic' is missing from the name: no source says solid (BIMMERtips counts four
+# solids and ten metallics without naming them). No paint is recorded as pearl.
 # baseColor is a render value, not a fact about the car, so it has no source (data.md). Each
 # value is a flat sRGB mid-tone picked by eye from the paint's name and, where BMW gives one,
 # its words (Interlagos Blue Metallic: 'a deep blue metallic, slightly darker than the former Le
@@ -39,9 +53,17 @@
 # and the tire sizes of standard-18 and optional-19 (no Euro source above Tier 3 states them;
 # the Competition Package's own 19-inch tires are Tier 1). Also unverified: the labels 'Style
 # 67' (Hubcap Haven alone for the Euro cars), 'Style 163M' (BimmerWorld alone) and 'M3 CS' (evo
-# alone at Tier 2; BMWBLOG, BIMMERtips and the registry are Tier 3); every paint code; each
-# paint's availability and months except Interlagos Blue Metallic's package; the paint finishes.
-# The package has no years field: its dates are in the summary only.
+# alone at Tier 2; BMWBLOG, BIMMERtips and the registry are Tier 3); every paint code (Tier 3
+# only); the seven paint names no BMW document gives (Alpine White III, Jet Black, Titanium
+# Silver Metallic, Steel Grey Metallic, Topaz Blue Metallic, Mystic Blue Metallic, Oxford Green
+# Metallic, Tier 3 only); the solid finishes of Alpine White III, Jet Black, Imola Red, Laguna
+# Seca Blue (inferred from 'Metallic' missing in the name; no source says solid); the metallic
+# finishes of Titanium Silver Metallic, Steel Grey Metallic, Topaz Blue Metallic, Mystic Blue
+# Metallic, Oxford Green Metallic (they follow Tier 3 names); the availability of all twelve
+# paints other than Interlagos Blue Metallic and the months of all thirteen (the registry, Tier
+# 3, alone); that Interlagos Blue Metallic was available only with the Competition Package in
+# Europe (Tier 3; explicit at Tier 1 for Canada). The package has no years field: its dates are
+# in the summary only.
 id: e46-euro-coupe
 generation: e46
 name: "M3 Coupe (Euro)"
@@ -52,7 +74,7 @@ years: [2000, 2006]
 packages:
   - id: competition-package
     name: "Competition Package (M3 CS in the UK)"
-    summary: "Available from December 2004 in Germany, and 'entering the year 2005' in BMW's media information; BMW UK sold it as the M3 CS. Per BMW: 19-inch wheels in the CSL's styling (225/40 R 19 on 8J at the front, 255/35 R 19 on 9.5J at the rear), retuned suspension, a 14.5:1 steering ratio (15.4:1 standard), the CSL's M Track mode and front brake discs, Alcantara on the steering wheel and handbrake lever, Alu Tec interior trim and Interlagos Blue Metallic as an exclusive paint (listed under paints). None of that is a body-module swap. The end year is unverified: evo's review covers 2005 to 2006, Supercars.net says 2005 only, and BMWBLOG describes a 2005 edition without naming an end. Wheels are listed under factoryWheels as competition-19-style-163m."
+    summary: "Available from December 2004 in Germany, and 'entering the year 2005' in BMW's media information; BMW UK sold it as the M3 CS. Per BMW: 19-inch wheels in the CSL's styling (225/40 R 19 on 8J at the front, 255/35 R 19 on 9.5J at the rear), retuned suspension, a 14.5:1 steering ratio (15.4:1 standard), the CSL's M Track mode and front brake discs, Alcantara on the steering wheel and handbrake lever, Alu Tec interior trim and Interlagos Blue Metallic (BMW Canada says it is exclusive to the package, BMW France lists it with the package; listed under paints). None of that is a body-module swap. The end year is unverified: evo's review covers 2005 to 2006, Supercars.net says 2005 only, and BMWBLOG describes a 2005 edition without naming an end. Wheels are listed under factoryWheels as competition-19-style-163m."
 paints:
   - code: "300"
     name: "Alpine White III"
@@ -172,7 +194,7 @@ sources:
     url: https://newsroom.bmwgroup.com/emea/fr/nouveau-package-competition-pour-le-coupe-bmw-m3
     tier: 1
     accessed: 2026-11-23
-    note: "BMW France, 25 November 2004. Package for the M3 Coupé 'disponible dès décembre 2004, en Allemagne': 19-inch wheels designed after the CSL's, 8J x 19 with 225/40 R 19 at the front and 9.5J x 19 with 255/35 R 19 at the rear, steering ratio 14.5:1 instead of 15.4:1, perforated front discs 20 mm larger from the CSL, M Track mode 'précédemment réservé au Coupé CSL', Alu Tec trim, Alcantara on the steering wheel and handbrake lever (and gear selector with the sequential M transmission), and the metallic Interlagos blue as an option. Source for the package contents and the Euro market. The only transmission it mentions is the optional sequential M gearbox."
+    note: "BMW France, 25 November 2004. Package for the M3 Coupé 'disponible dès décembre 2004, en Allemagne': 19-inch wheels designed after the CSL's, 8J x 19 with 225/40 R 19 at the front and 9.5J x 19 with 255/35 R 19 at the rear, steering ratio 14.5:1 instead of 15.4:1, perforated front discs 20 mm larger from the CSL, M Track mode 'précédemment réservé au Coupé CSL', Alu Tec trim, Alcantara on the steering wheel and handbrake lever (and gear selector with the sequential M transmission), and the metallic Interlagos blue as an option (the French is 'propose, en option, une nouvelle couleur extérieure, le bleu métallisé Interlagos': it offers the colour with the package and does not say the colour was available only with it). Source for the package contents and the Euro market. The only transmission it mentions is the optional sequential M gearbox."
   - title: "New Competition Package for the BMW M3 Coupé. Attractive equipment for the exceptionally sportsminded driver."
     publisher: "BMW Group"
     url: https://newsroom.bmwgroup.com/americas/en-ca/new-competition-package-for-the-bmw-m3-coupe-attractive-equipment-for-the-exceptionally-sportsminded-driver/
@@ -248,27 +270,27 @@ sources:
   - title: "Choose your Automotive paint color for your 2002 BMW M3"
     publisher: "AutomotiveTouchup"
     url: https://automotivetouchup.com/touch-up-paint/bmw/2002/m3
-    tier: 2
+    tier: 3
     accessed: 2026-11-23
-    note: "Retailer's catalogue page of BMW paint codes for the 2002 M3, rated Tier 2 like the other specialist shops' listings (a different publisher from the BMW M Registry and BIMMERtips). It pairs codes with names: 300 Alpine White III, 354 Titanium Silver Metallic, 364 Topasblau Metallic, 400 Steel Gray Metallic, 405 Imola Red, 416 Carbon Black Metallic, 430 Oxford Green Metallic, 445 Phoenix Yellow Metallic, 448 Laguna Seca Blue, 475 Black Sapphire Metallic, 668 Jet Black. The page also lists colours the E46 M3 never had (Avus Blue Metallic and Techno Violet Metallic, for example), so it says nothing about which colours the M3 offered. Only one Tier 2 publisher gives the codes, so they are unverified under data.md's rule."
+    note: "Rated Tier 3: a vehicle-keyed colour lookup (a list of code and name pairs for one model year, with no product and no price on the page), not a specialist retailer's tech article or one of its own product listings, the same reasoning as for Koleso.ee's fitment lookup. It pairs codes with names: 300 Alpine White III, 354 Titanium Silver Metallic, 364 Topasblau Metallic (German form; the English 'Topaz Blue' is Tier 3 only), 400 Steel Gray Metallic, 405 Imola Red, 416 Carbon Black Metallic, 430 Oxford Green Metallic, 445 Phoenix Yellow Metallic, 448 Laguna Seca Blue, 475 Black Sapphire Metallic, 668 Jet Black. The page also lists colours the E46 M3 never had (Avus Blue Metallic and Techno Violet Metallic, for example), so it says nothing about which colours the M3 offered. With the two other Tier 3 tables it is all there is for the codes and for seven of the names (Alpine White III, Jet Black, Titanium Silver, Steel Grey, Topaz Blue, Mystic Blue, Oxford Green), so those are unverified under data.md's rule."
   - title: "AutomotiveTouchup catalogs the largest paint color selection for your 2005 BMW M3"
     publisher: "AutomotiveTouchup"
     url: https://www.automotivetouchup.com/touch-up-paint/bmw/2005/m3
-    tier: 2
+    tier: 3
     accessed: 2026-11-23
-    note: "The same retailer's page for the 2005 M3. It adds A07 Mystic Blue Metallic, A08 Silbergrau Metallic and A30 Interlagos Blue Metallic, and repeats 300, 354, 405, 416, 430, 445, 448, 475 and 668. Like the 2002 page it lists colours the M3 did not offer (BMW Individual colours, for example), so it gives name and code pairs only."
+    note: "Rated Tier 3, like the retailer's 2002 page. It adds A07 Mystic Blue Metallic, A08 Silbergrau Metallic (German form) and A30 Interlagos Blue Metallic, and repeats 300, 354, 405, 416, 430, 445, 448, 475 and 668. Like the 2002 page it lists colours the M3 did not offer (Aurum Metallic and Smeraldo Metallic, for example), so it gives name and code pairs only."
   - title: "BMW M Registry - FAQ E46 M3"
     publisher: "BMW M Registry"
     url: https://bmwmregistry.com/model_faq.php?id=19
     tier: 3
     accessed: 2026-11-23
-    note: "Rated Tier 3: the FAQ page of an owners' registry, with no author and no BMW citation. Its charts list 'all regularly available' E46 M3 paints with their code, the BMW model codes that had them and the months: BL91 and BL92 (European coupe, left and right-hand drive), BL93 (North American coupe), BR91 and BR92 (European convertible), BR93 (North American convertible) and BL95 and BL96 (CSL). The European and CSL model codes agree with the compatibility table on BMW's UK parts listing (Tier 1, ECE cars only). It says Interlagos Blue Metallic (A30) was 'ZCP only' on BL91 and BL93 and 'CS only' on BL92 (12/2004 to 05/2006), and the CSL's colours were 'limited to Silver Grey metallic (A08) and Black Sapphire metallic (475)'. It also lists a Fern Green metallic (386) for the BL91 only, 09/2000 to 01/2001, which no other source lists and which is not recorded. For the European coupe the chart's rows are BL91 and BL92."
+    note: "Rated Tier 3: the FAQ page of an owners' registry, with no author and no BMW citation. Its charts list 'all regularly available' E46 M3 paints with their code, the BMW model codes that had them and the months: BL91 and BL92 (European coupe, left and right-hand drive), BL93 (North American coupe), BR91 and BR92 (European convertible), BR93 (North American convertible) and BL95 and BL96 (CSL). The European and CSL model codes agree with the compatibility table on BMW's UK parts listing (Tier 1, ECE cars only). It says Interlagos Blue Metallic (A30) was 'ZCP only' on BL91 and BL93 and 'CS only' on BL92 (12/2004 to 05/2006), and the CSL's colours were 'limited to Silver Grey metallic (A08) and Black Sapphire metallic (475)'. It also lists a Fern Green metallic (386) for the BL91 only, 09/2000 to 01/2001, which no other source lists and which is not recorded. It names 405 'Imola Red II', 668 'Jet Black' and 430 'Oxford Green II metallic'. For the European coupe the chart's rows are BL91 and BL92."
   - title: "BMW E46 M3 paint codes, color options"
     publisher: "BIMMERtips.com"
     url: https://bimmertips.com/bmw-e46-m3-paint-codes-color-options/
     tier: 3
     accessed: 2026-11-23
-    note: "Rated Tier 3: an enthusiast site (by 'bimmertips', 4 July 2016). Its table gives the same paints, codes and months as the BMW M Registry chart, so the two are not independent, and it says 'BMW offered 14 color options in total for the E46 M3, 4 being solid and 10 being metallic'. The page also carries unrelated spam text, which was ignored."
+    note: "Rated Tier 3: an enthusiast site (by 'bimmertips', 4 July 2016). Its table matches the BMW M Registry chart on the codes and months of the paints both list, so the two are not independent, but it is not the same list: it has no Fern Green (386), shows Black Sapphire Metallic (475) only in its table of special editions (the CSL), names 668 'Black II', 405 'Imola Red II' and 430 'Oxford Green II Metallic' (the registry has 'Jet Black', 'Imola Red II' and 'Oxford Green II metallic'), and says 'BMW offered 14 color options in total for the E46 M3, 4 being solid and 10 being metallic' against a main table of 13 rows (the split of four and ten holds only with Black Sapphire added). The page also carries unrelated spam text, which was ignored."
   - title: "2005 BMW M3 Competition Package Preview"
     publisher: "Auto123"
     url: https://www.auto123.com/en/news/2005-bmw-m3-competition-package-preview/28397/?page=4
