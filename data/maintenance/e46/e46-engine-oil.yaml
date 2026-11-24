@@ -1,0 +1,66 @@
+# Engine oil and filter changes on the 2004 US E46 M3. Every source below was opened on 2026-11-24.
+#
+# Markets: `markets: [us]` (ruling R61). Every source is a BMW of North America document or a US
+# English owner's manual, and a document for one market covers that market only. No European BMW
+# schedule (service booklet or owner's handbook) was found: the M3 owner's manuals I opened in
+# archive.org's BMW manuals collection are all US English editions, and web searches found no
+# European one.
+#
+# Triggers: the 2004 booklet changes the engine oil at the 1200 Mile Service, at every Engine Oil
+# Service and at Inspection I (booklet pp. 4, 5 and 6), and Inspection II repeats every Inspection I
+# item, so the list is [break-in, oil-service, inspection-i]. No number sits beside them: a number
+# can't sit beside several triggers, so the booklet's once-a-year maximum goes in `notes`, quoted
+# (ruling R81).
+#
+# Tiers (ruling R77): the owner's manual copy is Tier 1; the booklet copy is Tier 2, because no
+# independent source states its number, SD 92-255; the ST050 and ST041 copies are Tier 2, because
+# they have no issuer line or module number. The owner's manual gives this item's oil grade and
+# capacity and says the BMW Maintenance System includes the Engine Oil Service and Inspections I and
+# II, but it does not say the engine oil is changed at each of them, so the triggers rest on the
+# booklet (Tier 2) and the 2005 checklist (another BMW NA document, the same publisher). That is not
+# one Tier 1 source or two independent Tier 2 sources, so this entry is `verified: false`. It would
+# meet the rule if the booklet copy were ruled Tier 1.
+#
+# No cost is published: no Tier 1 or Tier 2 source gives a figure for this service, and price
+# collection is a separate lane (data.md, 'Costs that are absent').
+id: e46-engine-oil
+generation: e46
+engine: S54B32
+markets: [us]
+title: "Engine oil and filter"
+interval:
+  triggers: [break-in, oil-service, inspection-i]
+parts:
+  - "oil filter"
+fluids:
+  - "Castrol TWS Motorsport SAE 10W-60 Synthetic or Castrol Formula RS 10W-60 Synthetic, BMW part number 07 51 0 009 420 (the oils the 2004 US booklet lists as approved)"
+  - "About 5.8 US quarts (5.5 L) with an oil filter change (owner's manual, p. 153)"
+inspectWhenBuying: true
+howToCheck: "Look in the car's Service and Warranty Information booklet: it has a 1200 Mile Service entry, then pages of Engine Oil Service and Inspection entries with the mileage and a date or stamp. Check that the dates are no more than a year apart (the booklet says to change oil at least once a year). A stamp shows a service was entered, not by itself what was done, so ask for the invoices too."
+sources:
+  - title: "Service and Warranty Information, 2004 E46 M3 (SD 92-255, printed 9/03)"
+    publisher: BMW of North America, LLC
+    url: https://archive.org/download/manualzilla-id-7066322/7066322.pdf
+    tier: 2
+    accessed: 2026-11-24
+    note: "Third-party copy on archive.org (item manualzilla-id-7066322, uploaded to archive.org from Manualzilla by a private account), so the copy rule in data.md, 'Sources' (ruling R77), applies, and this copy is Tier 2. Tests 1, 2 and 4 pass: the file is BMW NA's own print file (QuarkXPress 5.01, Acrobat Distiller 4.05 for Macintosh, created 13 November 2003, live text, embedded BMW fonts), not a scan or a retyping; it is complete (42 PDF pages, from the cover, which carries 'Printed in U.S.A. 9/03 SD 92-255', to the owner information page, 'Model M3 Year 2004'); and the url is the existing archive.org item, with no snapshot created. Test 3 fails: no independent source I could open states the number SD 92-255. Only the numbering style is corroborated (BMW NA's 2005 M3 booklet shows 'SD 92-269' on ManualsLib, and a 2007 3 Series booklet shows 'SD 92-322' on NHTSA's site). Its scope, a US-market BMW booklet, is corroborated by the owner's manual, which refers to 'the Service and Warranty Information Booklet for US models' (pp. 125-126). A BMW of North America document speaks for US-market cars only. Page numbers in this entry are the booklet's printed pages; in the PDF, printed page N is PDF page N + 3. Supports the triggers and the oil: 'Oil Service: Engine oil changed with the engine at operating temperature. Note: change oil at least once a year.' (p. 3); the 1200 Mile Service entry 'Change oil and filter while engine is at normal operating temperature.' with 'Use only Castrol TWS Motorsport SAE 10W-60 Synthetic Oil, BMW p/n 07 51 0 009 420.' and 'The 1200 Mile Service requires changing the oil in the engine and both the transmission and the differential.' (pp. 4-5); Engine Oil Service, 'Change oil and oil filter while engine is at normal operating temperature.' (p. 5); Inspection I, Undercarriage, the same line (p. 6); and, on p. 3, 'At the time of the printing of this booklet the only approved engine oils are:' Castrol TWS Motorsport SAE 10W-60 Synthetic, or Castrol Formula RS 10W-60 Synthetic (BMW part number 07 51 0 009 420)."
+  - title: "BMW M3 Owner's Manual, online edition for part no. 01 41 0 157 628 (09/03): Service interval display p. 78, Engine oil p. 123, The BMW Maintenance System p. 126, Capacities p. 153"
+    publisher: BMW AG
+    url: https://archive.org/download/manualsonline-id-d3b68d3e-dade-4bda-875b-3716cdeabf3f/d3b68d3e-dade-4bda-875b-3716cdeabf3f.pdf
+    tier: 1
+    accessed: 2026-11-24
+    note: "Third-party copy on archive.org (item manualsonline-id-d3b68d3e-dade-4bda-875b-3716cdeabf3f, uploaded by a private account from ManualsOnline). Tier 1 under data.md, 'Sources' (R77): tests 1, 2 and 4 pass, because the file is BMW's own 'Online Edition' PDF (FrameMaker+SGML 5.5.6, Acrobat Distiller 5.0.5, created 30 July 2003), all 170 pages, with 'Online Edition for Part-No. 01 41 0 157 628 - © 09/03 BMW AG' on each page and 'Order No. 01 41 0 157 628 US English VIII/03' on p. 4, so it is complete and not retyped, and the url is the existing archive.org item, with no snapshot created; and test 3 is met, because its part number and scope are corroborated independently by ManualsLib, which lists a 170-page 'BMW M3 2004' owner's manual with 'Online Edition for Part-No. 01 41 0 157 628 - © 09/03 BMW AG' and 'Order No. 01 41 0 157 628 US English VIII/03 Printed in Germany'. A US English edition, so it supports the US market only. Says the indicator shows the next service: 'The next service due appears with the message OIL SERVICE or INSPECTION' (p. 78). Gives viscosity 'preferred: SAE 10W-60 alternative: SAE 5W-40 or SAE 10W-40' and specifications 'preferred: API SJ/CF' (p. 123). Says 'The BMW Maintenance System includes the Engine Oil Service and Inspections I and II.', asks for a break-in inspection 'at approx. 1,250 miles/ 2,000 km regardless of the service interval indicated on the display', and says low-use drivers 'should have the engine oil changed at least every 2 years regardless of what the service interval display indicates, since oil deteriorates over time, irrespective of use' (p. 126). Capacity: engine with oil filter change, quarts/liters approx. 5.8/approx. 5.5 (p. 153)."
+  - title: "ST050 Technical Systems: Service and Maintenance, pp. 10-11"
+    publisher: BMW Technical Training
+    url: https://archive.org/download/BMWTechnicalTrainingDocuments/ST050%20Technical%20Systems%20%28Archive%201%29/Service%20and%20Maintenance.pdf
+    tier: 2
+    accessed: 2026-11-24
+    note: "Third-party copy on archive.org, from the item 'BMW Technical Training Documents' uploaded by a private account, so the copy rule in data.md, 'Sources' (ruling R77), applies, and this copy is Tier 2 on test 1: it is one chapter of the ST050 module, not the whole module, and has no issuer line and no module number (the file says only 'Initial Print Date: 02/06', and its PDF metadata, Acrobat Distiller 10.0.0 for Windows, created 22 October 2011, does not name BMW), and (test 3) nothing independent corroborates the number of the checklist it contains. The url is the existing archive.org file; no snapshot was created. Written for E46 cars generally, and its own note says 'Intervals for services may vary slightly especially if it is a Motorsport model.' (p. 11). On the maximum between changes it says 'However, engine oil should be changed at least once a year.' (p. 10). The 15,000-mile figure on the same page is for E46 cars generally, not the M3, and is not used here."
+  - title: "Sample 2005 BMW Service Maintenance Checklist (BMW NA SD92-283 8/04), as reproduced in ST050 Service and Maintenance, pp. 12-13"
+    publisher: BMW of North America, LLC
+    url: https://archive.org/download/BMWTechnicalTrainingDocuments/ST050%20Technical%20Systems%20%28Archive%201%29/Service%20and%20Maintenance.pdf
+    tier: 2
+    accessed: 2026-11-24
+    note: "BMW NA's sample 2005 service checklist (the 2005 3 Series and Z4 Service Maintenance Checklist, form 'BMW NA SD92-283 8/04'), as reproduced on pp. 12-13 of the ST050 chapter 'Service and Maintenance', so the copy is the ST050 one and carries the same Tier 2 verdict under data.md, 'Sources' (R77), tests 1 and 3: no issuer line or module number in the file, and no independent source I could open states the form number SD92-283. It is a 2005 model-year document for the 3 Series and Z4, with a separate M3 column, not the 2004 booklet. The publisher is BMW NA, the booklet's publisher, so the two count as one publisher for the verification rule. The other copy of this chapter in the same archive.org item ('ST050 Technical Systems/06_Service and Maintenance.pdf') shows the first sheet of the checklist twice, so this entry cites the 'Archive 1' file, which has both sheets. In the M3 column of the 1200 Mile Service, the Engine Oil Service and Inspection I, Undercarriage, it lists the oil and filter change with 'Use only Castrol TWS Motorsport SAE 10W-60 Synthetic oil, or Castrol Formula RS 10W-60 Synthetic oil, BMW p/n 07 51 0 009 420' (p. 12). It also has 'Note: Do not reset Service Indicator when additional oil changes (between the normal intervals) are requested by the customer.'"
+verified: false
+notes: "The interval is whatever the Service Interval Indicator works out, and BMW gives no mileage for the E46 M3. Maximum between oil changes (ruling R81): the 2004 US booklet says 'Oil Service: Engine oil changed with the engine at operating temperature. Note: change oil at least once a year.' (p. 3). BMW's ST050 training module, a Tier 2 copy, says of BMW's maintenance plan for E46 cars generally 'However, engine oil should be changed at least once a year.' (p. 10). The US owner's manual is softer for low-use cars: drivers 'who drive significantly fewer than 6,200 miles/10,000 km annually' 'should have the engine oil changed at least every 2 years regardless of what the service interval display indicates, since oil deteriorates over time, irrespective of use' (p. 126). BMW's two US documents differ, once a year against every 2 years for low-use cars, and this entry does not choose between them: the booklet's once a year is the shorter. The break-in service also changes the oil: 'The 1200 Mile Service requires changing the oil in the engine and both the transmission and the differential.' (booklet p. 4). Oil: 'At the time of the printing of this booklet the only approved engine oils are:' Castrol TWS Motorsport SAE 10W-60 Synthetic, or Castrol Formula RS 10W-60 Synthetic, BMW part number 07 51 0 009 420 (booklet p. 3). The owner's manual gives viscosity 'preferred: SAE 10W-60 alternative: SAE 5W-40 or SAE 10W-40' and specifications 'preferred: API SJ/CF' (p. 123), and a capacity of about 5.8 US quarts / 5.5 liters with an oil filter change (p. 153). The booklet's list is dated by its own words, so ask a BMW center for the current list of approved oils."

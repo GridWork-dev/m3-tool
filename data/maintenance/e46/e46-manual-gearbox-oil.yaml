@@ -1,0 +1,59 @@
+# Manual gearbox oil on the E46 M3. Every source below was opened on 2026-11-24.
+#
+# Markets: `markets: [us]` (ruling R61). Every source is a BMW of North America document or a US
+# English owner's manual, and a document for one market covers that market only. No European BMW
+# schedule (service booklet or owner's handbook) was found: the M3 owner's manuals I opened in
+# archive.org's BMW manuals collection are all US English editions, and web searches found no
+# European one.
+#
+# Interval: `triggers: [break-in, inspection-ii]` and no number, as for the differential oil. The
+# owner's manual (Tier 1) gives the manual transmission 'Oil change during running-in check and
+# during each inspection II' (p. 153), so the entry is `verified: true` on that Tier 1 source.
+#
+# SMG: the booklet's line is 'Replace transmission fluid.' for the M3 and does not separate manual
+# and SMG cars, and the owner's manual's Capacities table has a row for 'Manual transmission' only.
+# ST041 (Tier 2) says the SMG car's gearbox is the manual car's basic gearbox. No source opened
+# gives the SMG car a different gearbox-oil interval or a capacity of its own, and none says the
+# manual car's figures apply to it, so the entry is titled for the manual gearbox and says so in
+# `notes`. There is no item for the SMG hydraulic fluid: ST041 names the fluid, and no BMW document
+# I opened gives an interval for it.
+#
+# Tiers (ruling R77): the owner's manual copy is Tier 1; the booklet copy is Tier 2, because no
+# independent source states its number, SD 92-255; the ST050 and ST041 copies are Tier 2, because
+# they have no issuer line or module number.
+#
+# No cost is published: no Tier 1 or Tier 2 source gives a figure for this service, and price
+# collection is a separate lane (data.md, 'Costs that are absent').
+id: e46-manual-gearbox-oil
+generation: e46
+engine: S54B32
+markets: [us]
+title: "Manual gearbox oil"
+interval:
+  triggers: [break-in, inspection-ii]
+parts: []
+fluids:
+  - "Manual transmission oil, about 1.9 US quarts (1.8 L); the sources opened give no grade (owner's manual, p. 153)"
+inspectWhenBuying: true
+howToCheck: "Look in the booklet for the 1200 Mile Service entry (that service changes the oil in the engine, the transmission and the differential) and for Inspection II entries, each with a mileage and a date or stamp. A stamp shows a service was entered, not by itself what was done, so ask for the invoices."
+sources:
+  - title: "BMW M3 Owner's Manual, online edition for part no. 01 41 0 157 628 (09/03): Capacities p. 153, The BMW Maintenance System p. 126"
+    publisher: BMW AG
+    url: https://archive.org/download/manualsonline-id-d3b68d3e-dade-4bda-875b-3716cdeabf3f/d3b68d3e-dade-4bda-875b-3716cdeabf3f.pdf
+    tier: 1
+    accessed: 2026-11-24
+    note: "Third-party copy on archive.org (item manualsonline-id-d3b68d3e-dade-4bda-875b-3716cdeabf3f, uploaded by a private account from ManualsOnline). Tier 1 under data.md, 'Sources' (R77): tests 1, 2 and 4 pass, because the file is BMW's own 'Online Edition' PDF (FrameMaker+SGML 5.5.6, Acrobat Distiller 5.0.5, created 30 July 2003), all 170 pages, with 'Online Edition for Part-No. 01 41 0 157 628 - © 09/03 BMW AG' on each page and 'Order No. 01 41 0 157 628 US English VIII/03' on p. 4, so it is complete and not retyped, and the url is the existing archive.org item, with no snapshot created; and test 3 is met, because its part number and scope are corroborated independently by ManualsLib, which lists a 170-page 'BMW M3 2004' owner's manual with 'Online Edition for Part-No. 01 41 0 157 628 - © 09/03 BMW AG' and 'Order No. 01 41 0 157 628 US English VIII/03 Printed in Germany'. A US English edition, so it supports the US market only. Capacities table, row 'Manual transmission quarts/liters approx. 1.9/approx. 1.8' with the note 'Oil change during running-in check and during each inspection II' (p. 153). It asks for a break-in inspection 'at approx. 1,250 miles/ 2,000 km regardless of the service interval indicated on the display' (p. 126). It gives no oil grade and no row for the SMG gearbox."
+  - title: "Service and Warranty Information, 2004 E46 M3 (SD 92-255, printed 9/03)"
+    publisher: BMW of North America, LLC
+    url: https://archive.org/download/manualzilla-id-7066322/7066322.pdf
+    tier: 2
+    accessed: 2026-11-24
+    note: "Third-party archive.org copy of BMW NA's own print file (complete, 42 PDF pages, live text, not retyped), but Tier 2 under data.md, 'Sources' (R77), test 3: no independent source I could open states its document number, SD 92-255. A BMW NA document, so it speaks for US-market cars only. Page numbers are the booklet's printed pages (PDF page = printed page + 3). 2004 model year. 1200 Mile Service: 'Replace transmission fluid.' (p. 5), and 'The 1200 Mile Service requires changing the oil in the engine and both the transmission and the differential.' (p. 4). Inspection II, Undercarriage: 'Replace transmission fluid.' (p. 8). It does not separate manual and SMG cars."
+  - title: "ST041 M3 Complete Vehicle: SMG II, pp. 5 and 10"
+    publisher: BMW Technical Training
+    url: https://archive.org/download/BMWTechnicalTrainingDocuments/ST041%20M3%20Complete%20Vehicle/5%20SMG.pdf
+    tier: 2
+    accessed: 2026-11-24
+    note: "Third-party copy on archive.org, from the item 'BMW Technical Training Documents' uploaded by a private account, so the copy rule in data.md, 'Sources' (ruling R77), applies, and this copy is Tier 2 on test 1: the file ('SMG II.pdf', Acrobat Distiller 5.0, created 3 April 2002) has no issuer line and no module number ('ST041' appears only in the archive.org item's description, not in the file). The url is the existing archive.org file; no snapshot was created. Says 'The standard basic gearbox (S6S420G), as used in the M3, is transformed into a sequential gearbox with the addition of a hydraulic unit and shift assembly, a special clutch slave cylinder and a new shift-lever module.' (p. 5), and that the SMG hydraulic unit 'is filled with .45 L Pentosin CHF 11S fluid' (p. 10). It gives no gearbox-oil interval."
+verified: true
+notes: "BMW ties the manual gearbox oil to the break-in service and to Inspection II, and gives no mileage for Inspection II. The owner's manual (Tier 1) has, for the manual transmission, 'Oil change during running-in check and during each inspection II' (p. 153) and a capacity of about 1.9 US quarts / 1.8 liters. The 2004 US booklet lists 'Replace transmission fluid.' at the 1200 Mile Service (p. 5) and under Inspection II (p. 8). SMG cars: the booklet does not separate manual and SMG cars, and the owner's manual's capacity row is for the 'Manual transmission'. ST041 (Tier 2) says the SMG gearbox is the 'standard basic gearbox (S6S420G), as used in the M3' with a hydraulic unit and shift assembly added (p. 5). No source opened gives the SMG car a different gearbox-oil interval or capacity. The SMG hydraulic unit takes a different fluid, which ST041 names, and this entry does not cover it, because no BMW document opened gives an interval for it. None of the sources opened names an oil grade for the gearbox."

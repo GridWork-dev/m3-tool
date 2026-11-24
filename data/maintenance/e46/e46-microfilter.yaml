@@ -1,0 +1,54 @@
+# Microfilter (cabin air filter) replacement on the E46 M3. Every source below was opened on
+# 2026-11-24.
+#
+# Markets: `markets: [us]` (ruling R61). Every source is a BMW of North America document or a US
+# English owner's manual, and a document for one market covers that market only. No European BMW
+# schedule (service booklet or owner's handbook) was found: the M3 owner's manuals I opened in
+# archive.org's BMW manuals collection are all US English editions, and web searches found no
+# European one.
+#
+# Interval: `triggers: [oil-service, inspection-i]` and no number, as data.md gives for the
+# microfilter. The 2004 booklet lists 'Replace microfilter.' at the Engine Oil Service and at
+# Inspection I, and Inspection II repeats Inspection I. The owner's manual (Tier 1) says only that a
+# BMW center replaces the combined filter 'as a standard part of your scheduled maintenance', and
+# not at which service, so the triggers rest on the booklet (Tier 2) and the 2005 checklist (the
+# same publisher) and the entry is `verified: false`.
+#
+# Tiers (ruling R77): the owner's manual copy is Tier 1; the booklet copy is Tier 2, because no
+# independent source states its number, SD 92-255; the ST050 and ST041 copies are Tier 2, because
+# they have no issuer line or module number.
+#
+# No cost is published: no Tier 1 or Tier 2 source gives a figure for this service, and price
+# collection is a separate lane (data.md, 'Costs that are absent').
+id: e46-microfilter
+generation: e46
+engine: S54B32
+markets: [us]
+title: "Microfilter (cabin air)"
+interval:
+  triggers: [oil-service, inspection-i]
+parts:
+  - "microfilter (the owner's manual calls it the combined microfilter and activated-charcoal filter)"
+fluids: []
+inspectWhenBuying: false
+sources:
+  - title: "Service and Warranty Information, 2004 E46 M3 (SD 92-255, printed 9/03)"
+    publisher: BMW of North America, LLC
+    url: https://archive.org/download/manualzilla-id-7066322/7066322.pdf
+    tier: 2
+    accessed: 2026-11-24
+    note: "Third-party copy on archive.org (item manualzilla-id-7066322, uploaded to archive.org from Manualzilla by a private account), so the copy rule in data.md, 'Sources' (ruling R77), applies, and this copy is Tier 2. Tests 1, 2 and 4 pass: the file is BMW NA's own print file (QuarkXPress 5.01, Acrobat Distiller 4.05 for Macintosh, created 13 November 2003, live text, embedded BMW fonts), not a scan or a retyping; it is complete (42 PDF pages, from the cover, which carries 'Printed in U.S.A. 9/03 SD 92-255', to the owner information page, 'Model M3 Year 2004'); and the url is the existing archive.org item, with no snapshot created. Test 3 fails: no independent source I could open states the number SD 92-255. Only the numbering style is corroborated (BMW NA's 2005 M3 booklet shows 'SD 92-269' on ManualsLib, and a 2007 3 Series booklet shows 'SD 92-322' on NHTSA's site). Its scope, a US-market BMW booklet, is corroborated by the owner's manual, which refers to 'the Service and Warranty Information Booklet for US models' (pp. 125-126). A BMW of North America document speaks for US-market cars only. Page numbers in this entry are the booklet's printed pages; in the PDF, printed page N is PDF page N + 3. 2004 model year. Engine Oil Service, Engine Compartment: 'Replace microfilter.' (p. 5). Inspection I, Engine Compartment: 'Replace microfilter. (Note: reduce replacement interval in dusty operating conditions.)' (p. 6)."
+  - title: "BMW M3 Owner's Manual, online edition for part no. 01 41 0 157 628 (09/03): Automatic climate control, p. 96"
+    publisher: BMW AG
+    url: https://archive.org/download/manualsonline-id-d3b68d3e-dade-4bda-875b-3716cdeabf3f/d3b68d3e-dade-4bda-875b-3716cdeabf3f.pdf
+    tier: 1
+    accessed: 2026-11-24
+    note: "Archive.org copy of BMW's own 'Online Edition' PDF (complete, 170 pages, part no. 01 41 0 157 628, not retyped). Tier 1 under data.md, 'Sources' (R77): its part number and scope are corroborated (test 3) by ManualsLib's listing of the same 2004 M3 US English manual. A US English edition, so it supports the US market only. Says 'The built-in microfilter removes dust and pollen from the incoming air.' and 'Your BMW center will replace the combined filter as a standard part of your scheduled maintenance. A substantial reduction in airflow indicates that the filter needs to be replaced early.' It does not say at which service."
+  - title: "Sample 2005 BMW Service Maintenance Checklist (BMW NA SD92-283 8/04), as reproduced in ST050 Service and Maintenance, pp. 12-13"
+    publisher: BMW of North America, LLC
+    url: https://archive.org/download/BMWTechnicalTrainingDocuments/ST050%20Technical%20Systems%20%28Archive%201%29/Service%20and%20Maintenance.pdf
+    tier: 2
+    accessed: 2026-11-24
+    note: "BMW NA's sample 2005 checklist (form 'BMW NA SD92-283 8/04', 3 Series and Z4 with an M3 column), as reproduced in the ST050 chapter 'Service and Maintenance'. Tier 2 under data.md, 'Sources' (R77), tests 1 and 3: the copy has no issuer line or module number and no independent source states the form number. BMW NA is also the booklet's publisher, so the two count once for the verification rule. A 2005 model-year document. 2005 model year. 'Replace microfilters. Note: reduce replacement interval in dusty operating conditions.' under the Engine Oil Service (p. 12) and under Inspection I, Engine Compartment (p. 13), with a mark in the M3 column."
+verified: false
+notes: "Dusty conditions: BMW's 2004 US booklet lists 'Replace microfilter. (Note: reduce replacement interval in dusty operating conditions.)' under Inspection I (p. 6), and 'Replace microfilter.' under the Engine Oil Service without the note (p. 5). The 2005 US checklist has the note at both (ST050 pp. 12-13). The booklet gives no shorter interval. The owner's manual (Tier 1) says 'A substantial reduction in airflow indicates that the filter needs to be replaced early.' (p. 96)."

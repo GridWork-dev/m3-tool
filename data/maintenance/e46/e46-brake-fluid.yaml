@@ -1,0 +1,53 @@
+# Brake fluid change on the E46 M3. Every source below was opened on 2026-11-24.
+#
+# Markets: `markets: [us]` (ruling R61). Every source is a BMW of North America document or a US
+# English owner's manual, and a document for one market covers that market only. No European BMW
+# schedule (service booklet or owner's handbook) was found: the M3 owner's manuals I opened in
+# archive.org's BMW manuals collection are all US English editions, and web searches found no
+# European one.
+#
+# Interval: `months: 24`, with no trigger. The owner's manual (Tier 1) says 'have the brake fluid
+# changed every two years by a BMW center' (p. 125) and names DOT 4, so the interval and the fluid
+# have a Tier 1 source and the entry is `verified: true`. The start of the count, the car's
+# production date, is in the booklet and the 2005 checklist only. Both are BMW NA documents (Tier 2,
+# one publisher), so it is in `notes`, labelled, and the owner's manual does not say it.
+#
+# Tiers (ruling R77): the owner's manual copy is Tier 1; the booklet copy is Tier 2, because no
+# independent source states its number, SD 92-255; the ST050 and ST041 copies are Tier 2, because
+# they have no issuer line or module number.
+#
+# No cost is published: no Tier 1 or Tier 2 source gives a figure for this service, and price
+# collection is a separate lane (data.md, 'Costs that are absent').
+id: e46-brake-fluid
+generation: e46
+engine: S54B32
+markets: [us]
+title: "Brake fluid"
+interval:
+  months: 24
+parts: []
+fluids:
+  - "DOT 4 brake fluid"
+inspectWhenBuying: true
+howToCheck: "Ask when the brake fluid was last changed. The booklet counts the two years from the car's production date and has a record column for it, headed 'Record of brake/clutch fluid changes (Every 2 years)', so compare the date of the last entry (or the production date, if there is none) with today's date."
+sources:
+  - title: "BMW M3 Owner's Manual, online edition for part no. 01 41 0 157 628 (09/03): Brake fluid, p. 125"
+    publisher: BMW AG
+    url: https://archive.org/download/manualsonline-id-d3b68d3e-dade-4bda-875b-3716cdeabf3f/d3b68d3e-dade-4bda-875b-3716cdeabf3f.pdf
+    tier: 1
+    accessed: 2026-11-24
+    note: "Third-party copy on archive.org (item manualsonline-id-d3b68d3e-dade-4bda-875b-3716cdeabf3f, uploaded by a private account from ManualsOnline). Tier 1 under data.md, 'Sources' (R77): tests 1, 2 and 4 pass, because the file is BMW's own 'Online Edition' PDF (FrameMaker+SGML 5.5.6, Acrobat Distiller 5.0.5, created 30 July 2003), all 170 pages, with 'Online Edition for Part-No. 01 41 0 157 628 - © 09/03 BMW AG' on each page and 'Order No. 01 41 0 157 628 US English VIII/03' on p. 4, so it is complete and not retyped, and the url is the existing archive.org item, with no snapshot created; and test 3 is met, because its part number and scope are corroborated independently by ManualsLib, which lists a 170-page 'BMW M3 2004' owner's manual with 'Online Edition for Part-No. 01 41 0 157 628 - © 09/03 BMW AG' and 'Order No. 01 41 0 157 628 US English VIII/03 Printed in Germany'. A US English edition, so it supports the US market only. Says 'Brake fluid is hygroscopic, that is, it absorbs moisture from the air over time.' and 'In order to ensure the safety and reliability of the brake system, have the brake fluid changed every two years by a BMW center.', and 'Your BMW center is familiar with the specifications for factory-approved brake fluids – DOT 4.' It does not say when the two years start."
+  - title: "Service and Warranty Information, 2004 E46 M3 (SD 92-255, printed 9/03)"
+    publisher: BMW of North America, LLC
+    url: https://archive.org/download/manualzilla-id-7066322/7066322.pdf
+    tier: 2
+    accessed: 2026-11-24
+    note: "Third-party archive.org copy of BMW NA's own print file (complete, 42 PDF pages, live text, not retyped), but Tier 2 under data.md, 'Sources' (R77), test 3: no independent source I could open states its document number, SD 92-255. A BMW NA document, so it speaks for US-market cars only. Page numbers are the booklet's printed pages (PDF page = printed page + 3). Supports the two years and where they start: 'Brake Fluid Service: Change brake fluid every two years.' under 'The following maintenance elements must be performed at the mileage/time stated (time intervals begin from the vehicle’s production date):' (p. 3); Inspection II, Brake Fluid Service, 'Replace brake fluid every 2 years (time interval begins from the vehicle’s production date).' (p. 8); and the record page, 'Record of brake/clutch fluid changes (Every 2 years)' (p. 9)."
+  - title: "Sample 2005 BMW Service Maintenance Checklist (BMW NA SD92-283 8/04), as reproduced in ST050 Service and Maintenance, pp. 12-13"
+    publisher: BMW of North America, LLC
+    url: https://archive.org/download/BMWTechnicalTrainingDocuments/ST050%20Technical%20Systems%20%28Archive%201%29/Service%20and%20Maintenance.pdf
+    tier: 2
+    accessed: 2026-11-24
+    note: "BMW NA's sample 2005 checklist (form 'BMW NA SD92-283 8/04', 3 Series and Z4 with an M3 column), as reproduced in the ST050 chapter 'Service and Maintenance'. Tier 2 under data.md, 'Sources' (R77), tests 1 and 3: the copy has no issuer line or module number and no independent source states the form number. BMW NA is also the booklet's publisher, so the two count once for the verification rule. A 2005 model-year document. Inspection I, Engine Compartment, for all three columns: 'Replace brake fluid every 2 years (time interval begins from vehicle’s production date).' (p. 13). The same two years and the same start, a year later."
+verified: true
+notes: "The two years count from the car's production date, not from the date it was sold or the date of the last service. The 2004 US booklet says 'Replace brake fluid every 2 years (time interval begins from the vehicle’s production date).' (p. 8), and the 2005 US checklist says 'Replace brake fluid every 2 years (time interval begins from vehicle’s production date).' (ST050 p. 13). Both are BMW of North America documents (Tier 2). The owner's manual (Tier 1) gives the two years and the fluid, 'factory-approved brake fluids – DOT 4' (p. 125), and does not say when the count starts. The booklet's record column covers 'brake/clutch fluid changes'."
