@@ -19,6 +19,7 @@ from m3_pipeline.refs.importer import import_directory
 from m3_pipeline.refs.sources import SubjectSources, load_sources
 from m3_pipeline.refs.store import RefStore
 from m3_pipeline.refs.subjects import parse_subject
+from m3_pipeline.refs.sync import R2Store, SyncError, make_r2_client, pull, push
 from m3_pipeline.refs.throttle import Throttle
 from m3_pipeline.refs.viewsets import ViewSet, write_viewset
 
@@ -234,3 +235,33 @@ def credits(subject: Annotated[str, typer.Option("--subject")]) -> None:
         typer.echo("run `pipeline refs viewsets build --subject <id>` first", err=True)
         raise typer.Exit(1)
     typer.echo(render_credits(ViewSet.model_validate_json(path.read_text())), nl=False)
+
+
+sync_app = typer.Typer(help="Sync the private store with R2")
+refs_app.add_typer(sync_app, name="sync")
+
+
+@sync_app.command("push")
+def sync_push(force: Annotated[bool, typer.Option("--force")] = False) -> None:
+    """Upload missing images, then publish the manifest last."""
+    try:
+        report = push(RefStore(load_settings()), R2Store(make_r2_client(os.environ)), force=force)
+    except SyncError as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(1) from None
+    typer.echo(
+        f"uploaded={report.uploaded} downloaded={report.downloaded} skipped={report.skipped}"
+    )
+
+
+@sync_app.command("pull")
+def sync_pull() -> None:
+    """Verify missing images before merging remote records."""
+    try:
+        report = pull(RefStore(load_settings()), R2Store(make_r2_client(os.environ)))
+    except SyncError as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(1) from None
+    typer.echo(
+        f"uploaded={report.uploaded} downloaded={report.downloaded} skipped={report.skipped}"
+    )

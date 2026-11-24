@@ -11,6 +11,7 @@ dependencies = [
     "imagehash==4.3.2",
     "httpx==0.28.1",
     "playwright==1.65.2",
+    "boto3==1.44.9",
 ]
 
 [project.scripts]
