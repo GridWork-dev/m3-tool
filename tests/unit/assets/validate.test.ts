@@ -1,5 +1,5 @@
 import { readFileSync } from 'node:fs'
-import type { Document } from '@gltf-transform/core'
+import { type Document, getBounds, type Mesh, type Node } from '@gltf-transform/core'
 import { describe, expect, test } from 'vitest'
 import {
   ASSET_KINDS,
@@ -25,6 +25,16 @@ import {
 const errs = (i: ContractIssue[]) => i.filter((x) => x.severity === 'error').map((x) => x.code)
 const check = (doc: Document, kind: AssetKind, bytes = 1e6) =>
   validateDocument(doc, { kind, bytes })
+
+const wheelYs = (doc: Document): number[] =>
+  ['wheel_FL', 'wheel_FR', 'wheel_RL', 'wheel_RR'].map(
+    (name) =>
+      doc
+        .getRoot()
+        .listNodes()
+        .find((n) => n.getName() === name)
+        ?.getWorldTranslation()[1] ?? Number.NaN,
+  )
 
 test('a well-formed base car passes', () =>
   expect(errs(validateDocument(makeBaseCar(), { kind: 'base-car', bytes: 1e6 }))).toEqual([]))
@@ -144,17 +154,20 @@ describe('units and orientation', () => {
       .listNodes()
       .find((n) => n.getName() === 'car')
     car?.setTranslation([0, 0.2, 0])
+    // The wheel anchors move up with it, to 0.52 m. The body's lowest point, 0.32 m, still passes.
     expect(errs(check(doc, 'base-car'))).toEqual(['origin'])
   })
 
-  test('accepts the ground within 3 cm and the origin within 2% of the wheelbase', () => {
+  test('accepts the origin within 2% of the wheelbase', () => {
     const doc = makeBaseCar()
     const car = doc
       .getRoot()
       .listNodes()
       .find((n) => n.getName() === 'car')
-    car?.setTranslation([0, -0.025, 0.05]) // 5 cm is 1.8% of a 2.731 m wheelbase
+    car?.setTranslation([0, 0, 0.05]) // 5 cm is 1.8% of a 2.731 m wheelbase
     expect(errs(check(doc, 'base-car'))).toEqual([])
+    car?.setTranslation([0, 0, 0.06]) // 2.2%
+    expect(errs(check(doc, 'base-car'))).toEqual(['origin'])
   })
 
   test('measures in world space, through every parent', () => {
@@ -186,6 +199,150 @@ describe('units and orientation', () => {
     for (const mesh of empty.getRoot().listMeshes()) mesh.dispose()
     expect(errs(check(empty, 'product'))).toContain('units')
   })
+})
+
+describe('ground and wheel heights (R32)', () => {
+  const originIssues = (doc: Document) =>
+    check(doc, 'base-car').filter((issue) => issue.code === 'origin')
+  const lowestPoint = (doc: Document): number => {
+    const scene = doc.getRoot().listScenes()[0]
+    if (!scene) throw new Error('no scene')
+    return getBounds(scene).min[1]
+  }
+
+  test('the fixture is a wheel-less body 0.12 m off the ground, with its anchors at 0.32 m', () => {
+    const doc = makeBaseCar()
+    expect(lowestPoint(doc)).toBeCloseTo(0.12, 6)
+    expect(wheelYs(doc)).toEqual([0.32, 0.32, 0.32, 0.32])
+    expect(errs(check(doc, 'base-car'))).toEqual([])
+  })
+
+  test('a wheel-less body about 0.12 m off the ground, with anchors at about 0.33 m, passes', () => {
+    const doc = makeBaseCar({ bodyBottom: 0.12, wheelY: 0.33 })
+    expect(lowestPoint(doc)).toBeCloseTo(0.12, 6)
+    expect(check(doc, 'base-car')).toEqual([])
+  })
+
+  test('a body that rests on the ground, as one with wheels would, passes too', () => {
+    expect(check(makeBaseCar({ bodyBottom: 0 }), 'base-car')).toEqual([])
+  })
+
+  describe('wheel anchors sit 0.25 to 0.45 m up, where the wheel centers are', () => {
+    test('anchors at 0.10 m fail, and the message names the range and the anchors', () => {
+      const issues = originIssues(makeBaseCar({ wheelY: 0.1 }))
+      expect(issues).toHaveLength(1)
+      expect(issues[0]?.severity).toBe('error')
+      expect(issues[0]?.message).toContain('0.1')
+      expect(issues[0]?.message).toMatch(/0\.25 to 0\.45/)
+      for (const name of ['wheel_FL', 'wheel_FR', 'wheel_RL', 'wheel_RR']) {
+        expect(issues[0]?.message).toContain(name)
+      }
+    })
+
+    test('anchors at 0.60 m fail', () => {
+      expect(errs(check(makeBaseCar({ wheelY: 0.6 }), 'base-car'))).toEqual(['origin'])
+    })
+
+    test('one anchor out of range is the only one named', () => {
+      const issues = originIssues(makeBaseCar({ wheelYBy: { wheel_RR: 0.1 } }))
+      // It is out of range, and 0.22 m below the others.
+      expect(issues.map((i) => i.message).join(' ')).toContain('wheel_RR')
+      expect(issues[0]?.message).not.toContain('wheel_FL')
+    })
+
+    test.each([
+      [0.25, true],
+      [0.45, true],
+      [0.2499, false],
+      [0.4501, false],
+    ])('all four anchors at %s m: passes is %s', (wheelY, passes) => {
+      expect(errs(check(makeBaseCar({ wheelY }), 'base-car'))).toEqual(passes ? [] : ['origin'])
+    })
+  })
+
+  describe('wheel anchors are within 0.02 m of each other', () => {
+    test('one anchor 0.05 m off from the others fails', () => {
+      const doc = makeBaseCar({ wheelYBy: { wheel_FL: 0.37 } }) // 0.37 is in range; the spread is not
+      const issues = originIssues(doc)
+      expect(issues).toHaveLength(1)
+      expect(issues[0]?.message).toMatch(/0\.05/)
+      expect(issues[0]?.message).toMatch(/0\.02/)
+    })
+
+    test.each([
+      [0.02, true],
+      [0.0201, false],
+      [0.01, true],
+    ])('a spread of %s m: passes is %s', (spread, passes) => {
+      const doc = makeBaseCar({ wheelYBy: { wheel_RL: 0.32 + spread } })
+      expect(errs(check(doc, 'base-car'))).toEqual(passes ? [] : ['origin'])
+    })
+
+    test('the front axle may sit lower than the rear, as long as the spread stays within 0.02 m', () => {
+      const doc = makeBaseCar({
+        wheelYBy: { wheel_FL: 0.31, wheel_FR: 0.31, wheel_RL: 0.33, wheel_RR: 0.33 },
+      })
+      expect(errs(check(doc, 'base-car'))).toEqual([])
+    })
+
+    test('a missing wheel anchor reports only the missing anchor, not a spread', () => {
+      const doc = makeBaseCar({ omitAnchor: 'wheel_RR', wheelYBy: { wheel_FL: 0.4 } })
+      expect(errs(check(doc, 'base-car'))).toEqual(['missing-anchor'])
+    })
+  })
+
+  describe('the body sits between -0.03 m and 0.35 m', () => {
+    test('a body sunk to -0.10 m fails, and the message gives the height', () => {
+      const issues = originIssues(makeBaseCar({ bodyBottom: -0.1 }))
+      expect(issues).toHaveLength(1)
+      expect(issues[0]?.message).toContain('-0.1')
+      expect(issues[0]?.message).toMatch(/-0\.03/)
+    })
+
+    test('a body floating at 0.40 m fails', () => {
+      const issues = originIssues(makeBaseCar({ bodyBottom: 0.4 }))
+      expect(issues).toHaveLength(1)
+      expect(issues[0]?.message).toContain('0.35')
+    })
+
+    test.each([
+      [-0.03, true],
+      [0.35, true],
+      [-0.0301, false],
+      [0.3501, false],
+    ])('a lowest point at %s m: passes is %s', (bodyBottom, passes) => {
+      expect(errs(check(makeBaseCar({ bodyBottom }), 'base-car'))).toEqual(passes ? [] : ['origin'])
+    })
+
+    test('the lowest mesh counts, not just the node named body', () => {
+      const doc = makeBaseCar()
+      doc
+        .getRoot()
+        .listNodes()
+        .find((n) => n.getName() === 'bumper_front')
+        ?.setTranslation([0, -0.5, 0]) // a bumper hanging below the ground
+      expect(errs(check(doc, 'base-car'))).toEqual(['origin'])
+    })
+  })
+
+  test('the wheel heights are measured in world space', () => {
+    const doc = makeBaseCar()
+    const car = doc
+      .getRoot()
+      .listNodes()
+      .find((n) => n.getName() === 'car')
+    car?.setTranslation([0, -0.1, 0]) // anchors at 0.22 m
+    expect(errs(check(doc, 'base-car'))).toEqual(['origin'])
+  })
+
+  test('the checks hold for a GLB read back from bytes', async () => {
+    const good = await validateGlb(await toGlb(makeBaseCar({ wheelY: 0.33 })), 'base-car')
+    expect(errs(good.issues)).toEqual([])
+    const low = await validateGlb(await toGlb(makeBaseCar({ wheelY: 0.1 })), 'base-car')
+    expect(errs(low.issues)).toEqual(['origin'])
+    const sunk = await validateGlb(await toGlb(makeBaseCar({ bodyBottom: -0.1 })), 'base-car')
+    expect(errs(sunk.issues)).toEqual(['origin'])
+  }, 60_000)
 })
 
 describe('triangle budget', () => {
@@ -417,6 +574,244 @@ describe('body modules in a base car', () => {
   })
 })
 
+const nodeNamed = (doc: Document, name: string): Node => {
+  const found = doc
+    .getRoot()
+    .listNodes()
+    .find((n) => n.getName() === name)
+  if (!found) throw new Error(`no node named ${name}`)
+  return found
+}
+// The smallest mesh in the document, so a node that reuses it adds next to no triangles.
+const smallestMesh = (doc: Document) => {
+  const triangles = (mesh: Mesh) =>
+    mesh.listPrimitives().reduce((sum, p) => sum + (p.getIndices()?.getCount() ?? 0), 0)
+  const smallest = doc
+    .getRoot()
+    .listMeshes()
+    .sort((a, b) => triangles(a) - triangles(b))[0]
+  if (!smallest) throw new Error('no mesh')
+  return smallest
+}
+
+describe('frames and structure (R36)', () => {
+  describe('required node, anchor and module names are unique', () => {
+    test('a second roof is an error, and the message names the node and the count', () => {
+      const doc = makeBaseCar()
+      nodeNamed(doc, 'car').addChild(doc.createNode('roof').setMesh(smallestMesh(doc)))
+      const issues = check(doc, 'base-car')
+      expect(errs(issues)).toEqual(['duplicate-name'])
+      expect(issues[0]?.message).toContain('roof')
+      expect(issues[0]?.message).toContain('2')
+    })
+
+    test.each(['body', ...BODY_MODULES])('a second %s node is an error', (name) => {
+      const doc = makeBaseCar()
+      nodeNamed(doc, 'car').addChild(doc.createNode(name).setMesh(smallestMesh(doc)))
+      expect(errs(check(doc, 'base-car'))).toEqual(['duplicate-name'])
+    })
+
+    test.each([
+      ['without a mesh', false],
+      ['with a mesh', true],
+    ])('a second wheel_FL anchor %s is a duplicate, and only a duplicate', (_label, withMesh) => {
+      const doc = makeBaseCar()
+      const copy = doc.createNode('wheel_FL').setTranslation([-0.75, 0.32, -1.3655])
+      if (withMesh) copy.setMesh(smallestMesh(doc))
+      nodeNamed(doc, 'car').addChild(copy)
+      const issues = check(doc, 'base-car')
+      expect(errs(issues)).toEqual(['duplicate-name'])
+      expect(issues[0]?.message).toContain('wheel_FL')
+      expect(issues[0]?.message).toContain('2')
+    })
+
+    test('a duplicate nested deep in the scene is found, and three copies are counted', () => {
+      const doc = makeBaseCar()
+      const wrapper = doc.createNode('wrapper')
+      const inner = doc.createNode('inner')
+      wrapper.addChild(inner)
+      inner.addChild(doc.createNode('roof').setMesh(smallestMesh(doc)))
+      inner.addChild(doc.createNode('roof').setMesh(smallestMesh(doc)))
+      nodeNamed(doc, 'car').addChild(wrapper)
+      const issues = check(doc, 'base-car')
+      expect(errs(issues)).toEqual(['duplicate-name'])
+      expect(issues[0]?.message).toContain('3')
+    })
+
+    test('an interior with two dash nodes, or two camera anchors, fails', () => {
+      const doc = makeInterior()
+      nodeNamed(doc, 'interior').addChild(doc.createNode('dash').setMesh(smallestMesh(doc)))
+      nodeNamed(doc, 'interior').addChild(doc.createNode('camera_driver_eye'))
+      const issues = check(doc, 'interior').filter((i) => i.code === 'duplicate-name')
+      expect(issues).toHaveLength(2)
+    })
+
+    test('each duplicated name is one issue, not one per copy', () => {
+      const doc = makeBaseCar()
+      for (const name of ['roof', 'body']) {
+        nodeNamed(doc, 'car').addChild(doc.createNode(name).setMesh(smallestMesh(doc)))
+      }
+      expect(errs(check(doc, 'base-car'))).toEqual(['duplicate-name', 'duplicate-name'])
+    })
+
+    test('names the contract does not require may repeat, and names are compared with case', () => {
+      const doc = makeBaseCar()
+      const car = nodeNamed(doc, 'car')
+      car.addChild(doc.createNode('detail'))
+      car.addChild(doc.createNode('detail'))
+      car.addChild(doc.createNode('Roof').setMesh(smallestMesh(doc)))
+      expect(errs(check(doc, 'base-car'))).toEqual([])
+    })
+
+    test('a product has no required names, so it has no duplicates to find', () => {
+      const doc = makeProduct()
+      const root = nodeNamed(doc, 'product-0')
+      root.addChild(doc.createNode('part'))
+      root.addChild(doc.createNode('part'))
+      expect(errs(check(doc, 'product'))).toEqual([])
+    })
+  })
+
+  describe('anchors are empty leaves', () => {
+    test('an anchor with a mesh on a descendant fails, and the message names it', () => {
+      const doc = makeBaseCar()
+      nodeNamed(doc, 'wheel_FL').addChild(doc.createNode('rim').setMesh(smallestMesh(doc)))
+      const issues = check(doc, 'base-car')
+      expect(errs(issues)).toEqual(['missing-anchor'])
+      expect(issues[0]?.message).toContain('wheel_FL')
+      expect(issues[0]?.message).toContain('rim')
+    })
+
+    test('a mesh several levels below the anchor counts', () => {
+      const doc = makeBaseCar()
+      const inner = doc.createNode('inner')
+      inner.addChild(doc.createNode('rim').setMesh(smallestMesh(doc)))
+      const middle = doc.createNode('middle')
+      middle.addChild(inner)
+      nodeNamed(doc, 'mount_wing').addChild(middle)
+      expect(errs(check(doc, 'base-car'))).toEqual(['missing-anchor'])
+    })
+
+    test('an anchor whose children carry no mesh is still an empty leaf for the contract', () => {
+      const doc = makeBaseCar()
+      nodeNamed(doc, 'wheel_FL').addChild(doc.createNode('marker'))
+      expect(errs(check(doc, 'base-car'))).toEqual([])
+    })
+
+    test('the interior anchors follow the same rule', () => {
+      const doc = makeInterior()
+      nodeNamed(doc, 'camera_driver_eye').addChild(doc.createNode('rim').setMesh(smallestMesh(doc)))
+      expect(errs(check(doc, 'interior'))).toEqual(['missing-anchor'])
+    })
+  })
+
+  describe('an interior has exactly one root, named interior', () => {
+    test('a second root fails with root-count, naming the interior kind', () => {
+      const doc = makeInterior()
+      doc
+        .getRoot()
+        .listScenes()[0]
+        ?.addChild(doc.createNode('extra').setMesh(smallestMesh(doc)))
+      const issues = check(doc, 'interior')
+      expect(errs(issues)).toEqual(['root-count'])
+      expect(issues[0]?.message).toContain('interior')
+      expect(issues[0]?.message).toContain('2')
+    })
+
+    test('a single root with another name fails, and the message says what it is called', () => {
+      const doc = makeInterior()
+      nodeNamed(doc, 'interior').setName('cabin')
+      const issues = check(doc, 'interior')
+      expect(errs(issues)).toContain('root-count')
+      const rootIssue = issues.find((i) => i.code === 'root-count')
+      expect(rootIssue?.message).toContain('cabin')
+      expect(rootIssue?.message).toContain('interior')
+    })
+
+    test('an interior nested under a wrapper root fails', () => {
+      const doc = makeInterior()
+      const scene = doc.getRoot().listScenes()[0]
+      const wrapper = doc.createNode('wrapper')
+      scene?.removeChild(nodeNamed(doc, 'interior'))
+      wrapper.addChild(nodeNamed(doc, 'interior'))
+      scene?.addChild(wrapper)
+      const issues = check(doc, 'interior')
+      expect(errs(issues)).toEqual(['root-count'])
+      expect(issues[0]?.message).toContain('wrapper')
+    })
+
+    test('an interior with no root at all fails', () => {
+      const doc = makeInterior()
+      for (const scene of doc.getRoot().listScenes()) scene.dispose()
+      expect(errs(check(doc, 'interior'))).toContain('root-count')
+    })
+
+    test('the root must be named exactly interior, with case', () => {
+      const doc = makeInterior()
+      nodeNamed(doc, 'interior').setName('Interior')
+      expect(errs(check(doc, 'interior'))).toContain('root-count')
+    })
+  })
+
+  describe('a body module sits no lower than -0.03 m', () => {
+    const lowestY = (doc: Document): number => {
+      const scene = doc.getRoot().listScenes()[0]
+      if (!scene) throw new Error('no scene')
+      return getBounds(scene).min[1]
+    }
+    const lowerBy = (doc: Document, y: number) => {
+      nodeNamed(doc, 'module-0').setTranslation([0, y, 0])
+    }
+
+    test('a module sunk below the ground fails with origin, and the message gives the height', () => {
+      const doc = makeBodyModule()
+      lowerBy(doc, -0.5)
+      const issues = check(doc, 'body-module')
+      expect(errs(issues)).toEqual(['origin'])
+      expect(issues[0]?.message).toContain(String(Number(lowestY(doc).toFixed(3))))
+      expect(issues[0]?.message).toContain('-0.03')
+    })
+
+    test.each([
+      [-0.03, true],
+      [-0.0299, true],
+      [-0.0301, false],
+    ])('a module whose lowest point is at %s m: passes is %s', (target, passes) => {
+      const doc = makeBodyModule()
+      lowerBy(doc, target - lowestY(doc))
+      expect(lowestY(doc)).toBeCloseTo(target, 6)
+      expect(errs(check(doc, 'body-module'))).toEqual(passes ? [] : ['origin'])
+    })
+
+    test('a module high above the ground, like a roof, passes', () => {
+      const doc = makeBodyModule()
+      lowerBy(doc, 1)
+      expect(errs(check(doc, 'body-module'))).toEqual([])
+    })
+
+    test('a product is not held to it: its pivot is its anchor, not the ground', () => {
+      const doc = makeProduct()
+      nodeNamed(doc, 'product-0').setTranslation([0, -1, 0])
+      expect(errs(check(doc, 'product'))).toEqual([])
+    })
+  })
+
+  describe('a module node needs a mesh with at least one primitive', () => {
+    test.each(BODY_MODULES)('%s with an empty mesh fails with missing-node', (name) => {
+      const doc = makeBaseCar()
+      nodeNamed(doc, name).setMesh(doc.createMesh('empty'))
+      const issues = check(doc, 'base-car')
+      expect(errs(issues)).toEqual(['missing-node'])
+      expect(issues[0]?.message).toContain(name)
+      expect(issues[0]?.message).toMatch(/primitive/)
+    })
+
+    test('a module with a mesh of one primitive passes', () => {
+      expect(errs(check(makeBaseCar(), 'base-car'))).toEqual([])
+    })
+  })
+})
+
 describe('the body-module kind', () => {
   test('a well-formed body module passes', () =>
     expect(errs(check(makeBodyModule(), 'body-module'))).toEqual([]))
@@ -478,9 +873,10 @@ describe('the body-module kind', () => {
     expect(CONTRACTS['body-module'].requiredMaterials).toEqual([])
   })
 
-  test('only a product and a body module need exactly one root', () => {
-    expect(errs(check(makeBaseCar(), 'base-car'))).not.toContain('root-count')
-    expect(errs(check(makeInterior(), 'interior'))).not.toContain('root-count')
+  test('a base car is not held to a single root', () => {
+    const doc = makeBaseCar()
+    doc.getRoot().listScenes()[0]?.addChild(doc.createNode('extra'))
+    expect(errs(check(doc, 'base-car'))).toEqual([])
   })
 })
 
@@ -634,15 +1030,73 @@ describe('contract values', () => {
   })
 })
 
+describe('stats (R35)', () => {
+  test('a base car reports its triangle count and its size in bytes', async () => {
+    const bytes = await toGlb(makeBaseCar({ triangles: 130_000 }))
+    const result = await validateGlb(bytes, 'base-car')
+    expect(result.stats).toEqual({ triangles: 130_000, bytes: bytes.byteLength })
+  }, 30_000)
+
+  test('the count is the one the budget check uses: a mesh counts once per node that uses it', async () => {
+    const doc = makeProduct({ triangles: 1_200 })
+    const mesh = smallestMesh(doc)
+    doc.getRoot().listScenes()[0]?.addChild(doc.createNode('second').setMesh(mesh))
+    const bytes = await toGlb(doc)
+    const result = await validateGlb(bytes, 'product')
+    expect(result.stats.triangles).toBe(2_400)
+  })
+
+  test('a failing asset still reports its stats', async () => {
+    const bytes = await toGlb(makeProduct({ roots: 2, triangles: 1_200 }))
+    const result = await validateGlb(bytes, 'product')
+    expect(result.ok).toBe(false)
+    expect(result.stats).toEqual({ triangles: 1_200, bytes: bytes.byteLength })
+  })
+
+  test('the stats follow the bytes that were checked, padding included', async () => {
+    const padded = new Uint8Array(1_000_001)
+    padded.set(await toGlb(makeProduct()))
+    expect((await validateGlb(padded, 'product')).stats.bytes).toBe(1_000_001)
+  })
+
+  test('a file that cannot be read has a size and no triangle count', async () => {
+    const result = await validateGlb(new Uint8Array([1, 2, 3, 4]), 'product')
+    expect(result.ok).toBe(false)
+    expect(result.stats).toEqual({ triangles: null, bytes: 4 })
+  })
+
+  test('a Draco file has a size and no triangle count, because it cannot be decoded here', async () => {
+    const glb = jsonOnlyGlb({
+      asset: { version: '2.0' },
+      extensionsUsed: ['KHR_draco_mesh_compression'],
+      extensionsRequired: ['KHR_draco_mesh_compression'],
+      scene: 0,
+      scenes: [{ nodes: [] }],
+    })
+    const result = await validateGlb(glb, 'product')
+    expect(result.stats).toEqual({ triangles: null, bytes: glb.byteLength })
+  })
+})
+
 describe('validateGlb', () => {
   test('a well-formed product GLB passes the Khronos validator and the contract', async () => {
-    const result = await validateGlb(await toGlb(makeProduct()), 'product')
-    expect(result).toEqual({ ok: true, issues: [] })
+    const bytes = await toGlb(makeProduct())
+    const result = await validateGlb(bytes, 'product')
+    expect(result).toEqual({
+      ok: true,
+      issues: [],
+      stats: { triangles: 1_200, bytes: bytes.byteLength },
+    })
   })
 
   test('a well-formed body module GLB passes the Khronos validator and the contract', async () => {
-    const result = await validateGlb(await toGlb(makeBodyModule()), 'body-module')
-    expect(result).toEqual({ ok: true, issues: [] })
+    const bytes = await toGlb(makeBodyModule())
+    const result = await validateGlb(bytes, 'body-module')
+    expect(result).toEqual({
+      ok: true,
+      issues: [],
+      stats: { triangles: 1_200, bytes: bytes.byteLength },
+    })
   })
 
   test('a body module GLB with 2 roots fails', async () => {

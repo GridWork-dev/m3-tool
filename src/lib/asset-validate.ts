@@ -13,6 +13,7 @@ import {
   NodeIO,
   type Property,
   PropertyType,
+  type Scene,
   type Texture,
 } from '@gltf-transform/core'
 import { ALL_EXTENSIONS } from '@gltf-transform/extensions'
@@ -38,6 +39,7 @@ export type IssueCode =
   | 'orientation'
   | 'origin'
   | 'root-count'
+  | 'duplicate-name'
   | 'unsupported-extension'
 
 export interface ContractIssue {
@@ -92,8 +94,24 @@ const unsupportedExtension = (name: string): ContractIssue[] => {
 // Document checks
 // ---------------------------------------------------------------------------------------------
 
-// A product and a body module are each one object, so each has exactly one root node.
-const ONE_ROOT_KINDS: readonly AssetKind[] = ['product', 'body-module']
+// A product and a body module are each one object, and an interior is one object named
+// `interior`, so each has exactly one root node.
+const ONE_ROOT_KINDS: readonly AssetKind[] = ['product', 'body-module', 'interior']
+const INTERIOR_ROOT = 'interior'
+
+// The default scene is the one a viewer loads, and every check covers it.
+function sceneOf(doc: Document): Scene | null {
+  const root = doc.getRoot()
+  return root.getDefaultScene() ?? root.listScenes()[0] ?? null
+}
+
+function sceneNodes(scene: Scene | null): Node[] {
+  const nodes: Node[] = []
+  scene?.traverse((node) => {
+    nodes.push(node)
+  })
+  return nodes
+}
 
 // The contract covers the default scene, which is the one a viewer loads.
 export function validateDocument(
@@ -101,12 +119,8 @@ export function validateDocument(
   opts: { kind: AssetKind; bytes: number },
 ): ContractIssue[] {
   const contract = CONTRACTS[opts.kind]
-  const root = doc.getRoot()
-  const scene = root.getDefaultScene() ?? root.listScenes()[0] ?? null
-  const nodes: Node[] = []
-  scene?.traverse((node) => {
-    nodes.push(node)
-  })
+  const scene = sceneOf(doc)
+  const nodes = sceneNodes(scene)
   const bounds = scene
     ? getBounds(scene)
     : {
@@ -126,8 +140,9 @@ export function validateDocument(
     ...checkTextures(contract, doc),
     ...checkUnits(contract, bounds),
     ...(contract.kind === 'base-car' ? checkCarPose(nodes, bounds) : []),
+    ...(contract.kind === 'body-module' ? checkModuleFrame(bounds) : []),
     ...(ONE_ROOT_KINDS.includes(contract.kind)
-      ? checkRootCount(contract.kind, scene?.listChildren().length ?? 0)
+      ? checkRoots(contract.kind, scene?.listChildren() ?? [])
       : []),
   ]
 }
@@ -142,34 +157,77 @@ function checkBytes(contract: AssetContract, bytes: number): ContractIssue[] {
   ]
 }
 
-// Names match exactly, with case, anywhere in the scene graph. An anchor is a node with no mesh.
-// A base car's module nodes are the opposite: each must have a mesh, so a swap has something to
-// hide.
+// The first node at or below `node` that carries a mesh, other than `node` itself.
+function meshBelow(node: Node): Node | undefined {
+  for (const child of node.listChildren()) {
+    if (child.getMesh()) return child
+    const deeper = meshBelow(child)
+    if (deeper) return deeper
+  }
+  return undefined
+}
+
+// Names match exactly, with case, anywhere in the scene graph, and each required name is used by
+// exactly one node: a second `roof` would leave the swap hiding one and drawing the other.
+// An anchor is an empty leaf: no mesh on the node, and none on anything below it. A base car's
+// module nodes are the opposite: each must have a mesh with a primitive, so a swap has something
+// to hide.
 function checkNames(contract: AssetContract, nodes: Node[]): ContractIssue[] {
   const issues: ContractIssue[] = []
   const named = (name: string) => nodes.filter((node) => node.getName() === name)
   const meshNodes: readonly string[] = contract.kind === 'base-car' ? BODY_MODULES : []
+  const duplicate = (what: string, name: string, copies: number) =>
+    error(
+      'duplicate-name',
+      `${copies} nodes are named ${name}, but each ${what} name must be unique in the scene`,
+    )
   for (const name of contract.requiredNodes) {
     const found = named(name)
-    if (found.length === 0) {
+    const [node] = found
+    if (!node) {
       issues.push(error('missing-node', `required node ${name} is missing`))
-    } else if (meshNodes.includes(name) && found.every((node) => !node.getMesh())) {
-      issues.push(
-        error(
-          'missing-node',
-          `${name} is a body module, so it must be a mesh node, and it has no mesh`,
-        ),
-      )
+    } else if (found.length > 1) {
+      issues.push(duplicate('required node', name, found.length))
+    } else if (meshNodes.includes(name)) {
+      const mesh = node.getMesh()
+      if (!mesh) {
+        issues.push(
+          error(
+            'missing-node',
+            `${name} is a body module, so it must be a mesh node, and it has no mesh`,
+          ),
+        )
+      } else if (mesh.listPrimitives().length === 0) {
+        issues.push(
+          error(
+            'missing-node',
+            `${name} is a body module, so its mesh needs at least one primitive, and it has none`,
+          ),
+        )
+      }
     }
   }
   for (const name of contract.requiredAnchors) {
     const found = named(name)
-    if (found.length === 0) {
+    const [node] = found
+    if (!node) {
       issues.push(error('missing-anchor', `required anchor ${name} is missing`))
-    } else if (found.every((node) => node.getMesh())) {
+    } else if (found.length > 1) {
+      issues.push(duplicate('anchor', name, found.length))
+    } else if (node.getMesh()) {
       issues.push(
         error('missing-anchor', `${name} has a mesh, but an anchor is an empty node with no mesh`),
       )
+    } else {
+      const below = meshBelow(node)
+      if (below) {
+        issues.push(
+          error(
+            'missing-anchor',
+            `${name} has a mesh on its descendant ${below.getName() || '(unnamed)'}, but an anchor is an empty leaf with no mesh on it or below it`,
+          ),
+        )
+      }
     }
   }
   return issues
@@ -202,8 +260,9 @@ const TRIANGLES = 4
 const TRIANGLE_STRIP = 5
 const TRIANGLE_FAN = 6
 
-// A mesh counts once for every node that uses it, because each use is drawn.
-function checkTriangles(contract: AssetContract, nodes: Node[]): ContractIssue[] {
+// A mesh counts once for every node that uses it, because each use is drawn. Points and lines are
+// not triangles: they are tallied in `skipped`.
+function countTriangles(nodes: Node[]): { total: number; skipped: number } {
   let total = 0
   let skipped = 0
   for (const node of nodes) {
@@ -216,6 +275,11 @@ function checkTriangles(contract: AssetContract, nodes: Node[]): ContractIssue[]
       else if (mode >= POINTS && mode <= LINE_STRIP) skipped++
     }
   }
+  return { total, skipped }
+}
+
+function checkTriangles(contract: AssetContract, nodes: Node[]): ContractIssue[] {
+  const { total, skipped } = countTriangles(nodes)
   const issues: ContractIssue[] = []
   const { min, max } = contract.triangles
   if (total < min || total > max) {
@@ -385,20 +449,88 @@ function checkCarPose(nodes: Node[], bounds: Box): ContractIssue[] {
     }
   }
 
-  if (!isEmpty(bounds) && Math.abs(bounds.min[1]) > MEASUREMENTS.groundTolerance) {
+  issues.push(...checkGround(found, bounds))
+  return issues
+}
+
+// A wheel-less body does not touch the ground, so the ground is checked through the wheel anchors,
+// which stand where the wheel centers go, and through the body's lowest point (R32).
+function checkGround(wheels: { name: string; at: Vec3 }[], bounds: Box): ContractIssue[] {
+  const issues: ContractIssue[] = []
+  const { wheelAnchorY, wheelAnchorSpread, bodyMinY } = MEASUREMENTS.ground
+  const slack = MEASUREMENTS.epsilon
+
+  const outOfRange = wheels.filter(
+    ({ at }) => at[1] < wheelAnchorY.min - slack || at[1] > wheelAnchorY.max + slack,
+  )
+  if (outOfRange.length > 0) {
     issues.push(
       error(
         'origin',
-        `the lowest point is at y = ${meters(bounds.min[1])} m, but the car must sit on the ground (within ${MEASUREMENTS.groundTolerance} m of y = 0)`,
+        `${outOfRange.map(({ name, at }) => `${name} is at y = ${meters(at[1])} m`).join(', ')}, but a wheel anchor stands at the wheel center, ${wheelAnchorY.min} to ${wheelAnchorY.max} m above the ground`,
       ),
     )
+  }
+
+  if (wheels.length === WHEELS.length) {
+    const ys = wheels.map(({ at }) => at[1])
+    const spread = Math.max(...ys) - Math.min(...ys)
+    if (spread > wheelAnchorSpread + slack) {
+      issues.push(
+        error(
+          'origin',
+          `the wheel anchors' y values differ by ${meters(spread)} m (${wheels.map(({ name, at }) => `${name} ${meters(at[1])}`).join(', ')}), but the four wheel centers are within ${wheelAnchorSpread} m of each other`,
+        ),
+      )
+    }
+  }
+
+  if (!isEmpty(bounds)) {
+    const lowest = bounds.min[1]
+    if (lowest < bodyMinY.min - slack || lowest > bodyMinY.max + slack) {
+      issues.push(
+        error(
+          'origin',
+          `the lowest point is at y = ${meters(lowest)} m, but the body must sit between ${bodyMinY.min} and ${bodyMinY.max} m (not sunk into the ground, not floating above the wheels)`,
+        ),
+      )
+    }
   }
   return issues
 }
 
-function checkRootCount(kind: AssetKind, roots: number): ContractIssue[] {
-  if (roots === 1) return []
-  return [error('root-count', `a ${kind} has exactly one root node, and this scene has ${roots}`)]
+// A body module is authored in the car frame, with its origin on the ground, so it does not sit
+// below the ground.
+function checkModuleFrame(bounds: Box): ContractIssue[] {
+  const { bodyModuleMinY, epsilon } = MEASUREMENTS
+  if (isEmpty(bounds) || bounds.min[1] >= bodyModuleMinY - epsilon) return []
+  return [
+    error(
+      'origin',
+      `the lowest point is at y = ${meters(bounds.min[1])} m, but a body module is authored in the car frame, with its origin on the ground, so it sits no lower than ${bodyModuleMinY} m`,
+    ),
+  ]
+}
+
+function checkRoots(kind: AssetKind, roots: Node[]): ContractIssue[] {
+  if (roots.length !== 1) {
+    return [
+      error(
+        'root-count',
+        `a ${kind} has exactly one root node${kind === 'interior' ? `, named ${INTERIOR_ROOT}` : ''}, and this scene has ${roots.length}`,
+      ),
+    ]
+  }
+  const name = roots[0]?.getName()
+  if (kind === 'interior' && name !== INTERIOR_ROOT) {
+    return [
+      error(
+        'root-count',
+        `an interior has exactly one root node, named ${INTERIOR_ROOT}, and this scene's root is named ${name === '' ? '(unnamed)' : name}`,
+      ),
+    ]
+  }
+  return []
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -442,12 +574,27 @@ async function runKhronos(
   }
 }
 
-export async function validateGlb(
-  bytes: Uint8Array,
-  kind: AssetKind,
-): Promise<{ ok: boolean; issues: ContractIssue[] }> {
+// What a build step records about a file it has validated. `triangles` counts what the budget
+// counts (a mesh once per node that uses it), and is null when the file could not be read, so no
+// count exists. `bytes` is the size of the bytes that were checked.
+export interface GlbStats {
+  triangles: number | null
+  bytes: number
+}
+
+export interface GlbValidation {
+  ok: boolean
+  issues: ContractIssue[]
+  stats: GlbStats
+}
+
+export async function validateGlb(bytes: Uint8Array, kind: AssetKind): Promise<GlbValidation> {
   const { issues, extensionsUsed } = await runKhronos(bytes)
-  const failed = (): { ok: false; issues: ContractIssue[] } => ({ ok: false, issues })
+  const failed = (): GlbValidation => ({
+    ok: false,
+    issues,
+    stats: { triangles: null, bytes: bytes.byteLength },
+  })
 
   // Draco geometry can't be decoded here, and reading it fails with an error about a missing
   // decoder. Say what to do instead, before that error gets a chance to send anyone to install one.
@@ -472,5 +619,9 @@ export async function validateGlb(
     return failed()
   }
   issues.push(...validateDocument(doc, { kind, bytes: bytes.byteLength }))
-  return { ok: !issues.some((issue) => issue.severity === 'error'), issues }
+  return {
+    ok: !issues.some((issue) => issue.severity === 'error'),
+    issues,
+    stats: { triangles: countTriangles(sceneNodes(sceneOf(doc))).total, bytes: bytes.byteLength },
+  }
 }

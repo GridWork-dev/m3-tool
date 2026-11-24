@@ -1154,5 +1154,5 @@ Follow the landing procedure with the `docs` label, and `Closes` the Phase 0 ste
 ## After this plan
 
 - **Plan 0B** (photo tooling) runs in its own worktree from Task 3 on.
-- **Plan 0C** (spike and bake-off) gets written once the user has collected photos with 0B's tooling, because the collected view sets decide how the spike runs.
+- **Plan 0C** (the spike; the model bake-off was dropped, see ADR 0013) gets written once the user has collected photos with 0B's tooling, because the collected view sets decide how the spike runs.
 - Phase 0 step 7 (the Phase 1 spend cap) is asked after the spike report.

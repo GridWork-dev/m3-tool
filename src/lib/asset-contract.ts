@@ -99,6 +99,19 @@ export const MEASUREMENTS = {
   otherSize: { min: 0.05, max: 4.0 },
   // The mean Z of the wheel anchors may be this fraction of the wheelbase from the origin.
   originWheelbaseFraction: 0.02,
-  // The lowest point of a base car may be this far from y = 0.
-  groundTolerance: 0.03,
+  // The ground check for a base car. A generated body has no wheels (spec section 9.3), so it
+  // does not touch the ground: the wheel anchors mark where the wheel centers go, one tire radius
+  // up, and the body sits a little above the ground between them.
+  ground: {
+    // The y of each wheel anchor.
+    wheelAnchorY: { min: 0.25, max: 0.45 },
+    // The four wheel anchors' y values differ by at most this much.
+    wheelAnchorSpread: 0.02,
+    // The y of the body's lowest point: not sunk into the ground, not floating above the wheels.
+    bodyMinY: { min: -0.03, max: 0.35 },
+  },
+  // A body module is authored in the car frame, so it may not sit lower than this.
+  bodyModuleMinY: -0.03,
+  // Limits are compared with this slack, so a value written as 0.02 or -0.03 passes.
+  epsilon: 1e-6,
 } as const

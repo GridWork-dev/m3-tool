@@ -20,7 +20,10 @@ const generic = () => readFixture('parts/e46/fixture-generic-wheels.yaml')
 const coilovers = () => readFixture('parts/e46/fixture-coilovers.yaml')
 const trunkLid = () => readFixture('parts/e46/fixture-trunk-lid.yaml')
 const maintenance = () => readFixture('maintenance/e46/fixture-oil-service.yaml')
+// A forum-only issue: no fix and no cost.
 const issue = () => readFixture('issues/e46/fixture-rod-bearings.yaml')
+// An issue with a fix, a cost and a Tier 2 source.
+const issueWithFix = () => readFixture('issues/e46/fixture-guide-wear.yaml')
 
 // The unmutated fixtures must pass, so a failing mutation below is the mutation's doing.
 describe('valid fixtures', () => {
@@ -37,7 +40,8 @@ describe('valid fixtures', () => {
     ['branded part with attributes', Part, coilovers],
     ['part that replaces a body module', Part, trunkLid],
     ['maintenance item', MaintenanceItem, maintenance],
-    ['known issue', KnownIssue, issue],
+    ['known issue without a fix', KnownIssue, issue],
+    ['known issue with a fix and a cost', KnownIssue, issueWithFix],
   ])('%s parses', (_name, schema, read) => {
     expect(schema.safeParse(read()).success).toBe(true)
   })
@@ -101,7 +105,30 @@ describe('DateLike', () => {
     '2026-4-5',
     '2026-11-23 ',
     '',
+    // Years outside 1900 to 2100 are typos: a swapped digit, or a year with the century left off.
+    '1899-12-31',
+    '2101-01-01',
+    '0001-01-01',
+    '0026-11-23',
+    '9999-12-31',
   ]
+
+  test('accepts the first and last day of the years 1900 to 2100, as strings and as Dates', () => {
+    for (const value of ['1900-01-01', '2100-12-31']) {
+      expect(DateLike.safeParse(value).success).toBe(true)
+      expect(DateLike.safeParse(new Date(value)).success).toBe(true)
+    }
+  })
+
+  test('rejects a year outside 1900 to 2100, as a string and as a Date, and says why', () => {
+    for (const value of ['1899-12-31', '2101-01-01']) {
+      const asString = DateLike.safeParse(value)
+      expect(asString.success).toBe(false)
+      expect(issueMessages(asString).join(' ')).toMatch(/1900 to 2100/)
+      expect(DateLike.safeParse(new Date(value)).success).toBe(false)
+    }
+    expect(DateLike.safeParse(new Date(Date.UTC(1850, 0, 1))).success).toBe(false)
+  })
 
   test('accepts a calendar date string, and a Date at exactly UTC midnight', () => {
     expect(DateLike.safeParse('2026-11-23').success).toBe(true)
@@ -536,11 +563,46 @@ describe('maintenance item and known issue', () => {
     expect(MaintenanceItem.safeParse(edit(maintenance(), 'cost.currency', 'EUR')).success).toBe(
       false,
     )
-    expect(KnownIssue.safeParse(edit(issue(), 'sources', [])).success).toBe(false)
-    expect(KnownIssue.safeParse(edit(issue(), 'symptoms', [])).success).toBe(false)
-    expect(KnownIssue.safeParse(edit(issue(), 'frequency', 'very common')).success).toBe(false)
-    expect(KnownIssue.safeParse(edit(issue(), 'frequency', 'rare')).success).toBe(true)
-    expect(KnownIssue.safeParse(edit(issue(), 'cost.diy', undefined)).success).toBe(true)
+    expect(KnownIssue.safeParse(edit(issueWithFix(), 'sources', [])).success).toBe(false)
+    expect(KnownIssue.safeParse(edit(issueWithFix(), 'symptoms', [])).success).toBe(false)
+    expect(KnownIssue.safeParse(edit(issueWithFix(), 'frequency', 'very common')).success).toBe(
+      false,
+    )
+    expect(KnownIssue.safeParse(edit(issueWithFix(), 'frequency', 'rare')).success).toBe(true)
+    expect(KnownIssue.safeParse(edit(issueWithFix(), 'cost.diy', undefined)).success).toBe(true)
+    expect(KnownIssue.safeParse(edit(issueWithFix(), 'cost.shop', [900, 500])).success).toBe(false)
+    expect(KnownIssue.safeParse(edit(issueWithFix(), 'cost.currency', 'EUR')).success).toBe(false)
+  })
+})
+
+describe('known issue fix and cost (safety evidence, spec 7.6)', () => {
+  test('a fix is optional: an issue may publish symptoms, cause and frequency only', () => {
+    expect('fix' in issue()).toBe(false)
+    expect(KnownIssue.safeParse(issue()).success).toBe(true)
+  })
+
+  test('without a fix, the cost is optional too, and may still be given', () => {
+    expect('cost' in issue()).toBe(false)
+    expect(KnownIssue.safeParse(issue()).success).toBe(true)
+    const withCost = edit(issue(), 'cost', { currency: 'USD', shop: [500, 900] })
+    expect(KnownIssue.safeParse(withCost).success).toBe(true)
+  })
+
+  test('with a fix, the cost is required', () => {
+    const r = KnownIssue.safeParse(edit(issueWithFix(), 'cost', undefined))
+    expect(r.success).toBe(false)
+    expect(issuePaths(r)).toContain('cost')
+    expect(issueMessages(r).join(' ')).toMatch(/fix.*cost/)
+    const noCostNoFix = KnownIssue.safeParse(
+      edit(edit(issueWithFix(), 'cost', undefined), 'fix', undefined),
+    )
+    expect(noCostNoFix.success).toBe(true)
+  })
+
+  test('a fix that is blank is still refused', () => {
+    const r = KnownIssue.safeParse(edit(issueWithFix(), 'fix', '   '))
+    expect(r.success).toBe(false)
+    expect(issuePaths(r)).toContain('fix')
   })
 })
 

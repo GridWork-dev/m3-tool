@@ -68,3 +68,120 @@ test('the CLI exits 2 when dist has no HTML files, so an empty build cannot pass
   expect(stdout).toBe('')
   expect(stderr).toContain('no .html files')
 })
+
+test('checkLinks accepts a link to each citation host, and still flags a retailer', async () => {
+  await write(
+    'index.html',
+    [
+      '<a href="https://archive.org/details/x">a</a>',
+      '<a href="https://web.archive.org/web/2026/https://example.org/">w</a>',
+      '<a href="https://newsroom.bmwgroup.com/emea/x">b</a>',
+      '<a href="https://en.wikipedia.org/wiki/BMW_M3">e</a>',
+      '<a href="https://commons.wikimedia.org/wiki/File:X.jpg">c</a>',
+      '<a href="https://www.hubcaphaven.com/p/3015/x.html">retailer</a>',
+    ].join(''),
+  )
+  expect(await checkLinks(dist)).toEqual([
+    { file: 'index.html', href: 'https://www.hubcaphaven.com/p/3015/x.html' },
+  ])
+})
+
+test('checkLinks looks through entities, and reports the decoded href', async () => {
+  await write(
+    'index.html',
+    '<a href="&#104;ttps://shop.example">a</a><a href="https&#58;//shop.example/p">b</a>',
+  )
+  expect(await checkLinks(dist)).toEqual([
+    { file: 'index.html', href: 'https://shop.example' },
+    { file: 'index.html', href: 'https://shop.example/p' },
+  ])
+})
+
+test('checkLinks flags an area, a form action and an iframe, and names the element', async () => {
+  await write(
+    'index.html',
+    [
+      '<map name="m"><area href="https://shop.example/area" alt="x"></map>',
+      '<form action="https://shop.example/form"></form>',
+      '<iframe src="https://shop.example/frame"></iframe>',
+      '<form action="/search"></form>',
+    ].join(''),
+  )
+  expect(await checkLinks(dist)).toEqual([
+    { file: 'index.html', href: 'https://shop.example/area', source: 'area href' },
+    { file: 'index.html', href: 'https://shop.example/form', source: 'form action' },
+    { file: 'index.html', href: 'https://shop.example/frame', source: 'iframe src' },
+  ])
+})
+
+test('checkLinks flags any <base href>, including one that points at the site', async () => {
+  await write('a.html', '<head><base href="/"></head><a href="/about">x</a>')
+  await write('b.html', '<head><base href="https://x.example/"></head>')
+  expect(await checkLinks(dist)).toEqual([
+    { file: 'a.html', href: '/', source: 'base href' },
+    { file: 'b.html', href: 'https://x.example/', source: 'base href' },
+  ])
+})
+
+test('checkLinks reads a link inside <noscript> and a duplicate href like a browser', async () => {
+  await write(
+    'index.html',
+    '<noscript><a href="https://shop.example/ns">x</a></noscript><a href="/ok" href="https://shop.example/dup">y</a>',
+  )
+  expect(await checkLinks(dist)).toEqual([{ file: 'index.html', href: 'https://shop.example/ns' }])
+})
+
+test('the CLI names the element of a violation that is not an anchor', async () => {
+  await write(
+    'index.html',
+    '<head><base href="https://x.example/"></head><a href="//shop.example">a</a>',
+  )
+  const { code, stdout } = runCli(dist)
+  expect(code).toBe(1)
+  expect(stdout).toBe('index.html: https://x.example/ [base href]\nindex.html: //shop.example\n')
+})
+
+test('checkLinks follows an iframe srcdoc, and names the way in', async () => {
+  await write(
+    'index.html',
+    `<iframe srcdoc="<a href='https://shop.example/p'>Shop</a>"></iframe><iframe srcdoc="<a href='/ok'>ok</a>"></iframe>`,
+  )
+  expect(await checkLinks(dist)).toEqual([
+    { file: 'index.html', href: 'https://shop.example/p', source: 'a href in iframe srcdoc' },
+  ])
+})
+
+test('checkLinks flags object, embed, a form button, an input and a meta refresh, and names each', async () => {
+  await write(
+    'index.html',
+    [
+      '<object data="https://shop.example/o"></object>',
+      '<embed src="https://shop.example/e">',
+      '<form><button formaction="https://shop.example/b">b</button>',
+      '<input type="submit" formaction="https://shop.example/i"></form>',
+      '<meta http-equiv="refresh" content="0;url=https://shop.example/m">',
+    ].join(''),
+  )
+  const violations = await checkLinks(dist)
+  expect(violations.map(({ href, source }) => [href, source])).toEqual([
+    ['https://shop.example/o', 'object data'],
+    ['https://shop.example/e', 'embed src'],
+    ['https://shop.example/b', 'button formaction'],
+    ['https://shop.example/i', 'input formaction'],
+    ['https://shop.example/m', 'meta refresh'],
+  ])
+})
+
+test('checkLinks flags credentials in an otherwise allowed host', async () => {
+  await write('index.html', '<a href="https://user:pw@github.com/x">x</a>')
+  expect(await checkLinks(dist)).toEqual([
+    { file: 'index.html', href: 'https://user:pw@github.com/x' },
+  ])
+})
+
+test('the CLI prints the way into a srcdoc violation', async () => {
+  await write('index.html', `<iframe srcdoc="<a href='https://shop.example'>x</a>"></iframe>`)
+  const { code, stdout } = runCli(dist)
+  expect(code).toBe(1)
+  expect(stdout).toBe('index.html: https://shop.example [a href in iframe srcdoc]\n')
+})

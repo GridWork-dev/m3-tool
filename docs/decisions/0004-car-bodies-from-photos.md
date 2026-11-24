@@ -1,6 +1,6 @@
 # 0004. Car bodies generated from curated photos
 
-- **Status:** Accepted 2026-11-23
+- **Status:** Accepted 2026-11-23. The image-model A/B test and the choice of image model in the view-synthesis bullet are superseded by [0013](0013-model-choice-without-bake-off.md).
 - **Date:** 2026-11-23
 
 ## Context

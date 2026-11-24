@@ -1,7 +1,9 @@
 """The `validate` stage: check an exported GLB against the 3D asset contract.
 
 The contract lives in TypeScript (`src/lib/asset-contract.ts`), so this stage shells out to
-`tools/validate-asset.ts` and maps its JSON report to messages.
+`tools/validate-asset.ts` and maps its JSON report to messages. It also saves that report, with
+its `stats` (triangle count and size), as `<export>/<id>.validate.json`, and removes the report
+of an earlier run first, so a failed run leaves none behind.
 """
 
 import json
@@ -25,6 +27,13 @@ _run: Callable[[list[str]], subprocess.CompletedProcess[str]] = _run_process
 @register("validate")
 def validate(asset: AssetSpec, settings: Settings) -> StageResult:
     glb = settings.work_dir / "assets" / asset.id / "export" / f"{asset.id}.glb"
+    # Drop any report from an earlier run first, so a failure below can't leave a stale
+    # `ok: true` and its stats next to a newer export.
+    report = glb.with_name(f"{asset.id}.validate.json")
+    try:
+        report.unlink(missing_ok=True)
+    except OSError as error:
+        return StageResult(False, [f"could not remove the old report {report}: {error}"], [])
     if not glb.is_file():
         return StageResult(False, [f"{glb} does not exist; run --stage export first"], [])
 
@@ -41,13 +50,21 @@ def validate(asset: AssetSpec, settings: Settings) -> StageResult:
         message = f"validate-asset exited {proc.returncode} without a report: {detail}"
         return StageResult(False, [message], [])
     messages, ok = issues
+    # Keep the CLI's JSON, stats included, next to the export, so later stages (publish) can read
+    # the triangle count and size that validation measured instead of measuring again.
+    try:
+        report.write_text(
+            proc.stdout if proc.stdout.endswith("\n") else proc.stdout + "\n", "utf-8"
+        )
+    except OSError as error:
+        return StageResult(False, [f"could not write {report}: {error}"], [])
     if proc.returncode != 0:
         if ok:
             messages.append(f"validate-asset exited {proc.returncode} although its report says ok")
         ok = False
     if ok:
         messages.append(f"{glb.name} meets the {asset.kind} contract")
-    return StageResult(ok, messages, [])
+    return StageResult(ok, messages, [report])
 
 
 def _parse_issues(stdout: str) -> tuple[list[str], bool] | None:

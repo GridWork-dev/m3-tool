@@ -45,7 +45,9 @@ The schemas reject keys they don't list, so a typo like `brnad:` is an error ins
 - A part's `attributes.kind` matches its category: `wheel` and `hub-ring` go with `wheels`, `tire` with `tires`, `brake-kit` with `brakes`, `suspension` with `suspension`.
 - `inspectWhenBuying: true` needs a non-empty `howToCheck`.
 - A maintenance interval has `miles`, `months` or both.
-- A measured driver eye point has sources. An estimated one may have none.
+- A measured driver eye point has sources. An estimated one may have none. It is the one sourceless exception the schema names, and its `note` says it is an estimate. (A generic part has no sources of its own either, because it is a computed tier, not a claim.)
+- Required text (names, titles, sellers, publishers) must not be empty or only whitespace. The value is kept as written, not trimmed.
+- A `KnownIssue` with a `fix` also has a `cost`. Without a `fix` the `cost` is optional (see "Safety advice needs evidence").
 - Dimensions are keyed by bodies the generation lists, and there's at least one.
 
 ### Body module swaps
@@ -81,7 +83,9 @@ A `standIn` with `replaces` uses a car-frame stand-in style for those modules, a
 
 The schemas don't say which one wins when a build's part and its variant name the same module: the configurator decides that, and the rule isn't settled yet (open item 5 in spec section 16).
 
-Dates are calendar dates, `YYYY-MM-DD`, such as `2026-11-23`, with no time of day. Write them unquoted or quoted: both parse to the same instant, midnight UTC. A time (`2026-11-23T10:30`), an impossible date (`2026-02-31`) or a Date with a time of day is an error, because a time without a zone means different instants on different machines.
+Dates are calendar dates, `YYYY-MM-DD`, such as `2026-11-23`, with no time of day. Write them unquoted or quoted: both parse to the same instant, midnight UTC. A time (`2026-11-23T10:30`), an impossible date (`2026-02-31`) or a Date with a time of day is an error, because a time without a zone means different instants on different machines. The year is 1900 to 2100, so a swapped digit or a missing century is an error, and a `source`'s `accessed` date or a price's `checked` date can't be more than a day after today in UTC (`future-date`, below). The day of slack is for contributors east of UTC, who write their own date while it is still yesterday in UTC.
+
+**`check:data` is the gate for dates**. Astro's content loader turns an unquoted YAML date into a `Date` before the schema runs, so it can accept a value that `check:data`'s own loader, which keeps the text and checks it, refuses. Run `check:data` before every build that ships: `pnpm check` does, and CI runs `pnpm check`. The deploy workflow's build job must run it before it builds too.
 
 The `fitment.*.envelopes` list may be empty. The Phase 1 rules then report "fitment unknown" instead of guessing. Mounting geometry is in mm from the hub face: `inner = widthIn * 25.4 / 2 + offsetMm` and `outer = widthIn * 25.4 / 2 - offsetMm`.
 
@@ -93,6 +97,12 @@ Every `Source` has a `title`, `publisher`, `tier` (1 to 3) and `accessed` date, 
 - **Use `note` to say what the source supports,** with the page or table, so a reviewer can find the number.
 - **Say so when a copy is not the original.** An archived or mirrored copy goes in the `url`, and the `note` says it is a copy.
 - **A generation's own `sources`** (at least one) cover its name, chassis, years, engines and bodies. Its dimensions, eye point and fitment carry their own.
+
+### Citations
+
+A source is shown as a citation. The page always renders its **publisher, title and accessed date as text**. Its `url` becomes a link only when the URL is `https` and its host is exactly one of `CITATION_HOSTS` in [`src/lib/link-policy.ts`](../../src/lib/link-policy.ts): `archive.org`, `web.archive.org`, `newsroom.bmwgroup.com`, `en.wikipedia.org` and `commons.wikimedia.org`. Call `isCitationLinkable(url)` to decide. Every other URL stays text, so a Tier 2 retailer is never linked, and a reader who wants the page searches for it. `pnpm check:links` accepts those five hosts, and nothing else beyond its own allowlist.
+
+The list is short on purpose: non-commercial references only. Adding a host is a policy change, with its own PR and a reason ([ADR 0009](../decisions/0009-citations-and-link-policy.md)). When a source is a retailer's page, `note` still says what it supports, and an archived copy on `archive.org` is the better thing to link when one exists.
 
 ## Source tiers
 
@@ -112,6 +122,16 @@ Tier 3 alone is enough for symptoms and "how common". The entry stays `verified:
 
 "Independent" means different publishers. `check-data` compares publisher names after trimming, collapsing spaces and ignoring case, so `Shop A` and ` shop  a ` are one publisher, and two articles from it count once.
 
+### Safety advice needs evidence
+
+Safety advice never rests on a forum post alone. This is weaker than `verified` and applies even to an unverified entry:
+
+- **A maintenance item** needs at least one Tier 1 or Tier 2 source.
+- **A known issue's `fix`** is optional. When it's there, the issue needs at least one Tier 1 or Tier 2 source, and a `cost`.
+- **A known issue without a `fix`** publishes its symptoms, cause and how common it is, and Tier 3 sources are enough for that. Its `cost` is optional.
+
+`check-data` reports a maintenance item, or an issue with a fix, that has only Tier 3 sources as `safety-advice-without-evidence`. To fix it, add a Tier 1 or Tier 2 source, or (for an issue) remove the `fix` and its `cost` until there is one. `prevention` isn't checked by a rule, so the data verifier and the user's spot-check on `safety` PRs look at it.
+
 ### Review
 
 Every data PR gets an Opus data verifier, which re-reads the cited sources and checks the claims against them.
@@ -120,7 +140,7 @@ PRs that touch `data/maintenance/` or `data/issues/` get the `safety` label. The
 
 ## Prices
 
-A price observation is `{ amount, currency, seller, checked, url? }`, for real products only.
+A price observation is `{ amount, currency, seller, checked, url? }`, for real products only. `checked` can't be more than a day after today (UTC).
 
 - **`seller` and `checked` are required.** A price without both is rejected.
 - **`url` is stored only so the updater can check the price again.** Never render it as a link: the site has no affiliate, ad or store links of any kind, and `check:links` fails the build if one appears.
@@ -150,7 +170,7 @@ pnpm check:data                       # same as: node tools/check-data.ts data
 node tools/check-data.ts <directory>  # any directory with the same layout
 ```
 
-It prints one `<file>: <code>: <message>` line per problem, exits 1 if there are any, and prints nothing when the data is clean. `pnpm check` runs it.
+It prints one `<file>: <code>: <message>` line per problem, exits 1 if there are any, and prints nothing when the data is clean. `pnpm check` runs it. "Today" for `future-date` is the current date in UTC; tests pass their own date to `checkDataSet`.
 
 | Code | Meaning | Fix |
 |---|---|---|
@@ -164,3 +184,11 @@ It prints one `<file>: <code>: <message>` line per problem, exits 1 if there are
 | `requires-conflicts-overlap` | The same id is in both `requires` and `conflicts` | Keep it in one |
 | `verified-without-tier` | A part, maintenance item or issue is `verified: true` but fails the rule above | Add the sources, or set `verified: false` |
 | `multiple-generic-in-category` | A generation has two brandless parts in one category | Keep one |
+| `safety-advice-without-evidence` | A maintenance item, or a known issue with a `fix`, has no Tier 1 or Tier 2 source | Add a source, or remove the issue's `fix` and `cost` |
+| `variant-body-not-in-generation` | A variant's `body` isn't in its generation's `bodies` | Fix the body, or add it to the generation |
+| `variant-years-outside-generation` | A variant's `years` aren't within its generation's `years` | Fix the years |
+| `part-years-outside-generation` | A part's `fits.years` aren't within its generation's `years` | Fix the years |
+| `part-bodies-outside-generation` | A part's `fits.bodies` names a body its generation doesn't build | Fix the bodies |
+| `fits-list-empty` | A part's `fits.bodies` or `fits.transmissions` is `[]`, which fits nothing | List at least one, or leave the field out to fit all |
+| `unknown-engine` | A maintenance item or issue names an `engine` that isn't one of its generation's engine codes | Fix the code, or leave `engine` out for every engine |
+| `future-date` | A source's `accessed` or a price's `checked` is more than a day after today (UTC) | Fix the date |

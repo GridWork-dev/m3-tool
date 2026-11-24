@@ -15,3 +15,9 @@ export function meetsVerificationRule(sources: readonly Source[]): boolean {
   )
   return tier2Publishers.size >= 2
 }
+
+// Safety advice (a service interval, a fix) never rests on forum posts alone: it needs at least
+// one source of Tier 1 or Tier 2 (spec section 7.6). This is weaker than verification, which needs
+// one Tier 1 or two independent Tier 2.
+export const hasTier1Or2Source = (sources: readonly Source[]): boolean =>
+  sources.some((source) => source.tier <= 2)

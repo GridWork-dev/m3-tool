@@ -1,6 +1,6 @@
 # 0005. The 3D asset contract and swappable body modules
 
-- **Status:** Accepted 2026-11-23
+- **Status:** Accepted 2026-11-23. Extended by [0012](0012-asset-frames-structure-and-lods.md): the ground check, unique names and LODs.
 - **Date:** 2026-11-23
 
 ## Context

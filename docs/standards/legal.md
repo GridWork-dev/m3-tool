@@ -31,7 +31,7 @@ The e2e tests check for it. Don't paraphrase it, shorten it or move it behind a 
 
 ## No store links
 
-The site has no affiliate, ad, sponsored or store links of any kind. A price observation's `url` is stored so the updater can check the price again, and it is never rendered as a link. `pnpm check:links` fails the build on any external link outside a short allowlist (`src/lib/link-policy.ts`): `github.com`, `creativecommons.org`, `opensource.org` and `commons.wikimedia.org`. Adding a host to the list is a change to the policy, so it needs its own PR and a reason.
+The site has no affiliate, ad, sponsored or store links of any kind. A price observation's `url` is stored so the updater can check the price again, and it is never rendered as a link. `pnpm check:links` fails the build on any external link outside a short allowlist (`src/lib/link-policy.ts`): `github.com`, `creativecommons.org`, `opensource.org` and `commons.wikimedia.org`. A source's citation shows its publisher, title and accessed date as text, and links its `url` only for the non-commercial hosts in `CITATION_HOSTS` (`archive.org`, `web.archive.org`, `newsroom.bmwgroup.com`, `en.wikipedia.org` and `commons.wikimedia.org`), which `check:links` accepts too. A Tier 2 retailer's page is never linked. Adding a host to either list is a change to the policy, so it needs its own PR and a reason ([ADR 0009](../decisions/0009-citations-and-link-policy.md)).
 
 ## Reference photos
 

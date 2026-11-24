@@ -1,7 +1,15 @@
 // Cross-file checks over a loaded DataSet. Per-file rules live in the Zod schemas (schemas.ts);
 // these are the rules that need to see more than one file at once.
-import type { Generation, KnownIssue, MaintenanceItem, Part, Source, Variant } from './schemas.ts'
-import { meetsVerificationRule } from './sources.ts'
+import type {
+  Generation,
+  KnownIssue,
+  MaintenanceItem,
+  Part,
+  PriceObservation,
+  Source,
+  Variant,
+} from './schemas.ts'
+import { hasTier1Or2Source, meetsVerificationRule } from './sources.ts'
 
 export type QualityCode =
   | 'schema'
@@ -13,7 +21,15 @@ export type QualityCode =
   | 'self-ref'
   | 'requires-conflicts-overlap'
   | 'verified-without-tier'
+  | 'safety-advice-without-evidence'
   | 'multiple-generic-in-category'
+  | 'variant-body-not-in-generation'
+  | 'variant-years-outside-generation'
+  | 'part-years-outside-generation'
+  | 'part-bodies-outside-generation'
+  | 'fits-list-empty'
+  | 'unknown-engine'
+  | 'future-date'
 
 export interface QualityIssue {
   file: string
@@ -46,7 +62,17 @@ const directoryOf = (file: string): string | undefined => {
   return segments.length >= 3 ? segments[1] : undefined
 }
 
-export function checkDataSet(set: DataSet): QualityIssue[] {
+export interface CheckOptions {
+  // The date that source and price dates may not pass. Defaults to the clock; tests inject one.
+  // Only its calendar date in UTC counts, because data dates are calendar dates at UTC midnight.
+  // A date may be one day ahead of it: a contributor east of UTC writes their own date in the
+  // early morning, while it is still yesterday in UTC.
+  today?: Date
+}
+
+const isoDay = (date: Date): string => date.toISOString().slice(0, 10)
+
+export function checkDataSet(set: DataSet, options: CheckOptions = {}): QualityIssue[] {
   const found: QualityIssue[] = []
   const add = (file: string, code: QualityCode, message: string) =>
     found.push({ file, code, message })
@@ -178,6 +204,28 @@ export function checkDataSet(set: DataSet): QualityIssue[] {
     }
   }
 
+  // Safety advice never rests on a forum post alone (spec section 7.6): a maintenance item needs
+  // one Tier 1 or Tier 2 source, and so does a known issue that publishes a fix. An issue without
+  // a fix publishes symptoms, cause and frequency only, so Tier 3 is enough for it.
+  for (const { file, data } of set.maintenance) {
+    if (!hasTier1Or2Source(data.sources)) {
+      add(
+        file,
+        'safety-advice-without-evidence',
+        `maintenance item "${data.id}" has no Tier 1 or Tier 2 source; a service interval never rests on forum posts alone`,
+      )
+    }
+  }
+  for (const { file, data } of set.issues) {
+    if (data.fix !== undefined && !hasTier1Or2Source(data.sources)) {
+      add(
+        file,
+        'safety-advice-without-evidence',
+        `known issue "${data.id}" publishes a fix but has no Tier 1 or Tier 2 source; add one, or remove the fix and its cost`,
+      )
+    }
+  }
+
   // Each category has at most one generic (brandless) part per generation, because the generic
   // tier's price is computed for the category as a whole.
   const firstGeneric = new Map<string, string>()
@@ -196,5 +244,153 @@ export function checkDataSet(set: DataSet): QualityIssue[] {
     }
   }
 
+  checkAgainstGeneration(set, add)
+  checkDates(set, options.today ?? new Date(), add)
+
   return found
+}
+
+type Add = (file: string, code: QualityCode, message: string) => void
+
+const list = (values: readonly string[]): string => values.map((value) => `"${value}"`).join(', ')
+
+const outside = (years: readonly [number, number], range: readonly [number, number]): boolean =>
+  years[0] < range[0] || years[1] > range[1]
+
+// What a variant, part, maintenance item or issue says about the car must fit the generation it
+// belongs to: its body, its years and its engine. An entry whose generation does not exist is
+// skipped, because `unknown-generation` already covers it.
+function checkAgainstGeneration(set: DataSet, add: Add): void {
+  const generations = new Map(set.generations.map(({ data }) => [data.id, data]))
+
+  for (const { file, data } of set.variants) {
+    const generation = generations.get(data.generation)
+    if (!generation) continue
+    if (!generation.bodies.includes(data.body)) {
+      add(
+        file,
+        'variant-body-not-in-generation',
+        `"${data.id}" is a ${data.body}, but generation "${generation.id}" builds only ${generation.bodies.join(', ')}`,
+      )
+    }
+    if (outside(data.years, generation.years)) {
+      add(
+        file,
+        'variant-years-outside-generation',
+        `"${data.id}" runs ${data.years[0]} to ${data.years[1]}, outside generation "${generation.id}" (${generation.years[0]} to ${generation.years[1]})`,
+      )
+    }
+  }
+
+  for (const { file, data } of set.parts) {
+    const generation = generations.get(data.fits.generation)
+    if (!generation) continue
+    const { years, bodies, transmissions } = data.fits
+    if (years !== undefined && outside(years, generation.years)) {
+      add(
+        file,
+        'part-years-outside-generation',
+        `"${data.id}" fits ${years[0]} to ${years[1]}, outside generation "${generation.id}" (${generation.years[0]} to ${generation.years[1]})`,
+      )
+    }
+    // An empty list would fit nothing, while a missing one fits everything.
+    for (const [field, values] of [
+      ['bodies', bodies],
+      ['transmissions', transmissions],
+    ] as const) {
+      if (values !== undefined && values.length === 0) {
+        add(
+          file,
+          'fits-list-empty',
+          `fits.${field} is empty, which fits nothing; list at least one, or leave it out to fit all`,
+        )
+      }
+    }
+    const missing = (bodies ?? []).filter((body) => !generation.bodies.includes(body))
+    if (missing.length > 0) {
+      add(
+        file,
+        'part-bodies-outside-generation',
+        `fits.bodies has ${list(missing)}, which generation "${generation.id}" does not build (it builds ${generation.bodies.join(', ')})`,
+      )
+    }
+  }
+
+  const engineOwners = [
+    ...set.maintenance.map(({ file, data }) => ({
+      file,
+      id: data.id,
+      generation: data.generation,
+      engine: data.engine,
+      kind: 'maintenance item',
+    })),
+    ...set.issues.map(({ file, data }) => ({
+      file,
+      id: data.id,
+      generation: data.generation,
+      engine: data.engine,
+      kind: 'known issue',
+    })),
+  ]
+  for (const { file, id, generation: generationId, engine, kind } of engineOwners) {
+    const generation = generations.get(generationId)
+    if (!generation || engine === undefined) continue
+    const codes = generation.engines.map((candidate) => candidate.code)
+    if (!codes.includes(engine)) {
+      add(
+        file,
+        'unknown-engine',
+        `${kind} "${id}" names engine "${engine}", but generation "${generation.id}" has ${list(codes)}`,
+      )
+    }
+  }
+}
+
+// A source cannot have been accessed, and a price cannot have been checked, after today, with a
+// day of slack for time zones east of UTC. Every date is compared as a calendar date: data dates
+// are UTC midnights.
+function checkDates(set: DataSet, now: Date, add: Add): void {
+  const DAY = 24 * 60 * 60 * 1000
+  const today = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate())
+  const latest = today + DAY
+  const flag = (file: string, what: string, date: Date) => {
+    if (date.getTime() > latest) {
+      add(
+        file,
+        'future-date',
+        `${what} is dated ${isoDay(date)}, more than a day after today (${isoDay(new Date(today))})`,
+      )
+    }
+  }
+  const sources = (file: string, owner: string, entries: readonly Source[]) => {
+    for (const source of entries) {
+      flag(file, `source "${source.title}" of ${owner} (accessed)`, source.accessed)
+    }
+  }
+  const prices = (file: string, owner: string, entries: readonly PriceObservation[] = []) => {
+    for (const price of entries) {
+      flag(file, `price from ${price.seller} on ${owner} (checked)`, price.checked)
+    }
+  }
+
+  for (const { file, data } of set.generations) {
+    const owner = `generation "${data.id}"`
+    sources(file, owner, data.sources)
+    for (const dimensions of Object.values(data.dimensions))
+      sources(file, owner, dimensions.sources)
+    sources(file, owner, data.driverEyePoint.sources)
+    sources(file, owner, data.fitment.sources)
+  }
+  for (const { file, data } of set.variants) sources(file, `variant "${data.id}"`, data.sources)
+  for (const { file, data } of set.parts) {
+    const owner = `part "${data.id}"`
+    sources(file, owner, data.sources)
+    prices(file, owner, data.prices)
+    for (const option of data.options ?? [])
+      prices(file, `${owner} option "${option.id}"`, option.prices)
+  }
+  for (const { file, data } of set.maintenance) {
+    sources(file, `maintenance item "${data.id}"`, data.sources)
+  }
+  for (const { file, data } of set.issues) sources(file, `known issue "${data.id}"`, data.sources)
 }

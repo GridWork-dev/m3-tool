@@ -39,7 +39,7 @@ AGENTS.md  CLAUDE.md -> AGENTS.md  CONTRIBUTING.md  README.md  LICENSE (MIT)  DA
 data/{generations,variants,parts,maintenance,issues}/   YAML, one entry per file (see docs/standards/data.md)
 src/content.config.ts   Astro collections, built from the schemas
 src/data/               schemas.ts (the data contract), loader, cross-file checks, source tiers
-src/lib/                pure logic with unit tests: asset contract, validator, manifest, link policy
+src/lib/                pure logic with unit tests: asset contract, validator, manifest, link policy, HTML link finder
 src/assets/manifest.json  published GLBs (the publish stage writes it)
 src/{pages,layouts,components,styles}/   the site
 pipeline/               Python (uv): assets.toml, src/m3_pipeline/{cli,config,assets,stages/}, tests/
@@ -55,12 +55,12 @@ Phase 1 adds `src/configurator/`, `tests/visual/` and `pipeline/blender/`.
 ## Hard rules
 
 **Product**
-- No affiliate, ad or store links of any kind. A price observation's `url` is never rendered as a link. `check:links` fails the build on an external link outside its allowlist.
+- No affiliate, ad or store links of any kind. A price observation's `url` is never rendered as a link. A source's `url` is a link only when `isCitationLinkable` says so (a short list of non-commercial hosts). `check:links` fails the build on an external link outside its allowlist.
 - No BMW logos or badges anywhere: UI, models or textures, including the steering-wheel roundel.
 - The footer and `/about` carry this notice, word for word: `Independent fan project. Not affiliated with, endorsed by, or sponsored by BMW AG. BMW and M3 are trademarks of BMW AG, used here only to describe the cars.`
 - The site is `noindex` until the public beta. Pages emit `<meta name="robots" content="noindex">` unless `PUBLIC_INDEXABLE=true` at build time.
 - IDs are kebab-case (`^[a-z0-9]+(-[a-z0-9]+)*$`), stable and never reused. A data file's stem equals its `id`.
-- Every price has a seller and a checked date. Safety advice (maintenance intervals, fixes) never rests on a forum post alone.
+- Every price has a seller and a checked date. Safety advice (maintenance intervals, fixes) never rests on a forum post alone: it needs a Tier 1 or Tier 2 source, and `check:data` enforces it.
 
 **Code**
 - `tools/*.ts` run directly under `node` (type stripping), so imports use explicit `.ts` extensions, and you use no enums and no namespaces.

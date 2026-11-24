@@ -7,7 +7,8 @@ from m3_pipeline.config import load_settings
 
 def test_default_work_dir_is_outside_repo() -> None:
     s = load_settings({})
-    assert s.work_dir == Path("~/.cache/m3-tool").expanduser()
+    # Resolved, because ~/.cache can be a symlink on some machines.
+    assert s.work_dir == Path("~/.cache/m3-tool").expanduser().resolve()
     assert not s.work_dir.is_relative_to(s.repo_root)
 
 
