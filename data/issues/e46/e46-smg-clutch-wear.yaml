@@ -1,16 +1,13 @@
 # Early clutch wear and judder on SMG cars. Applies to cars with the SMG gearbox only. Every source
 # below was opened on 2026-11-23.
 #
-# Unverified on purpose: two Tier 2 sources describe different parts of it (PistonHeads the faster
-# wear and the judder, Jalopnik hard launches), and each point rests on one publisher. There is
-# no fix: PistonHeads' remark about a BMW software update is one publisher's aside with no bulletin,
-# so it stays a question to ask in `prevention`.
+# Unverified on purpose: PistonHeads (the faster wear and the judder) and Jalopnik (hard launches)
+# both say SMG clutches wear fast, but they name different causes, and the judder and the software
+# update rest on PistonHeads alone. There is no fix: PistonHeads' remark about a BMW software update
+# is one publisher's aside with no bulletin, so it stays a question to ask in `prevention`.
 #
 # Markets: `markets` is left out because the evidence covers both. PistonHeads writes about Euro-spec
 # cars and Jalopnik for the US, and neither is a market-specific BMW document.
-#
-# Left `verified: false` on purpose: PistonHeads and Jalopnik both say SMG clutches wear fast, but
-# the judder and the software update rest on PistonHeads alone, and there is no fix.
 #
 # `frequency: common` rests on editorial wording ('Clutches wear more quickly', 'affinity for eating
 # clutches'). No source gives a rate.

@@ -6,7 +6,9 @@
 # and also says the pump can fail. ECS Tuning and Jalopnik are US-facing.
 #
 # The fix is to replace the pump, supported by two independent Tier 2 sources (ECS Tuning and
-# PistonHeads). No cost is published (ruling R78): ECS says only that the pump mechanism is now
+# PistonHeads). BMW's training module is Tier 2 under data.md's rule for copies (R77): the file
+# carries no issuer line and no module number. `verified: true` does not depend on it, because ECS
+# Tuning, PistonHeads and Jalopnik also support the failure and the fix. No cost is published (ruling R78): ECS says only that the pump mechanism is now
 # sold separately for 'a few hundred dollars' without saying what that covers, and PistonHeads
 # says replacement is 'costly'.
 id: e46-smg-hydraulic-pump-failure
@@ -26,9 +28,9 @@ sources:
   - title: "ST041 M3 Complete Vehicle: SMG II"
     publisher: BMW Technical Training
     url: https://archive.org/download/BMWTechnicalTrainingDocuments/ST041%20M3%20Complete%20Vehicle/5%20SMG.pdf
-    tier: 1
+    tier: 2
     accessed: 2026-11-23
-    note: "BMW training module for the E46 M3, a copy hosted on archive.org; the file carries no publisher line. It is the whole 47-page chapter file, chapter 5 of a seven-file module, and the file carries no issuer line and no module number (the cover chapter has none either). It does carry a print date and a model: 'Initial Print Date:03/02' and 'Production: Available 1/02 USA'. The same module is republished as ST043 (2002 System Diagnosis, '7 SMG II'), which is not independent, and PistonHeads independently describes the same pump failure ending in neutral. 'Hydraulic Pump' (printed page 11): 'The pump is a piston pump driven by an electric motor, actuated by the SMG control unit via a relay so that oil pressure is always between 45 and 80 bar.' and 'In the event of a hydraulic system failure the gearbox warning lamp is turned on in the IKE and if hydraulic pressure fails to build, no further gearshifts are allowed. This allows the reserve pressure in the accumulator to be used to place the gearbox in the Neutral position when the vehicle comes to a stop.' It lists no failure rate."
+    note: "BMW training module for the E46 M3, a copy hosted on archive.org. Tier 2 under data.md's rule for copies (R77): the file is chapter 5 of a seven-file module (47 pages) and carries no issuer line and no module number (the cover chapter has none either), so the manufacturer's identifiers are not intact. It does carry a print date and a model: 'Initial Print Date:03/02' and 'Production: Available 1/02 USA'. The same module is republished as ST043 (2002 System Diagnosis, '7 SMG II'), which is not independent, and PistonHeads independently describes the same pump failure ending in neutral. 'Hydraulic Pump' (printed page 11): 'The pump is a piston pump driven by an electric motor, actuated by the SMG control unit via a relay so that oil pressure is always between 45 and 80 bar.' and 'In the event of a hydraulic system failure the gearbox warning lamp is turned on in the IKE and if hydraulic pressure fails to build, no further gearshifts are allowed. This allows the reserve pressure in the accumulator to be used to place the gearbox in the Neutral position when the vehicle comes to a stop.' It lists no failure rate."
   - title: Most Common BMW E46 M3 Problems
     publisher: ECS Tuning
     url: https://blog.ecstuning.com/most-common-bmw-e46-m3-problems/

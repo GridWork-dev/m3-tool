@@ -13,6 +13,8 @@
 # - The 'updated' hubs are VAC aftermarket hubs that ECS sells. No source opened here says BMW
 #   updated the hubs. Only the bolts are shown as available from BMW (PistonHeads), and Motorious
 #   independently says to replace the cam gear retaining bolts.
+# - The bolt advice has one Euro-scoped source (PistonHeads) and one that names no market
+#   (Motorious), so it is thin on the US side. That is not a reason to restrict `markets`.
 # - Jalopnik reports a voluntary BMW service action on the VANOS solenoid and cites a bulletin
 #   number. The bulletin was not found, so the number is not repeated here.
 #
