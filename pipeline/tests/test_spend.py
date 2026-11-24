@@ -10,7 +10,9 @@ import multiprocessing
 import multiprocessing.queues
 import multiprocessing.synchronize
 import os
+import pwd
 import threading
+from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import date
 from decimal import Decimal
@@ -37,6 +39,8 @@ YESTERDAY = date(2026, 11, 23)
 SESSION = "2026-11-24-a"
 CAP_CELL = "$50 (Phase 0 spike, 3D generation)"
 REAL_LEDGER = load_settings({}).repo_root / "docs" / "spend-ledger.md"
+# Read at import, before any test changes $HOME or the account database.
+ACCOUNT_HOME = Path(pwd.getpwuid(os.getuid()).pw_dir)
 
 # The preamble is four lines, so the header is line 5, the separator line 6, the first row line 7.
 PREAMBLE = "# Spend ledger\n\nProse that is not a table row.\n\n"
@@ -392,6 +396,56 @@ def test_a_journal_entry_without_a_tag_denies_everything(tmp_path: Path, line: s
         attempt(tmp_path, cap_approval(), call("gen-1", "0.40"))
 
 
+def test_the_journal_total_caps_spend_when_a_spent_row_leaves_the_ledger(tmp_path: Path) -> None:
+    attempt(tmp_path, cap_approval(), call("gen-a", "20.00"), tag="gen-a", price="20.00")
+    attempt(
+        tmp_path,
+        cap_approval(),
+        call("gen-a", "20.00"),
+        call("gen-b", "25.00"),
+        tag="gen-b",
+        price="25.00",
+    )
+    # A bad conflict resolution drops gen-a's row: the ledger now totals 25.00 and gen-c fits
+    # it (49.00), but the journal says 45.00 was already authorized.
+    with pytest.raises(SpendDenied, match=r"journal.*45\.00.*would pass the 50\.00 cap"):
+        attempt(
+            tmp_path,
+            cap_approval(),
+            call("gen-b", "25.00"),
+            call("gen-c", "24.00"),
+            tag="gen-c",
+            price="24.00",
+        )
+    assert [e["tag"] for e in journal_entries(tmp_path / "j.jsonl")] == ["gen-a", "gen-b"]
+
+
+def test_authorizations_may_reach_the_cap_exactly(tmp_path: Path) -> None:
+    attempt(tmp_path, cap_approval(), call("gen-a", "20.00"), tag="gen-a", price="20.00")
+    rows = (cap_approval(), call("gen-a", "20.00"), call("gen-b", "30.00"))
+    attempt(tmp_path, *rows, tag="gen-b", price="30.00")
+
+
+def test_a_failed_calls_authorized_price_still_counts_toward_the_cap(tmp_path: Path) -> None:
+    attempt(tmp_path, cap_approval(), call("gen-a", "40.00"), tag="gen-a", price="40.00")
+    record_outcome(tmp_path / "j.jsonl", "gen-a", status="failed")
+    rows = (cap_approval(), call("gen-a", "0.00"), call("gen-b", "11.00"))  # gen-a corrected to 0
+    with pytest.raises(SpendDenied, match=r"journal.*40\.00.*would pass the 50\.00 cap"):
+        attempt(tmp_path, *rows, tag="gen-b", price="11.00")
+
+
+@pytest.mark.parametrize(
+    "price",
+    ["", ',"price":0.4', ',"price":"abc"', ',"price":"-1"', ',"price":"NaN"', ',"price":null'],
+)
+def test_an_authorized_journal_entry_without_a_valid_price_denies_everything(
+    tmp_path: Path, price: str
+) -> None:
+    (tmp_path / "j.jsonl").write_text('{"tag":"gen-0","status":"authorized"' + price + "}\n")
+    with pytest.raises(SpendDenied, match=r"j\.jsonl line 1.*price"):
+        attempt(tmp_path, cap_approval(), call("gen-1", "0.40"))
+
+
 def test_ledger_is_read_at_call_time(tmp_path: Path) -> None:
     ledger = tmp_path / "ledger.md"
     journal = tmp_path / "j.jsonl"
@@ -427,8 +481,70 @@ def test_default_journal_does_not_depend_on_m3_work_dir(
     first = default_journal()
     monkeypatch.setenv("M3_WORK_DIR", str(tmp_path / "two"))
     assert default_journal() == first
-    assert first == Path.home() / ".local" / "state" / "m3-tool" / "spend-journal.jsonl"
+    assert first == ACCOUNT_HOME / ".local" / "state" / "m3-tool" / "spend-journal.jsonl"
     assert not first.is_relative_to(tmp_path)
+
+
+def test_default_journal_does_not_depend_on_home(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # `Path.home()` follows $HOME, so a journal under it would move with the environment.
+    monkeypatch.setenv("HOME", str(tmp_path / "one"))
+    first = default_journal()
+    monkeypatch.setenv("HOME", str(tmp_path / "two"))
+    monkeypatch.delenv("HOME")
+    assert default_journal() == first
+    assert first == ACCOUNT_HOME / ".local" / "state" / "m3-tool" / "spend-journal.jsonl"
+    assert not first.is_relative_to(tmp_path)
+
+
+def fake_account(home: str) -> Callable[[int], pwd.struct_passwd]:
+    """An account database entry with `home`: moves the account without moving $HOME."""
+
+    def lookup(uid: int) -> pwd.struct_passwd:
+        return pwd.struct_passwd(("tester", "x", uid, uid, "", home, "/bin/sh"))
+
+    return lookup
+
+
+def test_a_tag_authorized_under_one_home_is_denied_under_another(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    account = tmp_path / "account"
+    monkeypatch.setattr(pwd, "getpwuid", fake_account(str(account)))
+    ledger = write_ledger(tmp_path, cap_approval(), call("gen-1", "0.40"))
+
+    # No `journal` argument: the default journal is what must not move with $HOME.
+    monkeypatch.setenv("HOME", str(tmp_path / "home-a"))
+    authorize("gen-1", Decimal("0.40"), ledger=ledger, today=TODAY, session=SESSION)
+    monkeypatch.setenv("HOME", str(tmp_path / "home-b"))
+    with pytest.raises(SpendDenied, match="already"):
+        authorize("gen-1", Decimal("0.40"), ledger=ledger, today=TODAY, session=SESSION)
+
+    journal = account / ".local" / "state" / "m3-tool" / "spend-journal.jsonl"
+    assert [entry["tag"] for entry in journal_entries(journal)] == ["gen-1"]
+    assert not (tmp_path / "home-a").exists()
+    assert not (tmp_path / "home-b").exists()
+
+
+@pytest.mark.parametrize("home", ["", "relative/home"])
+def test_default_journal_is_denied_without_an_absolute_account_home(
+    monkeypatch: pytest.MonkeyPatch, home: str
+) -> None:
+    monkeypatch.setattr(pwd, "getpwuid", fake_account(home))
+    with pytest.raises(SpendDenied, match="account database"):
+        default_journal()
+
+
+def test_default_journal_is_denied_when_the_account_has_no_entry(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def missing(uid: int) -> pwd.struct_passwd:
+        raise KeyError(f"getpwuid(): uid not found: {uid}")
+
+    monkeypatch.setattr(pwd, "getpwuid", missing)
+    with pytest.raises(SpendDenied, match="account database"):
+        default_journal()
 
 
 def test_authorize_waits_while_another_holder_has_the_exclusive_lock(tmp_path: Path) -> None:
@@ -521,6 +637,61 @@ def test_authorization_survives_a_crash_before_the_call(tmp_path: Path) -> None:
     # A second process finds the tag spent and is denied.
     with pytest.raises(SpendDenied, match="already"):
         grant("gen-1", ledger, journal)
+
+
+def test_a_short_write_is_completed_never_journaled_torn(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    real_write = os.write
+    sizes: list[int] = []
+
+    def three_bytes_at_a_time(fd: int, data: bytes) -> int:
+        sizes.append(len(data))
+        return real_write(fd, data[:3])
+
+    monkeypatch.setattr(spend_mod, "_write", three_bytes_at_a_time)
+    attempt(tmp_path, cap_approval(), call("gen-1", "0.40"))
+
+    assert len(sizes) > 1, "the writer was not asked to finish the entry"
+    (entry,) = journal_entries(tmp_path / "j.jsonl")
+    assert (entry["tag"], entry["status"]) == ("gen-1", "authorized")
+
+
+def test_an_incomplete_write_does_not_authorize(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    real_write = os.write
+    calls: list[int] = []
+
+    def disk_fills_up(fd: int, data: bytes) -> int:
+        calls.append(len(data))
+        assert len(calls) < 100, "the guard kept retrying a writer that makes no progress"
+        return real_write(fd, data[:5]) if len(calls) == 1 else 0
+
+    monkeypatch.setattr(spend_mod, "_write", disk_fills_up)
+    with pytest.raises(SpendDenied, match="incomplete write"):
+        attempt(tmp_path, cap_approval(), call("gen-1", "0.40"))
+
+    # What is left is a torn line, which denies everything until a human removes it. That is safe:
+    # no authorization was returned for it, so no call was made.
+    monkeypatch.setattr(spend_mod, "_write", real_write)
+    with pytest.raises(SpendDenied, match=r"j\.jsonl line 1"):
+        attempt(tmp_path, cap_approval(), call("gen-1", "0.40"))
+
+
+def test_record_outcome_raises_on_an_incomplete_write(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    calls: list[int] = []
+
+    def no_progress(fd: int, data: bytes) -> int:
+        calls.append(len(data))
+        assert len(calls) < 100, "the guard kept retrying a writer that makes no progress"
+        return 0
+
+    monkeypatch.setattr(spend_mod, "_write", no_progress)
+    with pytest.raises(OSError, match="incomplete write"):
+        record_outcome(tmp_path / "j.jsonl", "gen-1", status="failed")
 
 
 # --- record_outcome ---
@@ -639,6 +810,45 @@ def test_parse_ledger_rejects_a_row_before_the_header() -> None:
     row = "| 2026-11-24 | $50 | fal | spike:a x | 1 | 0.40 | 0.40 / 50.00 |\n"
     with pytest.raises(SpendDenied, match="line 5: .*header"):
         parse_ledger(PREAMBLE + row + HEADER)
+
+
+LOST_PIPE_ROW = "2026-11-24 | $50 | fal | spike:big x | 1 | 60.00 | 60.40 / 50.00 |"
+
+
+def test_a_row_that_lost_its_leading_pipe_is_not_skipped_as_prose(tmp_path: Path) -> None:
+    # A valid 0.40 call, then a 60.00 row that lost its leading '|': it must not vanish from the
+    # total and leave gen-1 authorized against a 50.00 cap.
+    ledger = tmp_path / "ledger.md"
+    ledger.write_text(render(cap_approval(), call("gen-1", "0.40")) + LOST_PIPE_ROW + "\n")
+    with pytest.raises(SpendDenied, match=r"line 9: .*does not start with '\|'"):
+        authorize(
+            "gen-1",
+            Decimal("0.40"),
+            ledger=ledger,
+            journal=tmp_path / "j.jsonl",
+            today=TODAY,
+            session=SESSION,
+        )
+    assert not (tmp_path / "j.jsonl").exists()
+
+
+@pytest.mark.parametrize("gap", ["", "\n", "\nA note.\n\n"])
+def test_parse_ledger_denies_a_table_line_without_its_leading_pipe(gap: str) -> None:
+    text = render(cap_approval(), call("gen-1", "0.40")) + gap + LOST_PIPE_ROW + "\n"
+    with pytest.raises(SpendDenied, match=r"does not start with '\|'"):
+        parse_ledger(text)
+
+
+def test_parse_ledger_denies_a_lost_pipe_row_between_the_header_and_the_separator() -> None:
+    lines = (PREAMBLE + HEADER).splitlines()
+    text = "\n".join([*lines[:-1], LOST_PIPE_ROW, lines[-1]]) + "\n"
+    with pytest.raises(SpendDenied, match=r"line 6: .*does not start with '\|'"):
+        parse_ledger(text)
+
+
+def test_parse_ledger_allows_pipe_free_prose_after_the_table() -> None:
+    rows = parse_ledger(render(cap_approval()) + "\nAll amounts are in USD.\n")
+    assert len(rows) == 1
 
 
 def test_parse_ledger_rejects_a_header_without_its_separator() -> None:

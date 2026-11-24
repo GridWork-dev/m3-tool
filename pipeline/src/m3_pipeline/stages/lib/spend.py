@@ -14,22 +14,30 @@ Rules, checked in this order:
 4. Its running-total cell equals the total recomputed from the rows (catches hand-math errors).
 5. The rows before it plus the price stay within the cap, and so does the sum of every row.
 6. The journal has not authorized the tag before: one tag, one call.
+7. Everything the journal has ever authorized, plus the price, stays within the cap too. The
+   ledger can lose a spent row (a bad merge, a tidy-up); the journal remembers it.
 
 The cap is the smallest of the cap row's cell, the `cap` argument and `SPIKE_CAP_USD`.
 
-The journal lives at a fixed path outside `work_dir`, so deleting the work directory can never
-make a spent tag spendable again. The authorization is journaled (and fsynced) before `authorize`
-returns, so a crash between authorizing and calling leaves the tag spent, never free.
+The journal lives at a fixed path outside `work_dir`, under the home directory the account
+database gives for this user. It never follows an environment variable (`M3_WORK_DIR`, `HOME`),
+so changing the environment can never make a spent tag spendable again. The authorization is
+journaled (and fsynced) before `authorize` returns, so a crash between authorizing and calling
+leaves the tag spent, never free. A journal append that fails midway can leave a torn last line;
+that denies every call until a human removes it, which is safe because the failed `authorize`
+returned no authorization.
 
 Money is `Decimal` everywhere. A float cannot hold a cent, and its sums drift.
 """
 
 import datetime as dt
+import errno
 import fcntl
 import json
 import os
+import pwd
 import re
-from collections.abc import Generator
+from collections.abc import Callable, Generator
 from contextlib import contextmanager
 from dataclasses import dataclass
 from decimal import Decimal
@@ -92,9 +100,23 @@ def session_label(purpose: str) -> str | None:
 
 
 def default_journal() -> Path:
-    """The fixed journal path. It never depends on `M3_WORK_DIR`: only `authorize`'s `journal`
-    argument overrides it, and only tests pass one."""
-    return Path.home() / ".local" / "state" / "m3-tool" / "spend-journal.jsonl"
+    """The fixed journal path: `~/.local/state/m3-tool/spend-journal.jsonl` under the home the
+    account database lists for this user.
+
+    It never reads `HOME` (`Path.home()` does, so a scrubbed or sandboxed environment would find
+    an empty journal and authorize a spent tag again) or `M3_WORK_DIR`. Only `authorize`'s
+    `journal` argument overrides it, and only tests pass one.
+    """
+    try:
+        home = pwd.getpwuid(os.getuid()).pw_dir
+    except KeyError:
+        home = ""
+    if not os.path.isabs(home):
+        raise SpendDenied(
+            "the account database has no absolute home directory for this user, so the spend "
+            "journal has no fixed path"
+        )
+    return Path(home) / ".local" / "state" / "m3-tool" / "spend-journal.jsonl"
 
 
 def _bad(line: int, why: str) -> SpendDenied:
@@ -146,13 +168,22 @@ def parse_ledger(text: str) -> list[LedgerRow]:
     """The data rows of `docs/spend-ledger.md`.
 
     The first table line must be the exact header and the second the separator, so a column
-    that moved cannot be misread silently. Prose lines are ignored. Any malformed row raises
-    `SpendDenied` naming its line, because a row the guard cannot read is a row it cannot count.
+    that moved cannot be misread silently. Prose lines are ignored, except that once the table
+    has started a line containing `|` must be a table row: a row that lost its leading `|` would
+    otherwise be skipped and its cost left out of the cap. Any malformed row raises `SpendDenied`
+    naming its line, because a row the guard cannot read is a row it cannot count.
     """
     rows: list[LedgerRow] = []
     expecting = "header"
     for number, line in enumerate(text.splitlines(), start=1):
         if not line.strip().startswith("|"):
+            if expecting != "header" and "|" in line:
+                # Skipping it as prose would drop its cost from the cap.
+                raise _bad(
+                    number,
+                    "this line has a '|' but does not start with '|': it would be skipped as "
+                    "prose and its cost would escape the cap",
+                )
             continue
         cells = _cells(number, line)
         if expecting == "header":
@@ -175,8 +206,9 @@ def _approve(
     session: str,
     today: dt.date,
     cap: Decimal,
-) -> LedgerRow:
-    """Checks 1 to 5 over the parsed ledger. Returns the row that authorizes the call."""
+) -> tuple[LedgerRow, Decimal]:
+    """Checks 1 to 5 over the parsed ledger. Returns the row that authorizes the call and the
+    cap that applies, for the journal checks that follow."""
     approved_caps = [
         row.session_cap
         for row in rows
@@ -231,7 +263,7 @@ def _approve(
     total = sum((each.cost for each in rows), Decimal(0))
     if total > limit:
         raise SpendDenied(f"the ledger totals {total}, over the {limit:.2f} cap")
-    return row
+    return row, limit
 
 
 def _read(path: Path, what: str) -> str:
@@ -241,12 +273,18 @@ def _read(path: Path, what: str) -> str:
         raise SpendDenied(f"could not read the {what} at {path}: {error}") from error
 
 
-def _journaled_tags(journal: Path) -> set[str]:
-    """Every tag the journal mentions, outcomes included. A line that is not a JSON object with
-    a string `tag` denies everything: a torn write must not hide a spent tag."""
+def _read_journal(journal: Path) -> tuple[set[str], Decimal]:
+    """Every tag the journal mentions (outcomes included) and the sum of the prices it has
+    authorized. A failed call's price stays in the sum: the guard cannot tell a failed call
+    that cost nothing from one that was billed.
+
+    A line that is not a JSON object with a string `tag`, or an authorization without a valid
+    string `price`, denies everything: a torn or edited line must not hide a spent tag or price.
+    """
     if not journal.exists():
-        return set()
+        return set(), Decimal(0)
     tags: set[str] = set()
+    authorized = Decimal(0)
     for number, line in enumerate(_read(journal, "spend journal").splitlines(), start=1):
         if not line.strip():
             continue
@@ -254,11 +292,20 @@ def _journaled_tags(journal: Path) -> set[str]:
             entry: object = json.loads(line)
         except json.JSONDecodeError as error:
             raise SpendDenied(f"{journal} line {number} is not valid JSON: repair it") from error
-        tag = cast(dict[str, object], entry).get("tag") if isinstance(entry, dict) else None
+        fields = cast(dict[str, object], entry) if isinstance(entry, dict) else {}
+        tag = fields.get("tag")
         if not isinstance(tag, str):
             raise SpendDenied(f"{journal} line {number} has no string 'tag': repair it")
         tags.add(tag)
-    return tags
+        if fields.get("status") == "authorized":
+            price = fields.get("price")
+            if not isinstance(price, str) or not _COST.fullmatch(price):
+                raise SpendDenied(
+                    f"{journal} line {number} is an authorization without a valid string "
+                    "'price': repair it"
+                )
+            authorized += Decimal(price)
+    return tags, authorized
 
 
 def _json_default(value: object) -> str:
@@ -270,12 +317,28 @@ def _json_default(value: object) -> str:
     raise TypeError(f"{type(value).__name__} is not JSON serializable")
 
 
+# Tests replace this to simulate a short write (a full disk).
+_write: Callable[[int, bytes], int] = os.write
+
+
 def _append(journal: Path, entry: dict[str, object]) -> None:
-    """Append one JSONL line and fsync it, and the directory, before returning."""
-    line = json.dumps(entry, default=_json_default) + "\n"
+    """Append one JSONL line and fsync it, and the directory, before returning.
+
+    `os.write` may write fewer bytes than asked (a full disk), so it loops until every byte is
+    written and raises `OSError` if the writer makes no progress. A caller never gets a success
+    for a truncated entry.
+    """
+    data = (json.dumps(entry, default=_json_default) + "\n").encode("utf-8")
     fd = os.open(journal, os.O_WRONLY | os.O_APPEND | os.O_CREAT, 0o600)
     try:
-        os.write(fd, line.encode("utf-8"))
+        written = 0
+        while written < len(data):
+            count = _write(fd, data[written:])
+            if count <= 0:
+                raise OSError(
+                    errno.EIO, f"incomplete write to {journal}: {written} of {len(data)} bytes"
+                )
+            written += count
         os.fsync(fd)
     finally:
         os.close(fd)
@@ -333,11 +396,17 @@ def authorize(
         with _locked(journal):
             # Read the ledger inside the lock: the row we check must be the one that exists now.
             rows = parse_ledger(_read(ledger, "ledger"))
-            row = _approve(rows, tag, price, session, today, cap)
-            if tag in _journaled_tags(journal):
+            row, limit = _approve(rows, tag, price, session, today, cap)
+            tags, authorized = _read_journal(journal)
+            if tag in tags:
                 raise SpendDenied(
                     f"tag {tag!r} is already authorized in {journal}: one tag authorizes one "
                     "call, so add a new row with a new tag"
+                )
+            if authorized + price > limit:
+                raise SpendDenied(
+                    f"the journal has already authorized {authorized} in total; plus the price "
+                    f"{price} would pass the {limit:.2f} cap, even if the ledger shows less"
                 )
             entry: dict[str, object] = {
                 "tag": tag,
