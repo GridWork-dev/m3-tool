@@ -250,3 +250,14 @@ def test_an_unmeasurable_wheel_pair_says_why_in_the_report_and_the_messages(
     assert "residual" in str(report["error"]) or "radius" in str(report["error"])
     assert "a floor or contact shadow may have merged into the silhouette" in str(report["error"])
     assert "wheels not found" in " ".join(result.messages)
+
+
+def test_the_stage_uses_the_strict_gate_for_a_small_shadowed_view(settings: Settings) -> None:
+    """Codex's case through the stage: a 3% long wheelbase with a small shadow, 529 px wide. The
+    stage never passes the pixel floor, so this view is refused or measured and not ok."""
+    image, truth = draw_car(0.4, wheelbase_scale=1.03)
+    add_contact_shadows(image, truth, size=(30, 10), inward_px=10, lift_px=2)
+    _put_side(settings, image)
+    result = proportion(ASSET, settings)
+    assert not result.ok
+    assert _read_report(settings)["ok"] is False

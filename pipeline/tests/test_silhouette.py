@@ -15,6 +15,7 @@ from silhouette_helpers import (
 
 from m3_pipeline.stages.lib.dims import Dimensions
 from m3_pipeline.stages.lib.silhouette import (
+    RENDER_MIN_RESIDUAL_PX,
     ProportionReport,
     SideMeasure,
     SilhouetteError,
@@ -379,14 +380,14 @@ def test_on_a_raked_car_a_wheels_bump_is_the_tires_and_not_the_underside(
 
 
 @pytest.mark.parametrize("underside_m", [(0.15, 0.15), (0.12, 0.20)], ids=["flat", "raked"])
-def test_task_9_wheel_proxies_on_a_512_px_side_render_are_measured(
+def test_task_9_wheel_proxies_on_a_512_px_side_render_are_measured_with_the_render_floor(
     underside_m: tuple[float, float],
 ) -> None:
     """`render_ortho_side`'s default canvas: the 24-sided tire proxies are about 35 px in radius,
-    where 1% of the radius is less than the rounding of the picture, so the residual gate has a
-    pixel floor. The render has the nose to the right."""
+    where 1% of the radius is less than the rounding of the picture. A caller that measures a
+    trusted, shadow-free render passes the pixel floor. The render has the nose to the right."""
     render = render_proxy_car(512, underside_m)
-    measure = measure_side(render.mask, nose_left=False)
+    measure = measure_side(render.mask, nose_left=False, min_residual_px=RENDER_MIN_RESIDUAL_PX)
     report = check_proportions(measure, E46)
     assert report.ok
     assert report.wheelbase_error < 0.01
@@ -397,6 +398,26 @@ def test_task_9_wheel_proxies_on_a_512_px_side_render_are_measured(
     assert measure.wheel_radius_px == pytest.approx(render.tire_radius_px, rel=0.08)
     assert 30 < measure.wheel_radius_px < 40  # the size at which a bare 1% gate refuses it
     assert measure.wheelbase_px / render.px_per_m == pytest.approx(2.731, rel=0.01)
+
+
+@pytest.mark.parametrize("underside_m", [(0.15, 0.15), (0.12, 0.20)], ids=["flat", "raked"])
+def test_task_9_wheel_proxies_on_a_512_px_side_render_are_refused_by_the_default_gate(
+    underside_m: tuple[float, float],
+) -> None:
+    # The default gate has no pixel floor: 1% of a 35 px radius is under the rim error of a
+    # 24-sided tire plus rounding, so the tires are refused, for their residual.
+    render = render_proxy_car(512, underside_m)
+    with pytest.raises(SilhouetteError, match="wheels not found.*residual"):
+        measure_side(render.mask, nose_left=False)
+
+
+def test_the_pixel_floor_is_off_unless_asked_for() -> None:
+    # The wavy small wheel that the floor lets through (0.54 px, 1.3% of its radius) is refused
+    # by default.
+    with pytest.raises(SilhouetteError, match="wheels not found.*residual"):
+        measure_side(_two_wobbly_wheels(40, 0.01))
+    measure = measure_side(_two_wobbly_wheels(40, 0.01), min_residual_px=RENDER_MIN_RESIDUAL_PX)
+    assert measure.wheelbase_px == pytest.approx(500, rel=0.01)
 
 
 @pytest.mark.parametrize("scale", [1.0, 2.0])
@@ -479,6 +500,61 @@ def test_a_fixed_slice_of_shadow_placements_never_passes_a_wrong_wheelbase() -> 
             assert deviation < 0.01, f"{case}: measured {deviation:.2%} off the truth"
     assert refused + measured == 24
     assert refused >= 8 and measured >= 8  # the slice keeps both outcomes
+
+
+def test_a_3_percent_long_wheelbase_with_a_small_shadow_is_never_ok_at_0_4_scale() -> None:
+    """Codex's case: the floor on the residual gate once let this picture through with a wheelbase
+    error of 1.27%, against the true 3%. The default gate has no floor."""
+    image, truth = draw_car(0.4, wheelbase_scale=1.03)
+    add_contact_shadows(image, truth, size=(30, 10), inward_px=10, lift_px=2)
+    try:
+        measure = measure_side(mask_from_image(image))
+    except SilhouetteError as error:
+        assert "wheels not found" in str(error)
+        return
+    assert not check_proportions(measure, E46).ok
+
+
+# Shadow placements at 0.4 and 0.5 scale, where the pictures are 529 and 661 px wide and a tire is
+# 33 and 41 px in radius. Sizes are in pixels at 0.4 scale, and grow with the scale.
+_SMALL_SHADOW_SLICE = [
+    ((30, 10), 10, 2),  # Codex's case
+    ((40, 12), 6, 0),
+    ((24, 8), 0, 0),  # small, under the middle of the tire
+    ((20, 6), 6, 2),
+]
+
+
+def test_a_slice_of_small_pictures_with_shadows_never_passes_a_wrong_wheelbase() -> None:
+    refused = measured = 0
+    for scale in (0.4, 0.5):
+        grow = scale / 0.4
+        for size, inward_px, lift_px in _SMALL_SHADOW_SLICE:
+            for wheelbase_scale in (1.06, 0.94, 1.03, 0.97):
+                image, truth = draw_car(scale, wheelbase_scale=wheelbase_scale)
+                add_contact_shadows(
+                    image,
+                    truth,
+                    size=(round(size[0] * grow), round(size[1] * grow)),
+                    inward_px=round(inward_px * grow),
+                    lift_px=round(lift_px * grow),
+                )
+                case = (
+                    f"x{scale} shadow {size} inward {inward_px} lift {lift_px}, "
+                    f"wheelbase x{wheelbase_scale}"
+                )
+                try:
+                    measure = measure_side(mask_from_image(image))
+                except SilhouetteError as error:
+                    assert "wheels not found" in str(error), case
+                    refused += 1
+                    continue
+                measured += 1
+                assert not check_proportions(measure, E46).ok, case  # all are 3% or more off
+                deviation = abs(measure.wheelbase_px / truth.wheelbase_px - 1)
+                assert deviation < 0.01, f"{case}: measured {deviation:.2%} off the truth"
+    assert refused + measured == 32
+    assert refused >= 12 and measured >= 12  # the slice keeps both outcomes
 
 
 def test_a_shadow_that_fills_the_gap_under_the_car_names_the_likely_cause() -> None:
@@ -714,8 +790,8 @@ def _two_wobbly_wheels(radius: int, amplitude: float) -> NDArray[np.bool_]:
 
 def test_a_small_wheel_may_be_off_by_half_a_pixel_though_that_is_over_1_percent() -> None:
     # Radius 40: the rim is 0.54 px RMS off a circle, 1.3% of the radius. 1% alone would refuse
-    # it; the pixel floor of 0.6 px lets it through.
-    measure = measure_side(_two_wobbly_wheels(40, 0.01))
+    # it; the pixel floor of 0.6 px, when asked for, lets it through.
+    measure = measure_side(_two_wobbly_wheels(40, 0.01), min_residual_px=RENDER_MIN_RESIDUAL_PX)
     assert measure.wheelbase_px == pytest.approx(500, rel=0.01)
     assert all(wheel.residual > 0.01 for wheel in measure.wheels)
 
@@ -723,7 +799,7 @@ def test_a_small_wheel_may_be_off_by_half_a_pixel_though_that_is_over_1_percent(
 def test_a_small_wheel_that_is_off_by_two_thirds_of_a_pixel_is_refused() -> None:
     # The same wheel with a rim 0.66 px off a circle: over the floor.
     with pytest.raises(SilhouetteError, match=r"wheels not found.*residual 1\.6% of the radius"):
-        measure_side(_two_wobbly_wheels(40, 0.016))
+        measure_side(_two_wobbly_wheels(40, 0.016), min_residual_px=RENDER_MIN_RESIDUAL_PX)
 
 
 def test_a_contact_patch_1_percent_deep_is_still_a_circle() -> None:

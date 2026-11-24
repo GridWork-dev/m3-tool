@@ -62,13 +62,15 @@ _MAX_RADIUS_SHARE = 0.40
 _BAND_SHARE = 0.03
 _BAND_MIN_PX = 1.5
 # The gates a circle must pass, each a share of the radius or of the arc:
-# - Residual, the RMS distance of the points on the circle from it: at most 1% of the radius, and
-#   never less than `_MIN_RESIDUAL_PX`. Pixel rounding alone is 0.3 px (0.4% of an 80 px radius)
-#   and blur, noise and JPEG add up to 0.5% at that size. The wrong circles that shadows shifted
-#   under the tires produce measure 1.2% to 2.6% (the check against the shadow repros is in the
-#   tests). The floor is twice the 0.3 px of rounding: at a radius under 60 px (a 512 px render of
-#   a car) 1% would ask for less error than rounding and a 24-sided tire make, and a render has
-#   no shadows to guard against. At 60 px and above the floor is not reached.
+# - Residual, the RMS distance of the points on the circle from it: at most 1% of the radius.
+#   Pixel rounding alone is 0.3 px (0.4% of an 80 px radius) and blur, noise and JPEG add up to
+#   0.5% at that size. The wrong circles that shadows shifted under the tires produce measure
+#   1.2% to 2.6% (the check against the shadow repros is in the tests). A caller that measures a
+#   trusted, shadow-free render may put a floor under the gate in pixels (`min_residual_px`):
+#   `_MIN_RESIDUAL_PX`, twice the 0.3 px of rounding. At a radius under 60 px (a 512 px render of
+#   a car) 1% would ask for less error than rounding and a 24-sided tire make. It is opt-in
+#   because the same floor lets a contact shadow through on a small photo (a 3% long wheelbase
+#   reads as 1.3% at 0.4 scale), and photos and synthesized views are where shadows are.
 # - Coverage, the share of the arc below the underside that lies on the circle: at least 85%. A
 #   clean tire is 100%, and a splitter that runs into the bump takes about 6%. Over 300 floor
 #   shadows of every size and offset that passed, the wheelbase was within 0.3% of the truth at
@@ -79,6 +81,8 @@ _BAND_MIN_PX = 1.5
 # - Radii: the two wheels differ by at most 10% of their mean (staggered fitments are within 3%).
 _MAX_RESIDUAL = 0.01
 _MIN_RESIDUAL_PX = 0.6
+# What a caller passes as `min_residual_px` for a trusted, shadow-free render (Task 14's meshes).
+RENDER_MIN_RESIDUAL_PX = _MIN_RESIDUAL_PX
 _MIN_COVERAGE = 0.85
 _MIN_ARC_DEG = 60.0
 _MAX_RADIUS_SPREAD = 0.10
@@ -194,7 +198,9 @@ class SideMeasure:
     wheels: tuple[WheelFit, ...] = ()
 
 
-def measure_side(mask: NDArray[np.bool_], *, nose_left: bool = True) -> SideMeasure:
+def measure_side(
+    mask: NDArray[np.bool_], *, nose_left: bool = True, min_residual_px: float = 0.0
+) -> SideMeasure:
     """Length and height from the bounding box, wheels from circle fits.
 
     Take the lowest filled pixel of every column (the bottom contour). The body's underside is the
@@ -209,6 +215,13 @@ def measure_side(mask: NDArray[np.bool_], *, nose_left: bool = True) -> SideMeas
     The nose direction is not detected: `nose_left` (the synthesized side view's convention) makes
     the left-hand wheel the front one, and `nose_left=False` the right-hand one, as in
     `render_ortho_side`'s mask. `front_center`, `rear_center` and `wheels` follow it.
+
+    `min_residual_px` is a floor under the residual gate (1% of the radius), in pixels, and it
+    defaults to none. Pass `RENDER_MIN_RESIDUAL_PX` for trusted, shadow-free renders only: a mesh
+    render at 512 px has tires about 35 px in radius, where 1% of the radius is less than the
+    rounding of the picture. Never pass it for a photo or a synthesized view: the floor loosens
+    the very gate that refuses a contact shadow merged into a tire, and a shadowed car then passes
+    with a wheelbase error that is not its own.
 
     Never measures off a contour that isn't a circle: raises SilhouetteError("wheels not found:
     ...") with the reason for every bump it turned down, and also for an empty mask.
@@ -243,7 +256,9 @@ def measure_side(mask: NDArray[np.bool_], *, nose_left: bool = True) -> SideMeas
     fits: list[WheelFit] = []
     reasons: list[str] = []
     for a, b in sorted(bumps):
-        outcome = _fit_wheel(xs, edge, (a, b), (slope, intercept), height_px, margin, rng)
+        outcome = _fit_wheel(
+            xs, edge, (a, b), (slope, intercept), height_px, margin, min_residual_px, rng
+        )
         if isinstance(outcome, WheelFit):
             fits.append(outcome)
         else:
@@ -317,6 +332,7 @@ def _fit_wheel(
     line: tuple[float, float],
     height_px: float,
     margin: float,
+    min_residual_px: float,
     rng: np.random.Generator,
 ) -> WheelFit | str:
     """The wheel circle of one bump (columns `bump[0]..bump[1]-1` of `xs`), or the reason it is
@@ -351,7 +367,7 @@ def _fit_wheel(
     coverage = float(on.sum()) / float(zone.sum())
     rms_px = float(np.sqrt(np.mean(error[on] ** 2)))
     residual = rms_px / radius
-    residual_limit_px = max(_MAX_RESIDUAL * radius, _MIN_RESIDUAL_PX)
+    residual_limit_px = max(_MAX_RESIDUAL * radius, min_residual_px)
     angles = np.degrees(np.arctan2(xs[on] - cx, edge[on] - cy))  # 0 at the bottom of the circle
     arc_deg = float(angles.max() - angles.min())
 
