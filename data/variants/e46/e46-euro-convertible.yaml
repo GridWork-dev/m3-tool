@@ -2,6 +2,10 @@
 # sources cited here on 2026-11-23. paints and interiors are empty on purpose: no Tier 1 or
 # Tier 2 source opened gives paint codes with a swatch colour or the upholstery colours.
 # Right-hand-drive cars are not a separate variant.
+# Unverified under data.md's rule (no Tier 1, fewer than two Tier 2 publishers): smg on
+# this body (only model-wide statements and an AI-written Tier 3 page), the widths and
+# offsets of standard-18 and of the optional-19 front. The optional-19 wheel rests on
+# model-wide statements; BMW's UK parts listing shows its 9.5J ET27 rear fits the convertible.
 id: e46-euro-convertible
 generation: e46
 name: "M3 Convertible (Euro)"
@@ -42,18 +46,24 @@ render:
   interiorAsset: e46-convertible-interior
   note: "The convertible body is out of scope for 3D until Phase 4 (spec section 3). These two ids follow the pattern of e46-coupe-body and e46-coupe-interior and are planned names: no such asset is in pipeline/assets.toml or the manifest yet. Renders nothing until they exist."
 sources:
-  - title: "The new M3 convertible - BMW M performance plus open-air pleasure"
-    publisher: "BMW Group"
-    url: https://newsroom.bmwgroup.com/americas/the-new-m3-convertible---bmw-m-performance-plus-open-air-pleasure
-    tier: 1
-    accessed: 2026-11-23
-    note: "BMW of North America release, 22 November 2000. Introduces the M3 convertible as a new variation on the E46 3 Series convertible that 'makes its debut in spring 2001', and quotes factory data for the European version: 0 to 100 km/h in 5.5 s, with the new 6-speed transmission. Its specifications are for the US model, so the Euro power rating is not taken from it. Source for the 2001 start."
   - title: "International presskit: Twenty Years of the BMW M3"
     publisher: "BMW Group"
     url: https://newsroom.bmwgroup.com/emea/international-presskit--twenty-years-of-the-bmw-m3
     tier: 1
     accessed: 2026-11-23
-    note: "BMW Media Information 7/2007. Gives the E46-based M3's production run as over 85,000 units, with production ending in 2006. Source for the 2006 end."
+    note: "BMW Media Information 7/2007, with its six attached texts. Says towards the end of the year 2000 the E46-based M3 entered the market, based on the E46 coupé, and that production of the E46-based M3 ended in 2006. Its third-generation chapter says 'A year after introducing the BMW M3 Coupé, BMW M GmbH proudly presented the Convertible version of the M3 based on the E46 model series in 2001', and its model list gives 'BMW M3 Convertible (252 kW/343 hp)' for the E46 (the Euro rating). Source for the 2001 start, the 2006 end and the Euro power rating."
+  - title: "The new M3 convertible - BMW M performance plus open-air pleasure"
+    publisher: "BMW Group"
+    url: https://newsroom.bmwgroup.com/americas/the-new-m3-convertible---bmw-m-performance-plus-open-air-pleasure
+    tier: 1
+    accessed: 2026-11-23
+    note: "BMW of North America release, 22 November 2000. Introduces the M3 convertible as a new variation on the E46 3 Series convertible that 'makes its debut in spring 2001', and quotes factory data for the European version: 0 to 100 km/h in 5.5 s, with the new 6-speed transmission. Its specifications are for the US model, so the Euro power rating is not taken from it."
+  - title: "Genuine 19\" Wheel Rim Light Alloy 19 Inch 9.5Jx19 ET:27 36 11 2 282 999"
+    publisher: "BMW Group (BMW Shop UK)"
+    url: https://shop.bmw.co.uk/product/genuine-19-wheel-rim-light-alloy-19-inch-9-5jx19-et-27-36-11-2-282-999
+    tier: 1
+    accessed: 2026-11-23
+    note: "BMW's own UK parts shop (a manufacturer product page). A 9.5Jx19 ET:27 light-alloy wheel, part 36112282999, whose compatibility table lists E46 M3 coupes (BL91 1999-07 to 2006-05, BL92 2000-03 to 2006-05), E46 M3 convertibles (BR91 2000-04 to 2006-08, BR92 2000-10 to 2006-08) and the M3 CSL (BL95, BL96), all ECE. It is the 9.5J ET27 rear of the CSL-style wheel (BimmerWorld calls part 36112282999 the ZCP/CSL rear). Tier 1 for that rear width and offset on the Euro coupe, the Euro convertible and the CSL, and for the 19-inch wheel fitting the convertible. The production codes start before BMW's debut dates (the convertible's in 2000, BMW says spring 2001), so they are not used for start years; the coupe's May 2006 and the convertible's August 2006 ends agree with the 2006 end."
   - title: "BMW M3 Convertible (E46) 3.2i 24V (343 Hp)"
     publisher: "Auto-Data.net"
     url: https://www.auto-data.net/en/bmw-m3-convertible-e46-3.2i-24v-343hp-9874
@@ -63,27 +73,33 @@ sources:
   - title: "Buyer's Guide: BMW E46 M3"
     publisher: "BMWBLOG"
     url: https://www.bmwblog.com/2022/04/18/buyers-guide-bmw-e46-m3/
-    tier: 2
+    tier: 3
     accessed: 2026-11-23
-    note: "By Steven Paul, 18 April 2022. Says the E46 M3 comes 'in coupe or convertible flavors' with a six-speed manual or six-speed SMG II. It does not say separately that the convertible took the SMG; no source opened does, so the SMG is listed on these general statements."
+    note: "Rated Tier 3: a blog, like the equivalent Supercars.net guide. By Steven Paul, 18 April 2022. Says the E46 M3 comes 'in coupe or convertible flavors' with a six-speed manual or six-speed SMG II. It does not say separately that the convertible took the SMG."
   - title: "Every BMW M3 Generation: Explained"
     publisher: "Motor1.com"
     url: https://www.motor1.com/features/787295/bmw-m3-generations/
     tier: 2
     accessed: 2026-11-23
-    note: "By Chris Tsui. The E46 section is headed 'E46 M3 (2000-2006)'. Says the E46 was only available as a coupe or convertible, with a six-speed manual or the six-speed SMG II."
+    note: "By Chris Tsui. The E46 section is headed 'E46 M3 (2000-2006)'. Says the E46 was only available as a coupe or convertible, with a six-speed manual or the six-speed SMG II. It does not say separately that the convertible took the SMG; this is the only Tier 2 source for the SMG on the convertible, which is why that value is unverified."
+  - title: "BMW M3 Convertible (E46)"
+    publisher: "BMW Group Classic"
+    url: https://www.bmwgroup-classic.com/en/models/bmw-classics/product-description-page.ad-896-1.bmw-m3-convertible-e46.html
+    tier: 3
+    accessed: 2026-11-23
+    note: "Rated Tier 3: the page states 'This content was created using AI'. Says 'the optionally available SMG II offered a particularly enjoyable experience' in the E46 M3 convertible: the only convertible-specific mention of the SMG. Not used for dates."
   - title: "BMW M3 E46 [2000 .. 2006] wheel fitment, 3.2i (S54B32)"
     publisher: "Koleso.ee (Astela OÜ)"
     url: https://koleso.ee/en/valuveljed/bmw/m3/263/e46-2000-2006/544
-    tier: 2
+    tier: 3
     accessed: 2026-11-23
-    note: "Tire retailer's fitment data for the E46 M3, without separating coupe and convertible. Lists the OEM front as 225/45R18 on 8Jx18 ET47 and the OEM rear as 255/40R18 on 9Jx18 ET26. It also lists a 19-inch pair, 225/40R19 on 8J ET47 and 255/35R19 on 9.5J ET27, without an OEM label. Source for the widths, offsets and tire sizes of the 18-inch and optional 19-inch wheels."
+    note: "Rated Tier 3: a tire retailer's fitment lookup is neither a specialist retailer's tech article nor one of its own product listings, the two retailer pages data.md's Tier 2 covers. Fitment data for the E46 M3, without separating coupe and convertible. Lists the OEM front as 225/45R18 on 8Jx18 ET47 and the OEM rear as 255/40R18 on 9Jx18 ET26. It also lists a 19-inch pair, 225/40R19 on 8J ET47 and 255/35R19 on 9.5J ET27, without an OEM label. Second source for the widths and offsets of the 18-inch and optional 19-inch wheels."
   - title: "ALY59367 BMW M3 Wheel/Rim Hyper Silver #36112229950"
     publisher: "Hubcap Haven"
     url: https://www.hubcaphaven.com/p/3015/aly59367-bmw-m3-wheel-hyper-silver-36112229950.html
     tier: 2
     accessed: 2026-11-23
-    note: "Retailer listing under OE part number 36112229950: style '10 Double Spoke (option code: Style 67)', 18x8, 5 lugs, 120 mm, offset 47 mm, fits the BMW M3 2001-2006 as a front wheel. Source for the 18-inch wheel's style name."
+    note: "Retailer listing under OE part number 36112229950: style '10 Double Spoke (option code: Style 67)', 18x8, 5 lugs, 120 mm, offset 47 mm, fits the BMW M3 2001-2006 as a front wheel. Source for the 18-inch wheel's style name and, with the rear listing, its widths and offsets. This is the only Tier 2 publisher for the 18-inch widths and offsets, so those are unverified under data.md's rule; the 18-inch tire sizes are Tier 1 (the US owner's manual, p. 27)."
   - title: "ALY59368/59607 BMW M3 Wheel/Rim Hyper Silver #36112229960"
     publisher: "Hubcap Haven"
     url: https://www.hubcaphaven.com/p/1705/aly59368-59607-bmw-m3-wheel-hyper-silver-36112229960.html
@@ -95,10 +111,10 @@ sources:
     url: https://www.bimmerworld.com/About-Us/Wheel-Info-Tech/
     tier: 2
     accessed: 2026-11-23
-    note: "Specialist shop's tech page. Its E46 M3 row lists 19x8.0 ET47 front and 19x9.5 ET27 rear as stock, and gives no 18-inch size. It agrees with the 19-inch widths and offsets used here. It calls the 19-inch pair stock, while BMW's CSL press kit calls the 19-inch wheels an option on the M3 (the 18-inch wheel is the standard fitment), so the pair is recorded as the optional wheel."
+    note: "Specialist shop's tech page. Its E46 M3 row lists 19x8.0 ET47 front and 19x9.5 ET27 rear as stock, and gives no 18-inch stock size (its Track A and Track B columns list 18x9.5 ET35 and 18x10.0 ET25, but as aftermarket recommendations). It agrees with the 19-inch widths and offsets used here. It calls the 19-inch pair stock, while BMW's CSL press kit calls the 19-inch wheels an option on the M3 (the 18-inch wheel is the standard fitment), so the pair is recorded as the optional wheel. The optional wheel's 8J ET47 front rests on this shop alone at Tier 2 and is unverified under data.md's rule; the 9.5J ET27 rear also matches BMW's own parts listing for the same size."
   - title: "BMW M3 CSL press kit (3/2003), Press Kit for BMW M3 CSL at the Geneva Motor Show 2003"
     publisher: "BMW Group"
     url: https://newsroom.bmwgroup.com/americas/press-kit-for-bmw-m3-csl-at-the-geneva-motor-show-2003
     tier: 1
     accessed: 2026-11-23
-    note: "BMW's M3 CSL press kit (3/2003, PDF 'AG030228 M3 CSL Press Kit_GB_finalversion.pdf' linked from this page). Calls the 19-inch wheels 'available as an option on the M3' and describes them as forged ('the forged 19-inch wheels featured on the standard M3'), which is why the 19-inch pair is listed as an option and the 18-inch wheel as the standard fitment. For the CSL itself see e46-csl-coupe."
+    note: "BMW's M3 CSL press kit (3/2003, PDF 'AG030228 M3 CSL Press Kit_GB_finalversion.pdf' linked from this page). Calls the 19-inch wheels 'available as an option on the M3' and describes them as forged ('the forged 19-inch wheels featured on the standard M3'), which is why the 19-inch pair is listed as an option and the 18-inch wheel as the standard fitment. For the CSL itself see e46-csl-coupe. For the convertible, this and the wheel sources above are model-wide: none says the convertible had the 19-inch option; BMW's UK parts listing shows the 9.5Jx19 ET27 rear fits it."
