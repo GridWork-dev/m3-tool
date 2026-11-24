@@ -1,7 +1,7 @@
 import type { Dirent } from 'node:fs'
 import { readdir, readFile } from 'node:fs/promises'
 import { join, relative } from 'node:path'
-import { findLinks, isLinkAllowed } from '../src/lib/link-policy.ts'
+import { findLinks, isLinkAllowed } from '../src/lib/html-links.ts'
 
 // `source` names the element and attribute (`base href`, `form action`), and is left out for an
 // ordinary anchor.
