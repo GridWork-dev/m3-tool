@@ -219,10 +219,11 @@ YAML under `data/`, one entry per file, validated by the Zod schemas in `src/dat
 **`maintenance item`**
 - Generation, engine, interval (miles and/or months), parts and fluids, cost range for DIY and shop.
 - `inspectWhenBuying` plus `howToCheck`.
-- `sources[]` and `verified`.
+- `sources[]` (at least one of Tier 1 or Tier 2, section 7.6) and `verified`. (amended 2026-11-23)
 
 **`known issue`**
-- Generation, engine, symptoms, cause, fix, prevention, cost range.
+- Generation, engine, symptoms, cause, prevention, how common.
+- `fix` is optional, and `cost` (a range) goes with it: a fix needs a cost, and a Tier 1 or Tier 2 source (section 7.6). An issue known only from forum reports leaves out `fix`, and its `cost` is then optional. (amended 2026-11-23)
 - How common: `rare`, `common` or `very common`.
 - `inspectWhenBuying` plus `howToCheck`.
 - `sources[]` and `verified`.
@@ -285,6 +286,23 @@ YAML under `data/`, one entry per file, validated by the Zod schemas in `src/dat
 - Tier 3 alone is enough for symptoms and "how common". The entry stays `verified: false`, and the UI shows an "unverified" badge.
 - `verified` applies to parts too, under the same tier rule: one Tier 1 source, or two Tier 2 sources from distinct publishers. Manufacturer product pages are Tier 1. (amended 2026-11-23)
 
+**Safety advice needs evidence** (amended 2026-11-23)
+- Safety advice never rests on a forum post alone, whether or not the entry is marked `verified`.
+- A maintenance item needs at least one Tier 1 or Tier 2 source.
+- A known issue's `fix` is optional. A fix needs at least one Tier 1 or Tier 2 source, and a cost. Without a fix the issue publishes symptoms, cause and how common it is, and Tier 3 is enough for those. The cost is then optional.
+- `check-data` reports a violation as `safety-advice-without-evidence`.
+
+**Citations** (amended 2026-11-23)
+- A source renders as a citation: its publisher, title and accessed date, always as text.
+- Its `url` is a link only when the host is on `CITATION_HOSTS` (`archive.org`, `web.archive.org`, `newsroom.bmwgroup.com`, `en.wikipedia.org`, `commons.wikimedia.org`), which `isCitationLinkable` tests. Any other URL is not linked, and a Tier 2 retailer never is.
+- `check:links` accepts exactly those hosts beside its own allowlist. The cost is that a reader looks up a retailer-hosted source by its title.
+
+**Cross-file checks** (amended 2026-11-23)
+- A variant's body and years fit its generation's bodies and years. A part's `fits.years` and `fits.bodies` fit them too, and an empty `fits.bodies` or `fits.transmissions` is an error.
+- A maintenance item's or issue's `engine` is one of the generation's engine codes.
+- A source's `accessed` date and a price's `checked` date are not after today. Data years are 1900 to 2100.
+- The estimated driver eye point is the one spec value that may have no source.
+
 **Dates**
 - All data dates are calendar dates (`YYYY-MM-DD`, no time of day). (amended 2026-11-23)
 
@@ -334,14 +352,14 @@ Every change to a model is code in `pipeline/`. No hand edits in Blender that ar
 Real photos rarely give one matched view set of one car. This step makes one.
 
 - **Input:** the best real view set from section 9.1.
-- **Method:** an image model renders clean, matching views of one car (front, side, rear, front three-quarter and rear three-quarter) on a neutral background. OpenAI `gpt-image-2.6-sunburst` is the first choice. It's A/B-tested against Google `gemini-nano-banana-2.1` through OpenRouter.
+- **Method:** an image model renders clean, matching views of one car (front, side, rear, front three-quarter and rear three-quarter) on a neutral background. It's the user's OpenAI subscription, used through the Codex CLI (ChatGPT login) with Codex's built-in image generation, so it has no API spend. A fal image-edit model is the fallback. There is no model A/B test (section 9.9, ADR 0013). (amended 2026-11-23)
 - **Guards:** a synthesized set is used only when all three pass.
   1. An automatic proportion check: the length, wheelbase and height ratios measured from the side-view silhouette are within 2% of the data dimensions.
   2. A vision critic compares the result against the real photos.
   3. The user approves it.
 - **Synthesized views are generator inputs only.** Section 9.7 scoring uses real photos only.
 - **Provenance:** which real photos fed which synthesized view is recorded.
-- **Cost:** every image-model call, including the A/B test of the two image models, comes out of the spike cap and gets its row in `docs/spend-ledger.md` before the call. (amended 2026-11-23)
+- **Cost:** a paid fal call comes out of the spike cap and gets its row in `docs/spend-ledger.md` before the call. Subscription use has no API spend, so it needs no row. (amended 2026-11-23)
 
 ### 9.2 Generation (`generate`)
 
@@ -395,8 +413,9 @@ Each visible product gets its own asset, built from its product photos and spec.
 ### 9.5 Export and optimize (`export`)
 
 - Export to GLB, then run glTF-Transform: weld, deduplicate, prune, meshopt geometry compression.
+- `prune` is `prune({ keepLeaves: true })`: the default deletes empty leaf nodes, and every anchor is one. (amended 2026-11-23)
 - KTX2 textures must be set explicitly. The `auto` default doesn't produce KTX2.
-- LODs for the Low preset.
+- LODs for the Low preset. Each LOD is a separate file named `<id>.lod<N>.glb`, and each is validated on its own (`docs/standards/3d-assets.md`). (amended 2026-11-23)
 
 ### 9.6 Asset contract (enforced by `validate`)
 
@@ -473,16 +492,11 @@ The spike runs on collected online photos; the user has no real car to photograp
 - **Partial pass:** change methods within the spike's spend cap and run again. Options: more views, a different generator, a different way of splitting the mesh.
 - **Fail:** bring the user the options, part by part. For example: buy licensed bodies or interiors for some or all generations, or lower the target for that part. Don't switch on my own.
 
-The spike also runs the **model bake-off** (amended 2026-11-23):
-- **Contestants:** Fable 5.2 and Opus 5.5 in Claude Code, against Astra 6.2 and Sol in Codex.
-- **Tasks (three):**
-  - A parametric wheel plus rotor, fitted to product photos.
-  - Splitting and cleaning a generated M3 mesh.
-  - A critic-only defect hunt.
-- **Seeds:** at least 3 per cell, where a cell is one contestant on one task.
-- **Scoring:** automatic metrics (dimensions, manifold, part count, triangle budget, view similarity) plus blind votes on the screenshots. Tokens, dollars and minutes are logged for every run.
-- **Out of scope:** hand-modeling the body with an LLM. The research showed it isn't viable, so it isn't a task.
-- The winner takes that kind of task, and the result is recorded in an ADR.
+**Model choice** (amended 2026-11-23). There is no model bake-off: the user dropped it, and the 2026 research is enough to choose models (ADR 0013).
+- Frontier LLMs write the parametric parts (a wheel, a rotor) and do the cleanup and the splitting, with deterministic checks on the result: dimensions, manifold, part count, the triangle budget and view similarity.
+- Image-to-3D generators make the body and the complex parts (section 9.2). An LLM doesn't hand-model the body: the research showed it isn't viable.
+- The user's OpenAI subscription, through the Codex CLI, is used where it fits: reference view synthesis (section 9.1a), and the Codex models as implementation and review lanes (section 12.1).
+- The spike's pass criteria above are unchanged. Every paid fal call still needs the session cap and a row in `docs/spend-ledger.md`.
 
 ## 10. Testing and previews
 
@@ -524,7 +538,7 @@ The spike also runs the **model bake-off** (amended 2026-11-23):
 
 Then it runs the Playwright end-to-end and visual tests on the build, then gitleaks. A deploy workflow uploads a preview version and comments its URL on the PR.
 
-**Merging to `main`** deploys to production. `main` is protected: checks must pass and a review is required.
+**Merging to `main`** deploys to production. `main` is protected: the `check`, `e2e` and `gitleaks` checks must pass, and no approval is required, because the one maintainer can't approve their own PR. The review happens before the merge instead (section 12.3, ADR 0007). (amended 2026-11-23)
 
 **Renovate** groups dependency updates weekly. Patch and minor updates merge automatically when checks pass.
 
@@ -638,7 +652,7 @@ Each phase ends with a release or demo the user signs off on.
    - Zod schemas, including the fitment attributes and the buyer-checklist fields, with 2–3 sample E46 entries per collection.
    - The 3D asset contract and its validator.
 5. Photo tooling (`refs` collectors and curation), handed to the user to run.
-6. Go/no-go spike plus model bake-off (section 9.9), ending with a spike report and an ADR.
+6. Go/no-go spike (section 9.9), ending with a spike report and an ADR. The model bake-off was dropped. (amended 2026-11-23)
 7. Spend cap approved for Phase 1 generation.
 
 **Done when:** the spike decision is made, and both lanes can start against stable contracts.
@@ -690,7 +704,8 @@ Settled 2026-11-23:
 - Factory body variants (CSL roof, trunk lid and bumper; sunroof; US/Euro details) render in v1 through swappable body modules. Aftermarket bumpers and trunk lids use the same swap (sections 7.3, 7.5 and 9.6). (amended 2026-11-23)
 - A reference view-synthesis step joins the pipeline: an image model makes matched views from the best real ones, guarded by a proportion check, a vision critic and the user's approval. Its views feed generators only, never scoring (section 9.1a). (amended 2026-11-23)
 - Generators are reached through fal (`M3_FAL_KEY`), plus the direct Tripo and Meshy keys. Hunyuan stays experiment-only (section 9.2). (amended 2026-11-23)
-- The model bake-off is widened to Fable 5.2 and Opus 5.5 against Astra 6.2 and Sol, on three tasks with at least 3 seeds per cell (section 9.9). (amended 2026-11-23)
+- No model bake-off: the earlier plan to compare Fable 5.2 and Opus 5.5 with Astra 6.2 and Sol is dropped, and research chooses the models (section 9.9, ADR 0013). (amended 2026-11-23)
+- View synthesis uses the user's OpenAI subscription through the Codex CLI first, with a fal image-edit model as the fallback (section 9.1a, ADR 0013). (amended 2026-11-23)
 
 Still open:
 
