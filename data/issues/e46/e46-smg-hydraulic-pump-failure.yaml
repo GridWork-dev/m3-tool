@@ -7,10 +7,12 @@
 #
 # The fix is to replace the pump, supported by two independent Tier 2 sources (ECS Tuning and
 # PistonHeads). BMW's training module is Tier 2 under data.md's rule for copies (R77): the file
-# carries no issuer line and no module number. `verified: true` does not depend on it, because ECS
-# Tuning, PistonHeads and Jalopnik also support the failure and the fix. No cost is published (ruling R78): ECS says only that the pump mechanism is now
-# sold separately for 'a few hundred dollars' without saying what that covers, and PistonHeads
-# says replacement is 'costly'.
+# carries no issuer line and no module number. `verified: true` does not depend on it: ECS Tuning,
+# PistonHeads and Jalopnik also support the failure, and ECS Tuning and PistonHeads the fix.
+#
+# No cost is published (ruling R78): ECS says only that the pump mechanism is now sold separately
+# for 'a few hundred dollars' without saying what that covers, and PistonHeads says replacement is
+# 'costly'.
 id: e46-smg-hydraulic-pump-failure
 generation: e46
 title: SMG hydraulic pump failure
