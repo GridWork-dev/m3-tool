@@ -1,3 +1,4 @@
+import ast
 import json
 import subprocess
 import sys
@@ -101,7 +102,23 @@ def test_a_failing_exit_code_fails_even_if_the_report_says_ok(
 ) -> None:
     _export(tmp_path)
     _stub_validator(monkeypatch, 1, json.dumps({"ok": True, "issues": []}))
-    assert not validate(ASSET, Settings(repo_root=REPO, work_dir=tmp_path)).ok
+    r = validate(ASSET, Settings(repo_root=REPO, work_dir=tmp_path))
+    assert not r.ok
+    assert r.messages == ["validate-asset exited 1 although its report says ok"]
+
+
+def test_a_failing_exit_code_adds_its_message_after_the_issue_messages(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _export(tmp_path)
+    warning = {"code": "triangles", "severity": "warning", "message": "1 line primitive skipped"}
+    _stub_validator(monkeypatch, 3, json.dumps({"ok": True, "issues": [warning]}))
+    r = validate(ASSET, Settings(repo_root=REPO, work_dir=tmp_path))
+    assert not r.ok
+    assert r.messages == [
+        "WARNING triangles: 1 line primitive skipped",
+        "validate-asset exited 3 although its report says ok",
+    ]
 
 
 @pytest.mark.parametrize(
@@ -143,4 +160,6 @@ def test_stages_register_when_the_package_is_imported_fresh() -> None:
         code = f"import {first}; from m3_pipeline.stages import REGISTRY; print(sorted(REGISTRY))"
         out = subprocess.run([sys.executable, "-I", "-c", code], capture_output=True, text=True)
         assert out.returncode == 0, out.stderr
-        assert out.stdout.strip() == "['validate']"
+        # Membership, not equality: later plans register more stages.
+        registered = ast.literal_eval(out.stdout.strip())
+        assert isinstance(registered, list) and "validate" in registered

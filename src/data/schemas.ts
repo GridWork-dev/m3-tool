@@ -12,7 +12,8 @@ export const ID_PATTERN = /^[a-z0-9]+(-[a-z0-9]+)*$/
 export const Id = z
   .string()
   .regex(ID_PATTERN, 'must be kebab-case: lowercase letters and digits joined by single hyphens')
-export const Text = z.string().min(1, 'must not be empty')
+// Required text: non-empty once trimmed, so "   " is refused. The value itself is kept as written.
+export const Text = z.string().refine((value) => value.trim() !== '', 'must not be empty')
 const Year = z.int().min(1985).max(2035)
 const YearRange = z
   .tuple([Year, Year])
