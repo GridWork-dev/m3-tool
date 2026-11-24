@@ -1613,3 +1613,133 @@ def test_the_autouse_guard_blocks_both_default_journal_names() -> None:
     for module in (fal, spend_mod):
         with pytest.raises(AssertionError, match="real spend journal"):
             module.default_journal()
+
+
+# --- FalError.resumable: the caller can tell, without parsing a message, whether `resume` helps ---
+
+
+def test_a_fal_error_is_not_resumable_unless_it_says_so() -> None:
+    assert FalError("nope").resumable is False
+    assert FalError("later", resumable=True).resumable is True
+
+
+def _poll_never_completes(fake: FakeFal) -> int:
+    fake.statuses = [in_progress()]
+    return 2  # max_polls
+
+
+def _poll_keeps_failing(fake: FakeFal) -> int:
+    fake.statuses = [httpx.ConnectError("down")]
+    return 600
+
+
+def _poll_answers_an_auth_error(fake: FakeFal) -> int:
+    fake.statuses = [reply(401, {"detail": "no"})]
+    return 600
+
+
+def _result_fetch_hiccup(fake: FakeFal) -> int:
+    fake.result = reply(503, {"detail": "busy"})
+    return 600
+
+
+def _result_fetch_transport_error(fake: FakeFal) -> int:
+    fake.result = httpx.ReadTimeout("slow")
+    return 600
+
+
+def _download_fails(fake: FakeFal) -> int:
+    fake.download_errors[GLB_URL] = httpx.ReadTimeout("slow cdn")
+    return 600
+
+
+@pytest.mark.parametrize(
+    "script",
+    [
+        _poll_never_completes,
+        _poll_keeps_failing,
+        _poll_answers_an_auth_error,
+        _result_fetch_hiccup,
+        _result_fetch_transport_error,
+        _download_fails,
+    ],
+)
+def test_an_error_that_names_resume_is_resumable(
+    settings: Settings, journal: Path, fake: FakeFal, script: Callable[[FakeFal], int]
+) -> None:
+    write_ledger(settings, ("gen-t7-1", "0.40"))
+    max_polls = script(fake)
+    with pytest.raises(FalError, match=r"resume\('gen-t7-1'") as error:
+        client(settings, journal, max_polls=max_polls).run(planned(settings), out_dir(settings))
+    assert error.value.resumable is True
+
+
+def _submit_times_out(fake: FakeFal) -> None:
+    fake.submit = httpx.ReadTimeout("timed out")
+
+
+def _submit_is_rejected(fake: FakeFal) -> None:
+    fake.submit = reply(422, {"detail": "no"})
+
+
+def _poll_reports_a_failure(fake: FakeFal) -> None:
+    fake.statuses = [completed(error="model crashed", error_type="runtime")]
+
+
+def _result_is_confirmed_missing(fake: FakeFal) -> None:
+    fake.result = reply(404, {"detail": "gone"})
+
+
+def _result_lacks_the_result_field(fake: FakeFal) -> None:
+    fake.result = reply(200, {"seed": 1})
+
+
+@pytest.mark.parametrize(
+    "script",
+    [
+        _submit_times_out,
+        _submit_is_rejected,
+        _poll_reports_a_failure,
+        _result_is_confirmed_missing,
+        _result_lacks_the_result_field,
+    ],
+)
+def test_an_error_that_does_not_name_resume_is_not_resumable(
+    settings: Settings, journal: Path, fake: FakeFal, script: Callable[[FakeFal], None]
+) -> None:
+    write_ledger(settings, ("gen-t7-1", "0.40"))
+    script(fake)
+    with pytest.raises(FalError) as error:
+        client(settings, journal).run(planned(settings), out_dir(settings))
+    assert "resume(" not in str(error.value)
+    assert error.value.resumable is False
+
+
+def test_a_refusal_before_the_guard_is_not_resumable(settings: Settings, journal: Path) -> None:
+    with pytest.raises(FalError, match="M3_FAL_KEY") as error:
+        client(settings, journal, env={}).run(planned(settings), out_dir(settings))
+    assert error.value.resumable is False
+
+
+def test_resume_refusals_are_not_resumable_and_a_failed_resume_attempt_is(
+    settings: Settings, journal: Path, fake: FakeFal
+) -> None:
+    write_ledger(settings, ("gen-t7-1", "0.40"))
+    fake.statuses = [in_progress()]
+    with pytest.raises(FalError):
+        client(settings, journal, max_polls=1).run(planned(settings), out_dir(settings))
+
+    fake.statuses = [completed()]
+    fake.result = reply(503, {"detail": "busy"})
+    with pytest.raises(FalError, match=r"resume\('gen-t7-1'") as hiccup:
+        client(settings, journal).resume("gen-t7-1", out_dir(settings))
+    assert hiccup.value.resumable is True
+
+    fake.result = reply(200, RODIN_RESULT)
+    client(settings, journal).resume("gen-t7-1", out_dir(settings))
+    with pytest.raises(FalError, match="already succeeded") as done:
+        client(settings, journal).resume("gen-t7-1", out_dir(settings))
+    assert done.value.resumable is False
+    with pytest.raises(FalError, match="no authorization") as never:
+        client(settings, journal).resume("gen-never", out_dir(settings))
+    assert never.value.resumable is False
