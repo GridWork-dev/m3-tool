@@ -12,6 +12,8 @@ from m3_pipeline.refs.commons import CommonsClient
 from m3_pipeline.refs.crawl.engine import crawl_pages
 from m3_pipeline.refs.crawl.fetchers import MissingCredentials, open_fetcher
 from m3_pipeline.refs.crawl.robots import RobotsCache
+from m3_pipeline.refs.cutouts import BackgroundRemovalUnavailable, load_remover, make_cutouts
+from m3_pipeline.refs.dedupe import apply_dedupe
 from m3_pipeline.refs.importer import import_directory
 from m3_pipeline.refs.sources import SubjectSources, load_sources
 from m3_pipeline.refs.store import RefStore
@@ -179,3 +181,23 @@ def classify_import(path: Annotated[Path, typer.Argument(exists=True, dir_okay=F
             typer.echo(error, err=True)
         raise typer.Exit(1) from None
     typer.echo(f"labeled={result.labeled} relabeled={result.relabeled}")
+
+
+@refs_app.command()
+def dedupe(subject: Annotated[str | None, typer.Option("--subject")] = None) -> None:
+    """Recompute perceptual duplicates, keeping the largest images."""
+    report = apply_dedupe(RefStore(load_settings()), subject)
+    typer.echo(f"duplicates={report.duplicates} changed={report.changed}")
+
+
+@refs_app.command()
+def cutouts(subject: Annotated[str, typer.Option("--subject")]) -> None:
+    """Remove backgrounds from accepted labeled images."""
+    store = RefStore(load_settings())
+    try:
+        remover = load_remover(models_dir=store.work_dir / "refs/models")
+    except BackgroundRemovalUnavailable as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(1) from None
+    report = make_cutouts(store, subject, remover)
+    typer.echo(f"created={report.created} existing={report.existing} failed={report.failed}")

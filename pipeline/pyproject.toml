@@ -17,6 +17,9 @@ dependencies = [
 pipeline = "m3_pipeline.cli:app"
 
 [dependency-groups]
+bg = [
+    "rembg[cpu]==2.0.87",
+]
 dev = [
     "ruff==0.17.6",
     "pyright==1.1.414",
