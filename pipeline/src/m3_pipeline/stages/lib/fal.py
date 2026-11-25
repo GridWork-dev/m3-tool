@@ -386,6 +386,14 @@ class FalClient:
 
     # --- the public calls ---
 
+    def preflight(self, call: PlannedCall, out_dir: Path) -> None:
+        """Validate every local input, option and credential without authorization or network I/O.
+
+        Callers may run this before creating a durable submission intent. Refusals here
+        prove no network request was made and therefore need no recovery marker.
+        """
+        self._plan(call, out_dir)
+
     def run(self, call: PlannedCall, out_dir: Path) -> CallResult:
         """authorize -> submit -> poll -> fetch -> download everything, then record the cost."""
         plan = self._plan(call, out_dir)

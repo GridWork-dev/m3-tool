@@ -17,7 +17,7 @@ NO_VALID_VERDICT = "critic returned no valid verdict"
 
 
 def _verdict_json(passed: object, issues: Sequence[object] = ()) -> str:
-    return json.dumps({"pass": passed, "issues": list(issues)})
+    return json.dumps({"pass": passed, "issues": list(issues), "images_inspected": True})
 
 
 def _issue(severity: str, text: str = "t", fix: str = "f") -> dict[str, str]:
@@ -482,6 +482,8 @@ class FakeCodex:
         last_message: Path,
         timeout_s: int = 900,
         sandbox: str = "workspace-write",
+        model: str | None = None,
+        reasoning_effort: str | None = None,
     ) -> str:
         self.calls.append(
             {
@@ -490,6 +492,8 @@ class FakeCodex:
                 "cwd": cwd,
                 "last_message": last_message,
                 "sandbox": sandbox,
+                "model": model,
+                "reasoning_effort": reasoning_effort,
                 "parent_existed": last_message.parent.is_dir(),
             }
         )
@@ -514,6 +518,8 @@ def test_run_critic_sends_the_prompt_and_images_to_codex_read_only(
     assert call["images"] == images
     assert call["cwd"] == tmp_path
     assert call["sandbox"] == "read-only"
+    assert call["model"] == "gpt-6-astra"
+    assert call["reasoning_effort"] == "high"
     last = call["last_message"]
     assert isinstance(last, Path)
     assert call["parent_existed"] is True
@@ -601,3 +607,20 @@ def test_run_critic_passes_the_images_to_codex_in_exactly_the_order_given(
     attached = [argv[i + 1] for i, token in enumerate(argv) if token == "-i"]
     assert attached == [str(image) for image in images]
     assert argv.index("-i") > argv.index(critic_prompt("synth-view", ["x"]))  # prompt first
+
+
+@pytest.mark.parametrize("inspected", [None, False, "true", 1])
+def test_synth_view_requires_explicit_completed_inspection(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, inspected: object
+) -> None:
+    body: dict[str, object] = {"pass": True, "issues": []}
+    if inspected is not None:
+        body["images_inspected"] = inspected
+    monkeypatch.setattr(critic, "run_codex", FakeCodex(json.dumps(body)))
+    assert not run_critic("synth-view", [], [tmp_path / "image.png"], cwd=tmp_path).ok
+
+
+def test_synth_prompt_requests_inspection_status_only_for_synth_views() -> None:
+    assert "images_inspected" in critic_prompt("synth-view", [])
+    assert "EVERY attached reference" in critic_prompt("synth-view", [])
+    assert "images_inspected" not in critic_prompt("product", [])

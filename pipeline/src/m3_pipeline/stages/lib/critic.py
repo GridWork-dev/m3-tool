@@ -51,6 +51,7 @@ class Verdict:
     ok: bool
     issues: tuple[Issue, ...]
     raw: str
+    images_inspected: bool | None = None
 
 
 class _Invalid(Exception):
@@ -138,13 +139,15 @@ def _issues(entries: list[object]) -> tuple[Issue, ...]:
     return tuple(issues)
 
 
-def parse_verdict(message: str) -> Verdict:
+def parse_verdict(message: str, *, require_inspection: bool = False) -> Verdict:
     """Read the critic's verdict: `{"pass": bool, "issues": [{"severity", "text", "fix"}]}`.
 
     The message must be exactly that one JSON object, or exactly one fenced block holding it
     (see the module docstring). `ok` is `pass` with no blocker issue; an unknown severity counts
     as a blocker. Any other message becomes a failed verdict with one blocker,
     `critic returned no valid verdict: <reason>`, and `raw` keeps the message. Never raises.
+    Synth-view callers require explicit `images_inspected: true`; other kinds retain the
+    existing schema. Missing inspection evidence cannot be a completed visual assessment.
     """
     try:
         obj = _single_object(message)
@@ -157,8 +160,14 @@ def parse_verdict(message: str) -> Verdict:
         issues = _issues(cast("list[object]", entries))
     except _Invalid as invalid:
         return _failed(f"{_NO_VALID_VERDICT}: {invalid}", message)
-    ok = passed and all(issue.severity != "blocker" for issue in issues)
-    return Verdict(ok, issues, message)
+    inspected = obj.get("images_inspected")
+    inspected = inspected if isinstance(inspected, bool) else None
+    ok = (
+        passed
+        and all(issue.severity != "blocker" for issue in issues)
+        and (not require_inspection or inspected is True)
+    )
+    return Verdict(ok, issues, message, inspected)
 
 
 # What the images are, per kind. The order is part of the contract with the caller (see
@@ -231,6 +240,16 @@ def critic_prompt(kind: Kind, checklist: Sequence[str]) -> str:
         'each, and use an empty "issues" list when there are none. Set "pass" to false when any '
         "issue is a blocker.",
     ]
+    if kind == "synth-view":
+        lines.extend(
+            [
+                "Also include the boolean field images_inspected. Set it to true ONLY after "
+                "successfully opening and visually inspecting EVERY attached reference and the "
+                "candidate. If any attachment is unavailable or cannot be seen, set "
+                "images_inspected to false and pass to false; explain the unavailable evidence. "
+                "Do not report a visual rejection without inspecting the images.",
+            ]
+        )
     return "\n".join(lines)
 
 
@@ -255,7 +274,9 @@ def run_critic(
                 cwd=cwd,
                 last_message=Path(scratch) / "last.md",
                 sandbox="read-only",
+                model="gpt-6-astra",
+                reasoning_effort="high",
             )
         except CodexError as error:
             return _failed(f"codex critic failed: {error}", str(error))
-    return parse_verdict(message)
+    return parse_verdict(message, require_inspection=kind == "synth-view")
