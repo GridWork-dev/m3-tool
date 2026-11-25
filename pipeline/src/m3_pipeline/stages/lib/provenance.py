@@ -27,7 +27,7 @@ class ViewProvenance:
     critic_ok: bool | None
 
     def __post_init__(self) -> None:
-        if self.view not in _VIEWS:
+        if not isinstance(self.view, str) or self.view not in _VIEWS:
             raise ValueError(f"unknown synthesized view: {self.view}")
         if not self.inputs or any(not isinstance(i, str) or not i for i in self.inputs):
             raise ValueError("provenance inputs must be nonempty image ids")
@@ -85,9 +85,15 @@ def check_provenance(items: Sequence[ViewProvenance], viewset: SpikeViewSet) -> 
 def synth_set_usable(synth_dir: Path) -> bool:
     """Fail closed on absent, malformed or stale guards; no cached verdict survives new bytes."""
     try:
+        root = synth_dir.resolve()
+        # Guard documents are private artifacts too: never follow a link out of this set.
+        for name in ("provenance.json", "proportion.json", "approved.json", "views"):
+            path = synth_dir / name
+            if not path.resolve().is_relative_to(root):
+                return False
         items = load_provenance(synth_dir / "provenance.json")
         names = {item.view for item in items}
-        if "side" not in names:
+        if names != _VIEWS:
             return False
         view_dir = synth_dir / "views"
         if {path.stem for path in view_dir.glob("*.png")} != names:

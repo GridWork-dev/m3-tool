@@ -64,8 +64,12 @@ def propose_redactions(ref: ViewRef, work_dir: Path, *, cwd: Path) -> list[Box]:
     if not image.is_relative_to(work_dir.resolve()):
         raise ValueError(f"{ref.image_id}: original is outside work_dir")
     require_outside_repo(repo_root=_REPO, path=image)
+    if not cwd.resolve().is_relative_to(work_dir.resolve()):
+        raise ValueError(f"{ref.image_id}: proposal cwd is outside work_dir")
     require_outside_repo(repo_root=_REPO, path=cwd)
     last = cwd / "redaction-proposal.json"
+    if not last.resolve().is_relative_to(work_dir.resolve()):
+        raise ValueError(f"{ref.image_id}: proposal output is outside work_dir")
     require_write_target_outside_repo(dest=last, repo_root=_REPO)
     cwd.mkdir(parents=True, exist_ok=True)
     prompt = (
@@ -92,6 +96,8 @@ def prepare_image(ref: ViewRef, work_dir: Path, out_dir: Path, boxes: Sequence[B
         raise ValueError(f"{ref.image_id}: original is outside work_dir")
     dest = out_dir / f"{ref.image_id}.png"
     require_outside_repo(repo_root=_REPO, path=source)
+    if not dest.resolve().is_relative_to(work_dir.resolve()):
+        raise ValueError(f"{ref.image_id}: prepared output is outside work_dir")
     require_write_target_outside_repo(dest=dest, repo_root=_REPO)
     if dest.resolve() == source:
         raise ValueError("prepared output must not overwrite its original")

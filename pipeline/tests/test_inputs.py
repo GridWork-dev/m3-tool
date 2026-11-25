@@ -157,3 +157,54 @@ def test_prepare_rejects_a_destination_link_into_repo(
     (tmp_path / "out").symlink_to(repo, target_is_directory=True)
     with pytest.raises(ValueError, match="inside the repo"):
         prepare_image(ref, tmp_path, tmp_path / "out", [])
+
+
+def test_prepared_output_cannot_escape_work_dir_through_symlink(tmp_path: Path) -> None:
+    work = tmp_path / "work"
+    work.mkdir()
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    (work / "out").symlink_to(outside, target_is_directory=True)
+    with pytest.raises(ValueError, match="outside work_dir"):
+        prepare_image(_ref(work), work, work / "out", [])
+    assert not list(outside.iterdir())
+
+
+@pytest.mark.parametrize("target", ["cwd", "last_message", "original"])
+def test_proposal_paths_cannot_escape_work_dir(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, target: str
+) -> None:
+    work = tmp_path / "work"
+    work.mkdir()
+    ref = _ref(work)
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    cwd = work / "scratch"
+    if target == "cwd":
+        cwd.symlink_to(outside, target_is_directory=True)
+    elif target == "last_message":
+        cwd.mkdir()
+        (cwd / "redaction-proposal.json").symlink_to(outside / "reply.json")
+    else:
+        original = outside / "original.png"
+        ref.image_path.rename(original)
+        ref.image_path.symlink_to(original)
+
+    def fake(*args: Any, **kwargs: Any) -> str:
+        pytest.fail("escaped paths must never reach Codex")
+
+    monkeypatch.setattr(inputs, "run_codex", fake)
+    with pytest.raises(ValueError, match="outside work_dir"):
+        propose_redactions(ref, work, cwd=cwd)
+
+
+@pytest.mark.parametrize("raw", [None, [], {"id": None}, {"id": {}}, {"id": [False]}])
+def test_malformed_redaction_cache_is_never_treated_as_reviewed(
+    tmp_path: Path, raw: object
+) -> None:
+    import json
+
+    path = tmp_path / "redactions.json"
+    path.write_text(json.dumps(raw))
+    with pytest.raises(ValueError):
+        load_redactions(path)
