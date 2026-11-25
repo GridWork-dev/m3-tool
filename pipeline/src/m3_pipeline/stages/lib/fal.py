@@ -115,7 +115,17 @@ _MESH_TYPES = {
 
 
 class FalError(RuntimeError):
-    """A fal call failed, or could not be started or finished. The message never holds the key."""
+    """A fal call failed, or could not be started or finished. The message never holds the key.
+
+    `resumable` is True exactly when the message tells the caller to call `resume`: the call was
+    paid for and fal still has the request or its result, so `resume` finishes it without a new
+    submit. Every other error is final for this tag (or never reached the guard), and a caller
+    must not guess a new tag from it.
+    """
+
+    def __init__(self, message: str, *, resumable: bool = False) -> None:
+        super().__init__(message)
+        self.resumable = resumable
 
 
 @dataclass(frozen=True)
@@ -413,6 +423,36 @@ class FalClient:
         return self._finish(
             call.call_id, plan.gen, key, plan.price, queue, out_dir, urls=None, resumed=False
         )
+
+    def completed(self, call_id: str, out_dir: Path) -> CallResult | None:
+        """Recover journaled success locally, without credentials, authorization or network."""
+        self._check_call_id(call_id)
+        self._require_outside_repo(out_dir)
+        entries = self._entries(call_id, "")
+        successes = [e for e in entries if e.get("status") == "succeeded"]
+        if not successes:
+            return None
+        entry = successes[-1]
+        authorized = [e for e in entries if e.get("status") == "authorized"]
+        price = authorized[-1].get("price") if authorized else None
+        request, names = entry.get("request_id"), _as_dict(entry.get("files"))
+        if (
+            not isinstance(price, str)
+            or not _UNITS.fullmatch(price)
+            or not isinstance(request, str)
+            or not names
+        ):
+            raise FalError(f"{call_id}: invalid completed journal record; repair it by hand")
+        files: dict[str, Path] = {}
+        for name, filename in names.items():
+            if not isinstance(filename, str) or not filename or Path(filename).name != filename:
+                raise FalError(f"{call_id}: invalid completed file name in journal")
+            path = out_dir / filename
+            self._require_outside_repo(path)
+            if not path.is_file():
+                raise FalError(f"{call_id}: completed file {path} is missing; restore it")
+            files[name] = path
+        return CallResult(call_id, request, files, Decimal(price))
 
     def resume(self, call_id: str, out_dir: Path) -> CallResult:
         """Finish a call from the journal's request id, or its kept result URLs. Never submits."""
@@ -784,6 +824,7 @@ class FalClient:
                     f"(request {request_id}): {_excerpt(response.json, key)}. Nothing is "
                     f"recorded as failed: resume({tag!r}, out_dir) polls it again without "
                     "submitting",
+                    resumable=True,
                 )
             errors = 0
             body = _as_dict(response.json) or {}
@@ -801,6 +842,7 @@ class FalClient:
             f"{tag} (request {request_id}) is not complete after {self._max_polls} checks. It "
             f"is still on fal's queue: resume({tag!r}, out_dir) polls it again without "
             "submitting",
+            resumable=True,
         )
 
     def _too_many_errors(self, tag: str, key: str, errors: int, cause: str) -> None:
@@ -809,6 +851,7 @@ class FalClient:
                 key,
                 f"polling {tag} failed {errors} times in a row ({cause}). The request is still "
                 f"on fal's queue: resume({tag!r}, out_dir) polls it again without submitting",
+                resumable=True,
             )
 
     def _fetch(
@@ -829,7 +872,9 @@ class FalClient:
         except (httpx.HTTPError, OSError) as error:
             cause = _describe(error, key)
         if response is None:
-            raise _fail(key, f"could not fetch the result of {tag} ({cause}); {again}")
+            raise _fail(
+                key, f"could not fetch the result of {tag} ({cause}); {again}", resumable=True
+            )
         result = _as_dict(response.json)
         if response.status == 200 and result is not None:
             return result, response.headers.get("x-fal-billable-units")
@@ -843,6 +888,7 @@ class FalClient:
             key,
             f"fal answered {detail} for the result of {tag} (request {request_id}), which may "
             f"pass; {again}",
+            resumable=True,
         )
 
     def _download_all(
@@ -880,9 +926,10 @@ class FalClient:
                 f"downloading the result of {tag} failed ({failure}). The call was paid for and "
                 f"its result URLs are in the journal: resume({tag!r}, out_dir) downloads them "
                 "without a new submit. fal keeps a result for 1 hour, or 6 minutes if it is large",
+                resumable=True,
             )
         return files
 
 
-def _fail(key: str, message: str) -> FalError:
-    return FalError(_scrub(message, key))
+def _fail(key: str, message: str, *, resumable: bool = False) -> FalError:
+    return FalError(_scrub(message, key), resumable=resumable)

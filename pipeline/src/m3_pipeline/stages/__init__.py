@@ -48,4 +48,5 @@ def run_stage(name: str, asset: AssetSpec, settings: Settings) -> StageResult:
 from m3_pipeline.stages import export as export  # noqa: E402
 from m3_pipeline.stages import proportion as proportion  # noqa: E402
 from m3_pipeline.stages import refs as refs  # noqa: E402
+from m3_pipeline.stages import segment as segment  # noqa: E402
 from m3_pipeline.stages import validate as validate  # noqa: E402

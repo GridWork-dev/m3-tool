@@ -8,6 +8,7 @@ from m3_pipeline.stages.lib.glbmeta import (
     GlbError,
     ai_markers,
     mesh_stats,
+    part_stats,
     read_glb_asset_block,
 )
 
@@ -291,3 +292,66 @@ def test_a_file_that_is_not_a_glb_raises_a_clear_error(tmp_path: Path) -> None:
 def test_a_missing_file_raises_file_not_found(tmp_path: Path) -> None:
     with pytest.raises(FileNotFoundError):
         mesh_stats(tmp_path / "nope.glb")
+
+
+# --- part_stats: one entry per mesh-bearing node, for a split mesh ---
+
+
+def test_part_stats_lists_each_mesh_node_with_its_own_triangles_and_world_bounds(
+    tmp_path: Path,
+) -> None:
+    parts = part_stats(_glb(tmp_path / "a.glb", _quad_document(), b"\0\0\0\0"))
+    assert [part.name for part in parts] == ["body", "roof"]
+    body, roof = parts
+    assert body.triangles == 2
+    assert body.bbox_min == pytest.approx((9.0, 0.0, -2.0))  # the node sits 10 m along x
+    assert body.bbox_max == pytest.approx((11.0, 1.0, 2.0))
+    assert roof.triangles == 3
+    assert roof.bbox_min == pytest.approx((-0.5, 1.0, -0.5))
+    assert roof.bbox_max == pytest.approx((0.5, 1.5, 0.5))
+
+
+def test_part_stats_totals_agree_with_mesh_stats(tmp_path: Path) -> None:
+    path = _glb(tmp_path / "a.glb", _quad_document())
+    parts = part_stats(path)
+    assert sum(part.triangles for part in parts) == mesh_stats(path).triangles
+
+
+def test_part_stats_skips_a_node_without_a_mesh_and_applies_its_transform_to_children(
+    tmp_path: Path,
+) -> None:
+    document = _quad_document()
+    document["nodes"] = [
+        {"name": "group", "children": [1], "translation": [0.0, 5.0, 0.0]},
+        {"name": "glass", "mesh": 1},
+    ]
+    document["scenes"] = [{"nodes": [0]}]
+    (glass,) = part_stats(_glb(tmp_path / "a.glb", document))
+    assert glass.name == "glass"
+    assert glass.bbox_min == pytest.approx((-0.5, 6.0, -0.5))
+
+
+def test_part_stats_names_an_unnamed_node_by_its_index_and_counts_a_shared_mesh_per_node(
+    tmp_path: Path,
+) -> None:
+    document = _quad_document()
+    document["nodes"] = [{"mesh": 0}, {"name": "copy", "mesh": 0, "translation": [3.0, 0, 0]}]
+    document["scenes"] = [{"nodes": [0, 1]}]
+    first, copy = part_stats(_glb(tmp_path / "a.glb", document))
+    assert (first.name, first.triangles) == ("node-0", 2)
+    assert (copy.name, copy.triangles) == ("copy", 2)
+    assert copy.bbox_min == pytest.approx((2.0, 0.0, -2.0))
+
+
+def test_part_stats_gives_an_empty_tuple_for_a_file_with_no_mesh_node(tmp_path: Path) -> None:
+    document = _quad_document()
+    document["nodes"] = [{"name": "empty"}]
+    document["scenes"] = [{"nodes": [0]}]
+    assert part_stats(_glb(tmp_path / "a.glb", document)) == ()
+
+
+def test_part_stats_refuses_a_file_that_is_not_a_glb(tmp_path: Path) -> None:
+    path = tmp_path / "a.glb"
+    path.write_bytes(b"not a glb at all")
+    with pytest.raises(GlbError):
+        part_stats(path)
