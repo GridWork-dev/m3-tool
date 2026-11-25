@@ -108,11 +108,23 @@ def _require_connected(mask: NDArray[np.bool_]) -> None:
     import numpy as np
     from PIL import Image, ImageDraw
 
+    # Most masks are already connected; floodfill is only needed for detached detail.
+    if _is_connected(mask):
+        return
+
     # Padding guarantees an exterior seed even for masks touching an image edge.
     padded = np.pad(mask, 1).astype(np.uint8) * 255
     exterior = Image.fromarray(padded).copy()
     ImageDraw.floodfill(exterior, (0, 0), 128)
     outline = np.asarray(exterior)[1:-1, 1:-1] != 128
+    if not _is_connected(outline):
+        raise SilhouetteError("disconnected foreground: expected one car silhouette")
+
+
+def _is_connected(mask: NDArray[np.bool_]) -> bool:
+    """Check 8-connected foreground by joining row runs rather than individual pixels."""
+    import numpy as np
+
     parents: list[int] = []
 
     def root(label: int) -> int:
@@ -122,7 +134,7 @@ def _require_connected(mask: NDArray[np.bool_]) -> None:
         return label
 
     previous: list[tuple[int, int, int]] = []
-    for row in outline:
+    for row in mask:
         edges = np.flatnonzero(np.diff(np.concatenate(([0], row.astype(np.int8), [0]))))
         current: list[tuple[int, int, int]] = []
         for start, stop in zip(edges[::2], edges[1::2], strict=True):
@@ -137,8 +149,7 @@ def _require_connected(mask: NDArray[np.bool_]) -> None:
                 parents.append(label)
             current.append((left, right, label))
         previous = current
-    if len({root(label) for label in range(len(parents))}) > 1:
-        raise SilhouetteError("disconnected foreground: expected one car silhouette")
+    return len({root(label) for label in range(len(parents))}) <= 1
 
 
 def mask_from_image(img: Image.Image, *, tolerance: int = 24) -> NDArray[np.bool_]:
