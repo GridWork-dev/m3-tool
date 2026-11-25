@@ -4,6 +4,8 @@ import { defineConfig, fontProviders } from 'astro/config'
 
 export default defineConfig({
   site: process.env.SITE_URL ?? 'https://m3-tool.broken-wood-97a9.workers.dev',
+  outDir: process.env.SITE_OUT_DIR ?? './dist',
+  ...(process.env.SITE_DATA_DIR ? { cacheDir: './node_modules/.astro-site-data' } : {}),
   trailingSlash: 'always',
   integrations: [react()],
   vite: { plugins: [tailwindcss()] },

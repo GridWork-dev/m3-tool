@@ -6,7 +6,11 @@ import { Generation, KnownIssue, MaintenanceItem, Part, Variant } from './data/s
 // One YAML file per entry, under data/<collection>. The schemas are shared with tools/check-data.ts,
 // which also runs the cross-file rules in src/data/quality.ts.
 const yaml = (collection: string) =>
-  glob({ pattern: '**/*.yaml', base: `./data/${collection}`, generateId: entryId })
+  glob({
+    pattern: '**/*.yaml',
+    base: `${process.env.SITE_DATA_DIR ?? './data'}/${collection}`,
+    generateId: entryId,
+  })
 
 export const collections = {
   generations: defineCollection({ loader: yaml('generations'), schema: Generation }),

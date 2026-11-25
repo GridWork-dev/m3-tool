@@ -8,3 +8,8 @@ import type { DataSet } from '../data/quality.ts'
 export function routesFor(_set: DataSet): string[] {
   return ['/', '/about/']
 }
+
+// Screenshot coverage follows registered pages until the issue detail routes arrive.
+export function keyRoutes(set: DataSet): string[] {
+  return routesFor(set)
+}
