@@ -424,6 +424,36 @@ class FalClient:
             call.call_id, plan.gen, key, plan.price, queue, out_dir, urls=None, resumed=False
         )
 
+    def completed(self, call_id: str, out_dir: Path) -> CallResult | None:
+        """Recover journaled success locally, without credentials, authorization or network."""
+        self._check_call_id(call_id)
+        self._require_outside_repo(out_dir)
+        entries = self._entries(call_id, "")
+        successes = [e for e in entries if e.get("status") == "succeeded"]
+        if not successes:
+            return None
+        entry = successes[-1]
+        authorized = [e for e in entries if e.get("status") == "authorized"]
+        price = authorized[-1].get("price") if authorized else None
+        request, names = entry.get("request_id"), _as_dict(entry.get("files"))
+        if (
+            not isinstance(price, str)
+            or not _UNITS.fullmatch(price)
+            or not isinstance(request, str)
+            or not names
+        ):
+            raise FalError(f"{call_id}: invalid completed journal record; repair it by hand")
+        files: dict[str, Path] = {}
+        for name, filename in names.items():
+            if not isinstance(filename, str) or not filename or Path(filename).name != filename:
+                raise FalError(f"{call_id}: invalid completed file name in journal")
+            path = out_dir / filename
+            self._require_outside_repo(path)
+            if not path.is_file():
+                raise FalError(f"{call_id}: completed file {path} is missing; restore it")
+            files[name] = path
+        return CallResult(call_id, request, files, Decimal(price))
+
     def resume(self, call_id: str, out_dir: Path) -> CallResult:
         """Finish a call from the journal's request id, or its kept result URLs. Never submits."""
         self._check_call_id(call_id)

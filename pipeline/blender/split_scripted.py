@@ -4,7 +4,7 @@
 Plan: `glb` (one mesh, as `prepare_car.py` writes it), `out_dir`, `modules_blender` ({name: {min,
 max}}, in order) and the thresholds `classify` reads. Spatial numbers are in the Blender frame (Z
 up, nose at +Y) under keys ending `_blender`; color thresholds carry no suffix. A face's color is
-its material's base color texture at the face's UV center, else the base color factor, sRGB-coded.
+its material's base color texture times its factor in linear space, then sRGB-coded.
 Writes `out_dir/segmented.glb`, one mesh object per part named by it, and prints `SPLIT {...}`.
 """
 
@@ -16,7 +16,7 @@ from pathlib import Path
 import bmesh
 import bpy
 import numpy as np
-from mathutils import Color, Matrix
+from mathutils import Matrix
 
 
 def import_mesh(glb):
@@ -39,21 +39,41 @@ def read(items, prop, shape, dtype):
     return out.reshape(shape)
 
 
-def base_color(material):
+def srgb_to_linear(rgb):
+    rgb = np.asarray(rgb)
+    return np.where(rgb <= 0.04045, rgb / 12.92, ((rgb + 0.055) / 1.055) ** 2.4)
+
+
+def linear_to_srgb(rgb):
+    rgb = np.maximum(rgb, 0)
+    return np.where(rgb <= 0.0031308, 12.92 * rgb, 1.055 * rgb ** (1 / 2.4) - 0.055)
+
+
+def base_color(material, sample):
+    """Evaluate glTF importer's image and MULTIPLY graph in scene-linear RGB.
+
+    Reject other connected graphs instead of silently classifying the wrong visible color.
+    `sample` returns the image's scene-linear texel colors at the face UV centers.
+    """
     nodes = material.node_tree.nodes if material and material.node_tree else []
     principled = next((n for n in nodes if n.type == "BSDF_PRINCIPLED"), None)
     if principled is None:
-        return (0.8, 0.8, 0.8), None
-    socket = principled.inputs["Base Color"]
-    stack, seen, image = [link.from_node for link in socket.links], set(), None
-    while stack and image is None:
-        node = stack.pop()
-        if node.name not in seen:
-            seen.add(node.name)
-            if node.type == "TEX_IMAGE" and node.image and node.image.size[0] > 0:
-                image = node.image
-            stack += [link.from_node for i in node.inputs for link in i.links]
-    return Color(socket.default_value[:3]).from_scene_linear_to_srgb()[:], image
+        return linear_to_srgb(np.array([0.8, 0.8, 0.8]))
+
+    def evaluate(socket):
+        if not socket.links:
+            return np.asarray(socket.default_value[:3])
+        node = socket.links[0].from_node
+        if node.type == "TEX_IMAGE" and node.image:
+            return sample(node.image)
+        if node.type in {"MIX", "MIX_RGB"} and node.blend_type == "MULTIPLY":
+            factor, left, right = (0, 6, 7) if node.type == "MIX" else (0, 1, 2)
+            if node.inputs[factor].links or node.inputs[factor].default_value != 1:
+                raise RuntimeError("unsupported partial base-color multiplication")
+            return evaluate(node.inputs[left]) * evaluate(node.inputs[right])
+        raise RuntimeError(f"unsupported base-color node: {node.type}")
+
+    return linear_to_srgb(evaluate(principled.inputs["Base Color"]))
 
 
 def face_colors(obj):
@@ -65,16 +85,25 @@ def face_colors(obj):
     colors = np.empty((n, 3), dtype=np.float32)
     for slot, material in enumerate([s.material for s in obj.material_slots] or [None]):
         mask = index == slot
-        factor, image = base_color(material)
-        colors[mask] = factor
-        if image is not None and uvs is not None and mask.any():
+        if not mask.any():
+            continue
+
+        def sample(image, mask=mask):
+            if uvs is None:
+                raise RuntimeError("textured material has no UV coordinates")
             width, height = image.size
             pixels = np.zeros(width * height * 4, dtype=np.float32)
             image.pixels.foreach_get(pixels)
             uv = uvs[starts[mask, None] + np.arange(3)].mean(axis=1)
             x = np.floor(uv[:, 0] * width).astype(np.int64) % width
             y = np.floor(uv[:, 1] * height).astype(np.int64) % height
-            colors[mask] = pixels.reshape(height, width, 4)[y, x, :3]
+            rgb = pixels.reshape(height, width, 4)[y, x, :3]
+            # Blender byte image buffers expose encoded values; float buffers are linear.
+            if not image.is_float and image.colorspace_settings.name == "sRGB":
+                rgb = srgb_to_linear(rgb)
+            return rgb
+
+        colors[mask] = base_color(material, sample)
     return colors
 
 

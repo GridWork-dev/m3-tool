@@ -135,6 +135,9 @@ class FakeFal:
             written[key] = path
         return CallResult(call_id, "req-1", written, Decimal("0.40"))
 
+    def completed(self, call_id: str, out_dir: Path) -> CallResult | None:
+        return None
+
     def run(self, call: PlannedCall, out_dir: Path) -> CallResult:
         self.events.append("fal")
         self.calls.append(call)
@@ -1058,3 +1061,51 @@ def test_segment_removes_the_outputs_of_an_earlier_run_before_it_starts(world: W
     assert not world.run().ok
     assert not (out / "segmented.glb").exists()
     assert not (out / "parts.json").exists()
+
+
+@pytest.mark.parametrize("pending", [False, True])
+def test_completed_call_recovers_after_record_write_failure(
+    guarded: GuardWorld, monkeypatch: pytest.MonkeyPatch, pending: bool
+) -> None:
+    world = guarded.world
+    world.prepare()
+    world.plan()
+    _ledger(world.settings.repo_root, CALL_ID, "t12-test")
+    original = Path.replace
+
+    def fail_record(path: Path, target: Path) -> Path:
+        if target.name == "call.json":
+            raise OSError("record disk interruption")
+        return original(path, target)
+
+    monkeypatch.setattr(Path, "replace", fail_record)
+    assert not world.run().ok
+    assert _journal_statuses(guarded.journal, CALL_ID)[-1] == "succeeded"
+    monkeypatch.setattr(Path, "replace", original)
+    if pending:
+        (world.out() / "call.json").write_text(json.dumps({"call_id": CALL_ID, "state": "pending"}))
+
+    def no_key(_client: FalClient) -> str:
+        raise AssertionError("completed recovery requested credentials")
+
+    monkeypatch.setattr(FalClient, "_key", no_key)
+    assert world.run().ok
+    assert len(guarded.posts) == 1
+    assert world.events.count("reduce_mesh.py") == 1
+
+
+@pytest.mark.parametrize("timeout", [False, True])
+def test_failed_blender_discards_output_written_before_failure(world: World, timeout: bool) -> None:
+    world.prepare()
+    world.plan(method="scripted")
+    out = world.out(method="scripted")
+
+    def partial(argv: Sequence[str], **_kwargs: object) -> subprocess.CompletedProcess[str]:
+        (out / "segmented.glb").write_bytes(glb_bytes(PARTS))
+        if timeout:
+            raise subprocess.TimeoutExpired(list(argv), 1)
+        return subprocess.CompletedProcess(list(argv), 1, "", "after export")
+
+    world.use_blender(partial)
+    assert not world.run().ok
+    assert not (out / "segmented.glb").exists()

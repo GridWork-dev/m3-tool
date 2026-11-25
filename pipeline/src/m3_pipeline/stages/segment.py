@@ -32,8 +32,9 @@ A paid call is never repeated and never gets a new tag. The tag comes from `plan
 `{"state": "pending"}`, and so does an interrupt (Ctrl-C) while the call runs; the next run with the
 same tag calls `resume`, which never submits. A finished call leaves `{"state": "done"}` and its
 file names, and the next run with the same tag reuses those files without calling fal at all, so a
-failed conversion or a corrected plan costs nothing. Any other failure leaves no record: a new `run`
-with the same tag is then denied by the spend guard, and a new tag needs a ledger row and a new
+failed conversion or a corrected plan costs nothing. A missing local record is reconciled from
+the guarded client's authoritative completed journal before any new call. Any other failure leaves
+no record: a new `run` with the same tag is then denied by the spend guard, and a new tag needs a ledger row and a new
 `call_id` in `plan.json`.
 """
 
@@ -42,6 +43,7 @@ import json
 import re
 import shutil
 import subprocess
+import tempfile
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
@@ -114,7 +116,9 @@ class _Failed(Exception):
 
 
 class _Fal(Protocol):
-    """The two calls the stage makes on the guarded client."""
+    """Local recovery and the two guarded network operations the stage uses."""
+
+    def completed(self, call_id: str, out_dir: Path) -> CallResult | None: ...
 
     def run(self, call: PlannedCall, out_dir: Path) -> CallResult: ...
 
@@ -341,10 +345,16 @@ def _tripo(job: _Job) -> _Paid:
         return _recorded(job, record)
     resuming = record is not None and record.call_id == call_id
     pending = {"call_id": call_id, "state": "pending"}
-    reduced = None if resuming else _reduce(job)  # a resume uploads nothing
     try:
         client = _fal_client(job.settings)
-        if reduced is None:
+        completed = client.completed(call_id, job.raw)
+    except (FalError, ValueError, OSError) as error:
+        raise _Failed(str(error)) from error
+    reduced = None if resuming or completed is not None else _reduce(job)
+    try:
+        if completed is not None:
+            result = completed
+        elif reduced is None:
             result = client.resume(call_id, job.raw)
         else:
             call = PlannedCall(
@@ -520,7 +530,16 @@ def _write(dest: Path, text: str, job: _Job) -> None:
     try:
         require_write_target_outside_repo(dest=dest, repo_root=job.settings.repo_root)
         dest.parent.mkdir(parents=True, exist_ok=True)
-        dest.write_text(text, "utf-8")
+        with tempfile.NamedTemporaryFile(
+            mode="w", encoding="utf-8", dir=dest.parent, delete=False
+        ) as handle:
+            temporary = Path(handle.name)
+            try:
+                handle.write(text)
+                handle.close()
+                temporary.replace(dest)
+            finally:
+                temporary.unlink(missing_ok=True)
     except (ValueError, OSError) as error:
         raise _Failed(f"could not write {dest}: {error}") from error
 
@@ -541,15 +560,23 @@ def _blender(
             job.settings.repo_root / "pipeline" / "blender" / script, ["--plan", str(plan_file)]
         )
     except FileNotFoundError as error:
+        made.unlink(missing_ok=True)
         raise _Failed(str(error)) from error
     except subprocess.TimeoutExpired:
+        made.unlink(missing_ok=True)
         raise _Failed(f"{script} timed out") from None
     except OSError as error:
+        made.unlink(missing_ok=True)
         raise _Failed(f"could not run Blender for {script}: {error}") from error
+    except BaseException:
+        made.unlink(missing_ok=True)
+        raise
     if done.returncode != 0:
+        made.unlink(missing_ok=True)
         detail = (done.stderr.strip() or done.stdout.strip() or "no output")[-_STDERR_TAIL:]
         raise _Failed(f"{script} exited {done.returncode}: {detail}")
     if not made.is_file() or made.stat().st_size == 0:
+        made.unlink(missing_ok=True)
         raise _Failed(f"{script} exited 0 but did not write {made}")
 
 
