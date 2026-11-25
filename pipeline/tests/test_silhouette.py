@@ -95,6 +95,55 @@ def test_disconnected_mark_cannot_turn_incorrect_height_into_a_pass() -> None:
         measure_side(mask_from_image(image))
 
 
+def test_detached_enclosing_halo_cannot_turn_incorrect_height_into_a_pass() -> None:
+    image, _ = draw_car(height_scale=0.94)
+    clean = mask_from_image(image)
+    assert not check_proportions(measure_side(clean), E46).ok
+    silhouette = Image.fromarray(clean.astype(np.uint8) * 255)
+    outer = np.asarray(silhouette.filter(ImageFilter.MaxFilter(21))) != 0
+    inner = np.asarray(silhouette.filter(ImageFilter.MaxFilter(11))) != 0
+    halo = outer & ~inner  # 10-pixel dilation minus 5-pixel dilation, detached from car
+    pixels = np.asarray(image).copy()
+    pixels[halo] = 0
+    marked = mask_from_image(Image.fromarray(pixels))
+    # This enclosing mark previously enlarged the bounds enough to pass both ratios.
+    rows, cols = np.nonzero(marked)
+    assert cols.max() - cols.min() + 1 == 1144
+    assert rows.max() - rows.min() + 1 == 344
+    with pytest.raises(SilhouetteError, match="disconnected foreground"):
+        measure_side(marked)
+
+
+@pytest.mark.parametrize("islands", [False, True])
+def test_enclosed_background_and_foreground_detail_preserve_measurements(islands: bool) -> None:
+    image, _ = draw_car()
+    mask = mask_from_image(image)
+    clean = measure_side(mask)
+    # A window-like hole wholly inside the body, optionally with three detached details.
+    assert mask[220:281, 600:721].all()
+    mask[220:281, 600:721] = False
+    if islands:
+        for x in (610, 650, 690):
+            mask[240:251, x : x + 11] = True
+    original = mask.copy()
+    assert measure_side(mask) == clean
+    assert np.array_equal(mask, original)
+
+
+@pytest.mark.parametrize("size", [1, 5])
+def test_exterior_mark_inside_bounding_box_is_rejected(size: int) -> None:
+    image, _ = draw_car()
+    mask = mask_from_image(image)
+    rows, cols = np.nonzero(mask)
+    y, x = 150, 150  # above the hood, below the roof, inside the car's bounding box
+    assert rows.min() < y < y + size < rows.max()
+    assert cols.min() < x < x + size < cols.max()
+    assert not mask[y - 1 : y + size + 1, x - 1 : x + size + 1].any()
+    mask[y : y + size, x : x + size] = True
+    with pytest.raises(SilhouetteError, match="disconnected foreground"):
+        measure_side(mask)
+
+
 def test_non_uniform_background_is_rejected() -> None:
     image, _ = draw_car()
     # A left-to-right gradient behind the car: the left and right corners differ.
