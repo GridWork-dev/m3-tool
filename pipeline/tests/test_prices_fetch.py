@@ -147,18 +147,20 @@ def test_javascript_shell_from_an_unblock_rung_escalates_to_the_next(
 
 
 def test_a_failing_javascript_render_becomes_a_page_error() -> None:
-    from collections.abc import Iterator
+    from collections.abc import Generator
     from contextlib import contextmanager
-    from types import SimpleNamespace
 
     from playwright.sync_api import TimeoutError as PlaywrightTimeout
 
-    @contextmanager
-    def factory() -> Iterator[SimpleNamespace]:
-        def fetch_page(url: str) -> object:
+    from m3_pipeline.refs.crawl.engine import PageFetcher, PageResult
+
+    class FailingPageFetcher:
+        def fetch(self, url: str) -> PageResult:
             raise PlaywrightTimeout("navigation timed out")
 
-        yield SimpleNamespace(fetch=fetch_page)
+    @contextmanager
+    def factory() -> Generator[PageFetcher]:
+        yield FailingPageFetcher()
 
     clock = FakeClock()
 
