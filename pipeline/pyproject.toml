@@ -13,6 +13,7 @@ dependencies = [
     "playwright==1.65.2",
     "boto3==1.44.9",
     "numpy==2.5.5",
+    "scrapling==0.5.1",
 ]
 
 [project.scripts]
