@@ -1,0 +1,33 @@
+---
+import { isUnverified } from '../lib/unverified-marks.ts'
+
+interface Props {
+  block?: boolean | undefined
+  path: string
+  unverified: readonly string[] | undefined
+}
+const { path, unverified, block = false } = Astro.props
+// Group values such as fit envelopes contain block content; preserve valid HTML there.
+const Tag = block ? 'div' : 'span'
+const flagged = isUnverified(unverified, path)
+---
+
+<!-- Keep the slot adjacent to its wrapper: value bindings compare exact textContent. -->
+<Tag data-value-path={path} data-unverified={flagged ? '' : undefined}>
+  <Tag data-value><slot /></Tag>
+  {
+    flagged && (
+      <>
+        <sup aria-hidden="true">†</sup>
+        <span class="sr"> unverified</span>
+      </>
+    )
+  }
+</Tag>
+<style>
+  sup {
+    color: var(--board);
+    margin-left: 0.15em;
+    font-size: 0.8em;
+  }
+</style>
