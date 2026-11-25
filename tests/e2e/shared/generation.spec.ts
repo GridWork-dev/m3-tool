@@ -27,7 +27,26 @@ test('generation specs bind every value, flag and citation to its data', async (
       ['fitment', g.fitment.sources],
       ['driverEyePoint', g.driverEyePoint.sources],
     ] as const
-    for (const [list, sources] of lists)
+    const expectedHrefs = lists
+      .flatMap(([, sources]) =>
+        sources.flatMap((source) =>
+          source.url && isCitationLinkable(source.url) ? [source.url] : [],
+        ),
+      )
+      .sort()
+    const actualHrefs = await scope
+      .locator('[data-sources] a[href^="http"]')
+      .evaluateAll((anchors) =>
+        anchors.map((anchor) => anchor.getAttribute('href') as string).sort(),
+      )
+    expect(actualHrefs).toEqual(expectedHrefs)
+    await expect(scope.locator('[data-source-index]')).toHaveCount(
+      lists.reduce((total, [, sources]) => total + sources.length, 0),
+    )
+    for (const [list, sources] of lists) {
+      await expect(scope.locator(`[data-source-list="${list}"] [data-source-index]`)).toHaveCount(
+        sources.length,
+      )
       for (const [i, s] of sources.entries()) {
         const row = scope.locator(`[data-source-list="${list}"] [data-source-index="${i}"]`)
         await expect(row).toContainText(s.title)
@@ -36,8 +55,11 @@ test('generation specs bind every value, flag and citation to its data', async (
           await expect(row.locator('a')).toHaveAttribute('href', s.url)
         else await expect(row.locator('a')).toHaveCount(0)
       }
+    }
     for (const axle of ['front', 'rear'] as const) {
       const limits = scope.locator(`[data-value-path="fitment.${axle}.envelopes"]`)
+      await expect(limits).toHaveJSProperty('tagName', 'DIV')
+      await expect(limits.locator(':scope > [data-value]')).toHaveJSProperty('tagName', 'DIV')
       if (g.fitment[axle].envelopes.length) await expect(limits.locator('table')).toHaveCount(1)
       else await expect(limits).toContainText('Fit limits not yet sourced')
     }

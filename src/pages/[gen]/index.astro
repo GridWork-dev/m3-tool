@@ -21,13 +21,362 @@ const dimensionFields = [
   ['trackRearMm', 'Rear track'],
 ] as const
 ---
-<Base title={g.name}><div class="wrap reading"><GenerationNav gen={g.id} current="overview"/><div data-generation-specs>
-<header class="intro"><p class="eyebrow">Factory reference</p><h1><Mark path="name" unverified={unverified}>{g.name}</Mark></h1><p class="checked">Data checked {latestAccessed(g.sources)}</p><p class="legend">† marks a value below the verification rule: one Tier 1 source, or two independent Tier 2 sources</p></header>
-<div class="chest">
-<Drawer name="engine" label="Engine & identity" span={12}><dl class="kv"><div><dt>Chassis</dt><dd><Mark path="chassis" unverified={unverified}>{g.chassis}</Mark></dd></div><div><dt>Production years</dt><dd><Mark path="years.0" unverified={unverified}>{g.years[0]}</Mark>–<Mark path="years.1" unverified={unverified}>{g.years[1]}</Mark></dd></div><div><dt>Body styles</dt><dd><Mark path="bodies" unverified={unverified}>{g.bodies.map(bodyLabel).join(', ')}</Mark></dd></div></dl>
-{g.engines.map(e=><div class="engine"><h3><Mark path={`engines.${e.code}.code`} unverified={unverified}>{e.code}</Mark></h3><p><Mark path={`engines.${e.code}.displacementCc`} unverified={unverified}>{formatNumber(e.displacementCc)}</Mark> cc · <Mark path={`engines.${e.code}.cylinders`} unverified={unverified}>{e.cylinders}</Mark> cylinders</p></div>)}<SourceList sources={g.sources} list="sources"/></Drawer>
-{Object.entries(g.dimensions).map(([body,d])=>d && <Drawer name={`dimensions-${body}`} label={`${body} body · mm`} span={7}><dl class="kv">{dimensionFields.map(([field,label])=><div><dt>{label}</dt><dd><Mark path={`dimensions.${body}.${field}`} unverified={unverified}>{formatNumber(d[field])}</Mark></dd></div>)}</dl><SourceList sources={d.sources} list={`dimensions.${body}`}/></Drawer>)}
-<Drawer name="driver-eye-point" label="Driver eye point · mm" span={5}><p class="basis"><Mark path="driverEyePoint.basis" unverified={unverified}>{g.driverEyePoint.basis}</Mark>{g.driverEyePoint.basis==='estimated' && ' · no source'}</p><dl class="kv">{(['xMm','yMm','zMm'] as const).map(field=><div><dt>{field.slice(0,1).toUpperCase()} position</dt><dd><Mark path={`driverEyePoint.${field}`} unverified={unverified}>{formatNumber(g.driverEyePoint[field])}</Mark></dd></div>)}</dl><p class="note"><Mark path="driverEyePoint.note" unverified={unverified}>{g.driverEyePoint.note}</Mark></p>{g.driverEyePoint.sources.length>0 && <SourceList sources={g.driverEyePoint.sources} list="driverEyePoint"/>}</Drawer>
-<Drawer name="stock-wheels" label="Stock wheels & fit limits" span={12}><div class="axles">{(['front','rear'] as const).map(axle=>{const f=g.fitment[axle]; const p=wheelParts(f.stock); const base=`fitment.${axle}`;return <section><h3>{axle} axle</h3><dl class="kv"><div><dt>Wheel, inches / offset, mm</dt><dd><Mark path={`${base}.stock.diameterIn`} unverified={unverified}>{p.diameter}</Mark> × <Mark path={`${base}.stock.widthIn`} unverified={unverified}>{p.width}</Mark> ET<Mark path={`${base}.stock.offsetMm`} unverified={unverified}>{p.offset}</Mark></dd></div><div><dt>Tire</dt><dd><Mark path={`${base}.stock.tire`} unverified={unverified}>{p.tire}</Mark></dd></div><div><dt>Bolt pattern</dt><dd><Mark path={`${base}.boltPattern`} unverified={unverified}>{f.boltPattern}</Mark></dd></div><div><dt>Centre bore, mm</dt><dd><Mark path={`${base}.centerBoreMm`} unverified={unverified}>{formatNumber(f.centerBoreMm)}</Mark></dd></div></dl><div class="envelopes"><Mark path={`${base}.envelopes`} unverified={unverified}>{f.envelopes.length===0 ? <p class="note">Fit limits not yet sourced: the build sheet will report fitment unknown</p> : <div class="table-scroll" role="region" aria-label={`${axle} fit limits`} tabindex="0"><table><caption>Fit limits · mm</caption><thead><tr><th scope="col">Ride drop</th><th scope="col">Max inner</th><th scope="col">Max outer</th><th scope="col">Max outer with fender work</th></tr></thead><tbody>{f.envelopes.map(e=><tr><td>{formatNumber(e.rideDropMm)}</td><td>{formatNumber(e.maxInnerMm)}</td><td>{formatNumber(e.maxOuterMm)}</td><td>{formatNumber(e.maxOuterWithFenderWorkMm)}</td></tr>)}</tbody></table></div>}</Mark></div></section>})}</div><SourceList sources={g.fitment.sources} list="fitment"/></Drawer>
-</div></div></div></Base>
-<style>.reading { padding-block:var(--s-6) var(--s-8); } .intro { margin:var(--s-7) 0; } h1 { font-size:clamp(3rem,7vw,5rem); line-height:1; margin:var(--s-2) 0 var(--s-4); } .eyebrow { color:var(--board); text-transform:uppercase; letter-spacing:0.12em; font-size:var(--fs-xs); font-weight:700; } .checked,.legend,.note { color:var(--muted); font-size:var(--fs-sm); } .legend { max-width:75ch; margin-top:var(--s-3); } .chest { display:grid; grid-template-columns:repeat(12,minmax(0,1fr)); gap:var(--s-4); } .kv { margin:0; } .kv > div { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:var(--s-4); padding:var(--s-3) 0; border-bottom:1px solid var(--line); align-items:baseline; } dt { color:var(--muted); font-size:var(--fs-sm); } dd { margin:0; font-weight:600; text-align:right; overflow-wrap:anywhere; } h3 { font-size:var(--fs-xl); text-transform:capitalize; margin:var(--s-4) 0 var(--s-2); } .engine { display:inline-block; margin-right:var(--s-7); } .engine p { color:var(--muted); } .basis { color:var(--board); text-transform:capitalize; font-size:var(--fs-sm); } .note { margin-top:var(--s-4); } .axles { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:var(--s-7); } .envelopes { margin-top:var(--s-4); } .table-scroll { max-width:100%; overflow-x:auto; } table { width:100%; min-width:340px; border-collapse:collapse; font-size:var(--fs-xs); } caption { text-align:left; color:var(--muted); margin-bottom:var(--s-2); } th,td { text-align:right; padding:var(--s-3) var(--s-2); border-bottom:1px solid var(--line); } th { color:var(--muted); font-weight:500; vertical-align:bottom; } th:first-child,td:first-child { text-align:left; } @media(max-width:760px) { .axles { grid-template-columns:1fr; gap:var(--s-5); } .kv > div { grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:var(--s-3); } }</style>
+
+<Base title={g.name}>
+  <div class="wrap reading">
+    <GenerationNav gen={g.id} current="overview" />
+    <div data-generation-specs>
+      <header class="intro">
+        <p class="eyebrow">Factory reference</p>
+        <h1>
+          <Mark path="name" unverified={unverified}>{g.name}</Mark>
+        </h1>
+        <p class="checked">Data checked {latestAccessed(g.sources)}</p>
+        <p class="legend">
+          † marks a value below the verification rule: one Tier 1 source, or two independent Tier 2
+          sources
+        </p>
+      </header>
+      <div class="chest">
+        <Drawer name="engine" label="Engine & identity" span={12}>
+          <dl class="kv">
+            <div>
+              <dt>Chassis</dt>
+              <dd>
+                <Mark path="chassis" unverified={unverified}>{g.chassis}</Mark>
+              </dd>
+            </div>
+            <div>
+              <dt>Production years</dt>
+              <dd>
+                <Mark path="years.0" unverified={unverified}>{g.years[0]}</Mark>–<Mark
+                  path="years.1"
+                  unverified={unverified}>{g.years[1]}</Mark
+                >
+              </dd>
+            </div>
+            <div>
+              <dt>Body styles</dt>
+              <dd>
+                <Mark path="bodies" unverified={unverified}
+                  >{g.bodies.map(bodyLabel).join(', ')}</Mark
+                >
+              </dd>
+            </div>
+          </dl>
+          {
+            g.engines.map((e) => (
+              <div class="engine">
+                <>
+                  <h3>
+                    <Mark path={`engines.${e.code}.code`} unverified={unverified}>
+                      {e.code}
+                    </Mark>
+                  </h3>
+                  <p>
+                    <Mark path={`engines.${e.code}.displacementCc`} unverified={unverified}>
+                      {formatNumber(e.displacementCc)}
+                    </Mark>{' '}
+                    cc ·{' '}
+                    <Mark path={`engines.${e.code}.cylinders`} unverified={unverified}>
+                      {e.cylinders}
+                    </Mark>{' '}
+                    cylinders
+                  </p>
+                </>
+              </div>
+            ))
+          }
+          <SourceList sources={g.sources} list="sources" /></Drawer
+        >
+        {
+          Object.entries(g.dimensions).map(
+            ([body, d]) =>
+              d && (
+                <Drawer name={`dimensions-${body}`} label={`${body} body · mm`} span={7}>
+                  <>
+                    <dl class="kv">
+                      {dimensionFields.map(([field, label]) => (
+                        <div>
+                          <dt>{label}</dt>
+                          <dd>
+                            <Mark path={`dimensions.${body}.${field}`} unverified={unverified}>
+                              {formatNumber(d[field])}
+                            </Mark>
+                          </dd>
+                        </div>
+                      ))}
+                    </dl>
+                    <SourceList sources={d.sources} list={`dimensions.${body}`} />
+                  </>
+                </Drawer>
+              ),
+          )
+        }
+        <Drawer name="driver-eye-point" label="Driver eye point · mm" span={5}>
+          <p class="basis">
+            <Mark path="driverEyePoint.basis" unverified={unverified}>{g.driverEyePoint.basis}</Mark
+            >{g.driverEyePoint.basis === 'estimated' && ' · no source'}
+          </p>
+          <dl class="kv">
+            {
+              (['xMm', 'yMm', 'zMm'] as const).map((field) => (
+                <div>
+                  <>
+                    <dt>{field.slice(0, 1).toUpperCase()} position</dt>
+                    <dd>
+                      <Mark path={`driverEyePoint.${field}`} unverified={unverified}>
+                        {formatNumber(g.driverEyePoint[field])}
+                      </Mark>
+                    </dd>
+                  </>
+                </div>
+              ))
+            }
+          </dl>
+          <p class="note">
+            <Mark path="driverEyePoint.note" unverified={unverified}>{g.driverEyePoint.note}</Mark>
+          </p>{
+            g.driverEyePoint.sources.length > 0 && (
+              <SourceList sources={g.driverEyePoint.sources} list="driverEyePoint" />
+            )
+          }</Drawer
+        >
+        <Drawer name="stock-wheels" label="Stock wheels & fit limits" span={12}>
+          <div class="axles">
+            {
+              (['front', 'rear'] as const).map((axle) => {
+                const f = g.fitment[axle]
+                const p = wheelParts(f.stock)
+                const base = `fitment.${axle}`
+                return (
+                  <section>
+                    <>
+                      <h3>{axle} axle</h3>
+                      <dl class="kv">
+                        <>
+                          <div>
+                            <>
+                              <dt>Wheel, inches / offset, mm</dt>
+                              <dd>
+                                <Mark path={`${base}.stock.diameterIn`} unverified={unverified}>
+                                  {p.diameter}
+                                </Mark>{' '}
+                                ×{' '}
+                                <Mark path={`${base}.stock.widthIn`} unverified={unverified}>
+                                  {p.width}
+                                </Mark>{' '}
+                                ET
+                                <Mark path={`${base}.stock.offsetMm`} unverified={unverified}>
+                                  {p.offset}
+                                </Mark>
+                              </dd>
+                            </>
+                          </div>
+                          <div>
+                            <>
+                              <dt>Tire</dt>
+                              <dd>
+                                <Mark path={`${base}.stock.tire`} unverified={unverified}>
+                                  {p.tire}
+                                </Mark>
+                              </dd>
+                            </>
+                          </div>
+                          <div>
+                            <>
+                              <dt>Bolt pattern</dt>
+                              <dd>
+                                <Mark path={`${base}.boltPattern`} unverified={unverified}>
+                                  {f.boltPattern}
+                                </Mark>
+                              </dd>
+                            </>
+                          </div>
+                          <div>
+                            <>
+                              <dt>Centre bore, mm</dt>
+                              <dd>
+                                <Mark path={`${base}.centerBoreMm`} unverified={unverified}>
+                                  {formatNumber(f.centerBoreMm)}
+                                </Mark>
+                              </dd>
+                            </>
+                          </div>
+                        </>
+                      </dl>
+                      <div class="envelopes">
+                        <Mark block path={`${base}.envelopes`} unverified={unverified}>
+                          {f.envelopes.length === 0 ? (
+                            <p class="note">
+                              Fit limits not yet sourced: the build sheet will report fitment
+                              unknown
+                            </p>
+                          ) : (
+                            <div
+                              class="table-scroll"
+                              role="region"
+                              aria-label={`${axle} fit limits`}
+                              tabindex="0"
+                            >
+                              <table>
+                                <caption>Fit limits · mm</caption>
+                                <thead>
+                                  <tr>
+                                    <th scope="col">Ride drop</th>
+                                    <th scope="col">Max inner</th>
+                                    <th scope="col">Max outer</th>
+                                    <th scope="col">Max outer with fender work</th>
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  {f.envelopes.map((e) => (
+                                    <tr>
+                                      <td>{formatNumber(e.rideDropMm)}</td>
+                                      <td>{formatNumber(e.maxInnerMm)}</td>
+                                      <td>{formatNumber(e.maxOuterMm)}</td>
+                                      <td>{formatNumber(e.maxOuterWithFenderWorkMm)}</td>
+                                    </tr>
+                                  ))}
+                                </tbody>
+                              </table>
+                            </div>
+                          )}
+                        </Mark>
+                      </div>
+                    </>
+                  </section>
+                )
+              })
+            }
+          </div>
+          <SourceList sources={g.fitment.sources} list="fitment" /></Drawer
+        >
+      </div>
+    </div>
+  </div></Base
+>
+<style>
+  .reading {
+    padding-block: var(--s-6) var(--s-8);
+  }
+  .intro {
+    margin: var(--s-7) 0;
+  }
+  h1 {
+    font-size: clamp(3rem, 7vw, 5rem);
+    line-height: 1;
+    margin: var(--s-2) 0 var(--s-4);
+  }
+  .eyebrow {
+    color: var(--board);
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    font-size: var(--fs-xs);
+    font-weight: 700;
+  }
+  .checked,
+  .legend,
+  .note {
+    color: var(--muted);
+    font-size: var(--fs-sm);
+  }
+  .legend {
+    max-width: 75ch;
+    margin-top: var(--s-3);
+  }
+  .chest {
+    display: grid;
+    grid-template-columns: repeat(12, minmax(0, 1fr));
+    gap: var(--s-4);
+  }
+  .kv {
+    margin: 0;
+  }
+  .kv > div {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: var(--s-4);
+    padding: var(--s-3) 0;
+    border-bottom: 1px solid var(--line);
+    align-items: baseline;
+  }
+  dt {
+    color: var(--muted);
+    font-size: var(--fs-sm);
+  }
+  dd {
+    margin: 0;
+    font-weight: 600;
+    text-align: right;
+    overflow-wrap: anywhere;
+  }
+  h3 {
+    font-size: var(--fs-xl);
+    text-transform: capitalize;
+    margin: var(--s-4) 0 var(--s-2);
+  }
+  .engine {
+    display: inline-block;
+    margin-right: var(--s-7);
+  }
+  .engine p {
+    color: var(--muted);
+  }
+  .basis {
+    color: var(--board);
+    text-transform: capitalize;
+    font-size: var(--fs-sm);
+  }
+  .note {
+    margin-top: var(--s-4);
+  }
+  .axles {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--s-7);
+  }
+  .envelopes {
+    margin-top: var(--s-4);
+  }
+  .table-scroll {
+    max-width: 100%;
+    overflow-x: auto;
+  }
+  table {
+    width: 100%;
+    min-width: 340px;
+    border-collapse: collapse;
+    font-size: var(--fs-xs);
+  }
+  caption {
+    text-align: left;
+    color: var(--muted);
+    margin-bottom: var(--s-2);
+  }
+  th,
+  td {
+    text-align: right;
+    padding: var(--s-3) var(--s-2);
+    border-bottom: 1px solid var(--line);
+  }
+  th {
+    color: var(--muted);
+    font-weight: 500;
+    vertical-align: bottom;
+  }
+  th:first-child,
+  td:first-child {
+    text-align: left;
+  }
+  @media (max-width: 760px) {
+    .axles {
+      grid-template-columns: 1fr;
+      gap: var(--s-5);
+    }
+    .kv > div {
+      grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+      gap: var(--s-3);
+    }
+  }
+</style>
