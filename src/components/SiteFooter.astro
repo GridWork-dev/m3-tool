@@ -1,10 +1,36 @@
 ---
+import { NOTICE } from '../lib/notice.ts'
+
 // Rendered inside the <footer> in Base.astro, so it carries no landmark of its own.
 // The license line stays on one source line: Astro strips whitespace at line breaks next to tags.
 ---
 
-<p>
-  Independent fan project. Not affiliated with, endorsed by, or sponsored by BMW AG. BMW and M3
-  are trademarks of BMW AG, used here only to describe the cars.
-</p>
-<p class="mt-2">Code <a class="underline" href="https://opensource.org/license/mit">MIT</a> · Data <a class="underline" href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> · <a class="underline" href="https://github.com/GridWork-dev/m3-tool">Source on GitHub</a></p>
+<p>{NOTICE}</p>
+<p>Code <a href="https://opensource.org/license/mit">MIT</a> · Data <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> · <a href="https://github.com/GridWork-dev/m3-tool">Source on GitHub</a></p>
+
+<style>
+  p {
+    margin: 0;
+    max-width: 76ch;
+  }
+  p + p {
+    margin-top: 6px;
+  }
+  a {
+    color: var(--muted);
+  }
+  a:hover {
+    color: var(--text);
+  }
+  /* 44 px tap targets on a phone. */
+  @media (max-width: 760px) {
+    a {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 44px;
+      min-width: 44px;
+      padding: 0 var(--s-1);
+    }
+  }
+</style>

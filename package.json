@@ -21,7 +21,9 @@
     "check:pipeline": "cd pipeline && uv run ruff check && uv run ruff format --check && uv run pyright && uv run pytest",
     "check": "pnpm check:site && pnpm check:pipeline",
     "e2e": "playwright test",
-    "prepare": "git config core.hooksPath .githooks"
+    "prepare": "git config core.hooksPath .githooks",
+    "build:fixture": "SITE_DATA_DIR=tests/fixtures/site-data SITE_OUT_DIR=dist-fixture astro build",
+    "check:links:fixture": "node tools/check-links.ts dist-fixture"
   },
   "dependencies": {
     "@astrojs/react": "7.1.9",
@@ -33,6 +35,7 @@
   },
   "devDependencies": {
     "@astrojs/check": "0.9.12",
+    "@axe-core/playwright": "4.14.0",
     "@biomejs/biome": "2.6.8",
     "@gltf-transform/core": "4.5.1",
     "@gltf-transform/extensions": "4.5.1",

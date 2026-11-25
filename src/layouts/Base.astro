@@ -1,10 +1,13 @@
 ---
+import { Font } from 'astro:assets'
 import SiteFooter from '../components/SiteFooter.astro'
+import SiteNav from '../components/SiteNav.astro'
+import { pageTitle } from '../lib/site.ts'
 import '../styles/global.css'
 
 interface Props {
-  title: string
-  description?: string
+  title?: string | undefined
+  description?: string | undefined
 }
 
 const { title, description } = Astro.props
@@ -17,18 +20,48 @@ const indexable = import.meta.env.PUBLIC_INDEXABLE === 'true'
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>{title}</title>
+    <meta name="color-scheme" content="dark" />
+    <title>{pageTitle(title)}</title>
     {description && <meta name="description" content={description} />}
     {!indexable && <meta name="robots" content="noindex" />}
+    <Font cssVariable="--font-display" preload />
+    <Font cssVariable="--font-sans" preload />
   </head>
-  <body class="flex min-h-screen flex-col bg-white text-neutral-900 dark:bg-neutral-950 dark:text-neutral-100">
-    <main class="mx-auto w-full max-w-3xl flex-1 px-4 py-8">
+  <body class="flex min-h-dvh flex-col">
+    <a class="sr skip" href="#main">Skip to content</a>
+    <SiteNav />
+    <main id="main" class="flex-1">
       <slot />
     </main>
-    <footer class="border-t border-neutral-300 px-4 py-6 text-sm text-neutral-600 dark:border-neutral-700 dark:text-neutral-400">
-      <div class="mx-auto max-w-3xl">
+    <footer class="border-t border-line bg-floor-deep text-muted text-(length:--fs-xs)">
+      <div class="wrap pt-7 pb-8">
         <SiteFooter />
       </div>
     </footer>
   </body>
 </html>
+
+<style>
+  /* Hidden until it takes focus (.sr, from global.css, clips it to nothing). Unlayered, so these
+     rules beat the base-layer .sr. */
+  .skip:focus {
+    position: fixed;
+    top: var(--s-2);
+    left: var(--s-2);
+    z-index: 40;
+    display: inline-flex;
+    align-items: center;
+    width: auto;
+    height: auto;
+    min-height: 44px;
+    padding: 0 var(--s-4);
+    overflow: visible;
+    clip: auto;
+    white-space: normal;
+    background: var(--board);
+    color: var(--board-ink);
+    font-weight: 600;
+    text-decoration: none;
+    border-radius: var(--r-sm);
+  }
+</style>

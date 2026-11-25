@@ -1,0 +1,62 @@
+# Engine coolant on the 2001 to 2003 E46 M3. Every source below was opened on 2026-11-24.
+#
+# Markets: `markets: [us]` (ruling R61). Every source is a BMW of North America document or a US
+# English owner's manual, and a document for one market covers that market only. No European BMW
+# schedule (service booklet or owner's handbook) was found: the M3 owner's manuals I opened in
+# archive.org's BMW manuals collection are all US English editions, and web searches found no
+# European one.
+#
+# Model years: `modelYears: [2001, 2003]` (rulings R86 and R88), from the rows 'MY 2001 To MY 2002'
+# and 'MY 2003' of the bulletin's summary table. The US E46 M3 starts in 2001, and 2003 is the last
+# year before the schedule changed. The bulletin is the only source that names these years for the
+# coolant. The 2001 owner's manual names no model year and is used only as a contrasting statement.
+#
+# Interval: `months: 48`, counted from the date of production, from BMW NA's SI B17 01 07 (October
+# 2007): its summary table puts 'E46 (3 Series and M3)' under 'Every 4 years' and 'Starting from the
+# date of production' for model years 2001 to 2002 and for 2003. BMW changed the E46 coolant
+# schedule from model year 2004 (ruling R86), so the coolant is two entries, one per schedule. The
+# bulletin's MODEL line leaves E46 2001 to 2003 out: those rows are only in its summary table. The
+# bulletin is the only source that names these model years, so the entry keeps its figure.
+#
+# `verified: false`. The bulletin copy is Tier 2 (the source note gives the R77 tests: test 3 is
+# only partly met, and a June 2010 revision supersedes it with its E46 rows unseen), and no Tier 1
+# source names these model years, so the entry has one Tier 2 source. Against it stands a Tier 1
+# owner's manual that names no model year: the 2001 US M3 owner's manual (08/00) says 'Replace the
+# coolant every three years.' (p. 125), and the 12/00 edition says the same (part no. 01 41 0 155
+# 719, archive.org item manualzilla-id-7337212, PDF page 129). The manual cannot be tied to a model
+# year on its own (R86; it is dated 08/00 and ManualsLib lists it as 'BMW M3 2001'), so this entry
+# carries the bulletin's four years and shows the manual's three in `notes`. The 2002 and 2003
+# manuals I searched give no coolant change interval.
+#
+# Tiers (data.md, 'Sources', rulings R77 and R84): the bulletin copy is Tier 2, and the 2001 owner's
+# manual copy is Tier 1 under R77.
+#
+# No cost is published: no Tier 1 or Tier 2 source gives a figure for this service, and price
+# collection is a separate lane (data.md, 'Costs that are absent').
+id: e46-coolant-2001-2003
+generation: e46
+engine: S54B32
+markets: [us]
+modelYears: [2001, 2003]
+title: "Engine coolant, model years 2001 to 2003"
+interval:
+  months: 48
+parts: []
+fluids:
+  - "Engine coolant"
+inspectWhenBuying: false
+sources:
+  - title: "SI B17 01 07: BMW Long-Term Antifreeze/Coolant: Maintenance, Repairs and Replacement Requirements (October 2007)"
+    publisher: BMW of North America, LLC
+    url: https://web.archive.org/web/20240619182054/http://www.exx.se/techinfo/docs/sib_170107.pdf
+    tier: 2
+    accessed: 2026-11-24
+    note: "BMW NA service information bulletin SI B17 01 07, October 2007, in the 'Cooling System' and 'Warranties' categories, subject 'BMW Long-Term Antifreeze/Coolant: Maintenance, Repairs and Replacement Requirements'. Third-party copy: a three-page browser print of BMW's TIS page made in November 2008 (the footer reads 'http://www.bmwtis.com/tsb/bulletins/bulletin_graphic_temp/B170107g.htm 11/20/2008'; PDF metadata: PScript5.dll, Acrobat Distiller 8.1.0, created 2008-11-20), with '[ Copyright © 2007 BMW of North America, LLC ]'. The vendor file is on exx.se, a third party's server, not BMW's. The url is the existing Wayback snapshot of 2024-06-19, byte-identical to the vendor's file (same SHA-256 on 2026-11-24; the 2013-01-23 snapshot is identical too; no snapshot was created), and the Wayback index has only redirect captures of the bmwtis.com page. Tier 2 under data.md, 'Sources' (R77), judged strictly. Test 1 is met as a faithful print: all three pages, with the number, date, issuer line, model line and table intact and live text; but it is a 2008 print of the October 2007 text on a vendor's site, there is no original to compare it with, and it is not BMW's own PDF, so R84 does not apply. Test 2 is met: the host is named here and nothing is missing. Test 3 is only partly met: BMW NA's SI B17 03 16 (August 2016), published by NHTSA (document MC-10146818-9999), says 'Refer to SIB 17 01 07 for proper refilling of the coolant system after repairs of components that require coolant corrosion protection.', which corroborates the number and a refilling subject, but not the October 2007 revision, the model years or the summary table. The bulletin's own MODEL line names only '2003 E85 (Z4)' and '2004 and newer, all models'; the E46 rows for 2001 to 2003 are only in its summary table. Test 4 is met: the url is the existing snapshot. A June 2010 revision supersedes this one: a Tier 3 mirror's copy says it 'supersedes SI B17 01 07 dated October 2007'. Its E46 rows have not been seen, because the mirror's text has no summary table and no other copy was found. A BMW NA document, so it speaks for US-market cars only. Summary table (pp. 2-3): the interval columns are headed 'Every 3 years', 'Every 4 years' and 'Long-Term', with 'Starting from the date of production' under the first two and 'No Replacement Interval' under the last; 'E46 (3 Series and M3)' is in the 'Every 4 years' column for 'MY 2001 To MY 2002' and for 'MY 2003'. p. 2: 'BMW's Long-Term Antifreeze/Coolant can be used for all model years; however, its use does not eliminate or supercede a stated change interval. Always maintain the antifreeze/coolant in accordance with the cooling system maintenance requirements outlined in the corresponding vehicle's Service and Warranty Information Booklet.'"
+  - title: "BMW M3 Owner's Manual, online edition for part no. 01 41 0 155 433 (08/00): Coolant, p. 125"
+    publisher: BMW AG
+    url: https://archive.org/download/manualzilla-id-7328330/7328330.pdf
+    tier: 1
+    accessed: 2026-11-24
+    note: "Third-party copy on archive.org (item manualzilla-id-7328330, uploaded by a private account from Manualzilla). Tier 1 under data.md, 'Sources' (R77): tests 1, 2 and 4 pass, because the file is BMW's own 'Online Edition' PDF (FrameMaker 5.5.6, Acrobat Distiller 3.01, created 9 August 2000), all 183 pages, with 'Online Edition for Part No. 01 41 0 155 433 - © 08/00 BMW AG' on each page and 'Part number 01 41 0 155 433' in its imprint, so it is complete and not retyped, and the url is the existing archive.org item, with no snapshot created; and test 3 is met, because ManualsLib, an independent host, lists a 183-page 'BMW M3 2001' owner's manual with the same 'Online Edition for Part No. 01 41 0 155 433 - © 08/00 BMW AG' line. A US English edition (imprint 'US English VIII/00'). The document names no model year ('© 2000 BMW M GmbH'); ManualsLib lists it as 'BMW M3 2001', so it cannot be tied to a model year on its own (R86). It is used here only to show what a BMW document says about the coolant interval, not to set `modelYears`. Coolant, p. 125: 'Change the coolant' 'Replace the coolant every three years.' The 2002 and 2003 manuals give no change interval in the text I searched."
+verified: false
+notes: "BMW NA's SI B17 01 07 (October 2007, a Tier 2 copy) lists 'E46 (3 Series and M3)' under 'Every 4 years' and 'Starting from the date of production' for model years 2001 to 2002 and for 2003, so the coolant is due every 48 months counted from the date of production, not from the date of sale. Only the bulletin's summary table lists those rows: its MODEL line names only '2003 E85 (Z4)' and '2004 and newer, all models'. The bulletin also says BMW's long-term coolant 'can be used for all model years; however, its use does not eliminate or supercede a stated change interval.', so filling an early car with the long-term coolant does not remove the four years. Contested: BMW's 2001 US M3 owner's manual (08/00, Tier 1) says 'Replace the coolant every three years.' (p. 125), one year shorter than the bulletin's four. The manual names no model year, so it cannot be tied to 2001 on its own, and the bulletin is the only source that names these model years. This entry carries the bulletin's four years and does not choose between them, so it is unverified. A June 2010 revision supersedes the bulletin, and its E46 rows have not been seen. BMW changed the schedule from model year 2004: see `e46-coolant-2004`. This item rests on one third-party Tier 2 copy of the bulletin, a Wayback snapshot of a vendor's print, and the copy is superseded by a June 2010 revision whose E46 rows have not been seen (data.md, 'Sources')."

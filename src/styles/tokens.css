@@ -1,0 +1,83 @@
+/* Design tokens for direction B2, "pit garage". The one place a colour literal may live.
+   Lifted verbatim from the :root block of docs/design/b2-garage.html, except the two font
+   variables (display and sans): Astro generates those, with fallbacks, from the fonts entry in
+   astro.config.ts. After the lift this file is the source. Change a token here, not in a copy. */
+:root {
+  color-scheme: dark;
+  /* Colors: sRGB hex, converted from the OKLCH values this palette was designed in. */
+  /* Ground and steel */
+  --floor-deep: #080706;
+  --floor: #100e0b;
+  --wall: #161310;
+  --floor-seam: #201e1a;
+  --wall-lit: #403c37;
+  --steel: #1b1815;
+  --steel-2: #25221d;
+  --steel-3: #312d28;
+  --line: #383530;
+  --edge: #7f7973;
+  /* Text on dark */
+  --text: #efece7;
+  --muted: #b2ada6;
+  --dim: #9f9b93;
+  /* Yellow surfaces */
+  --board: #f5d033;
+  --board-hi: #ffe05e;
+  --board-ink: #1a1304;
+  /* Pale yellow paper */
+  --canary: #f3ebc1;
+  --canary-2: #e9ddac;
+  --canary-ink: #221c12;
+  --canary-muted: #554c3a;
+  --canary-line: #bfb086;
+  /* Signals */
+  --hot: #f98942;
+  --stale: #942e00;
+  /* Paint samples */
+  --paint-1: #9fa5ac;
+  --paint-2: #212429;
+  --paint-3: #1f74bf;
+  --paint-4: #efcc36;
+  --paint-5: #ba2b2e;
+  --paint-6: #eae8e2;
+  --focus: var(--board);
+  --focus-ink: var(--board-ink);
+  /* Type scale */
+  --fs-hero: clamp(4.5rem, 15vw, 6rem);
+  --fs-display: clamp(2.75rem, 7vw, 5rem);
+  --fs-4xl: 4rem;
+  --fs-3xl: 2.5rem;
+  --fs-2xl: 2.125rem;
+  --fs-xl: 1.375rem;
+  --fs-lg: 1.0625rem;
+  --fs-md: 0.9375rem;
+  --fs-sm: 0.875rem;
+  --fs-xs: 0.8125rem;
+  --fs-2xs: 0.75rem;
+  /* Spacing, 4 px base */
+  --s-1: 4px;
+  --s-2: 8px;
+  --s-3: 12px;
+  --s-4: 16px;
+  --s-5: 24px;
+  --s-6: 32px;
+  --s-7: 48px;
+  --s-8: 72px;
+  --g: var(--s-4);
+  /* Radii */
+  --r-xs: 2px;
+  --r-sm: 3px;
+  --r-md: 4px;
+  --r-lg: 6px;
+  --r-xl: 12px;
+  --r-full: 999px;
+  /* Shadows */
+  --sh-board: 0 18px 40px -12px rgb(0 0 0 / 0.6);
+  --sh-paper: 0 30px 60px -20px rgb(0 0 0 / 0.7), 0 2px 0 var(--canary-line);
+  --sh-card: 0 30px 60px -24px rgb(0 0 0 / 0.75);
+  --sh-clip: 0 3px 6px rgb(0 0 0 / 0.4);
+  --sh-sheet: 0 -18px 40px -16px rgb(0 0 0 / 0.7);
+  --sh-drawer: inset 0 1px 0 color-mix(in srgb, var(--text) 14%, transparent);
+  /* State: the active paint. Set by the swatches. */
+  --paint: var(--paint-1);
+}

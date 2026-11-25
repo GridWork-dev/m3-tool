@@ -1,0 +1,49 @@
+# FIXTURE DATA. Invented for tests; not real vehicle advice.
+id: fixture-gen2-coupe
+generation: fixture-gen2
+name: Fixture US Coupe
+market: us
+body: coupe
+transmissions:
+  - 6mt
+  - smg
+years:
+  - 2008
+  - 2013
+packages:
+  - id: fixture-package
+    name: Fixture Package
+    summary: A package invented for tests.
+paints:
+  - code: FX1
+    name: Fixture Silver
+    finish: metallic
+    baseColor: "#c0c0c0"
+factoryWheels:
+  - id: fixture-factory-wheel
+    name: Fixture Factory Wheel
+    front:
+      diameterIn: 18
+      widthIn: 8
+      offsetMm: 47
+      tire: 225/45ZR18
+    rear:
+      diameterIn: 18
+      widthIn: 9
+      offsetMm: 26
+      tire: 255/40ZR18
+    asset: fixture-factory-wheel
+interiors:
+  - id: fixture-interior
+    name: Fixture Interior
+    color: Grey
+    material: cloth
+render:
+  baseAsset: fixture-base-asset
+  interiorAsset: fixture-interior-asset
+  note: Uses the fixture asset.
+sources:
+  - title: Fixture variant sheet
+    publisher: Fixture Co
+    tier: 1
+    accessed: 2026-11-23

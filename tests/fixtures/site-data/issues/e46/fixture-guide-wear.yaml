@@ -1,0 +1,31 @@
+# FIXTURE DATA. Invented for tests; not real vehicle advice.
+id: fixture-guide-wear
+generation: e46
+engine: FIXTURE-ENGINE
+title: Fixture guide wear
+symptoms:
+  - A fixture rattle.
+cause: A fixture cause.
+fix: A fixture fix.
+cost:
+  currency: USD
+  diy:
+    - 100
+    - 200
+  shop:
+    - 500
+    - 900
+frequency: common
+inspectWhenBuying: false
+sources:
+  - title: Fixture tech article
+    publisher: Fixture Shop
+    tier: 2
+    accessed: 2026-11-23
+  - title: Second fixture technical article
+    publisher: Other Fixture Co
+    tier: 2
+    accessed: 2026-11-23
+verified: true
+markets:
+  - us

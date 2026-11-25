@@ -19,7 +19,7 @@
 
 ## Screenshots
 
-<!-- Before and after for any UI or 3D change. Write "n/a" if there are none. -->
+<!-- CI attaches before and after as the `screenshots` run artifact: link it and the preview URL here. Write "n/a" if there are none. -->
 
 ## Data sources (tiers)
 

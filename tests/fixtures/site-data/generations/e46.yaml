@@ -1,0 +1,77 @@
+# FIXTURE DATA. Invented for tests; not real vehicle advice.
+id: e46
+name: Fixture Generation
+chassis: FIXTURE
+years:
+  - 2000
+  - 2006
+engines:
+  - code: FIXTURE-ENGINE
+    displacementCc: 3000
+    cylinders: 6
+  - code: FIXTURE-ENGINE-2
+    displacementCc: 4000
+    cylinders: 8
+bodies:
+  - coupe
+  - convertible
+dimensions:
+  coupe:
+    lengthMm: 4492
+    widthMm: 1700
+    heightMm: 1372
+    wheelbaseMm: 2731
+    trackFrontMm: 1500
+    trackRearMm: 1500
+    sources:
+      - title: Fixture technical data
+        publisher: Fixture Co
+        url: https://example.com/fixture-technical-data
+        tier: 1
+        accessed: 2026-11-23
+driverEyePoint:
+  xMm: -300
+  yMm: 1000
+  zMm: 0
+  basis: estimated
+  note: Fixture estimate.
+  sources: []
+fitment:
+  front:
+    boltPattern: 5x120
+    centerBoreMm: 70
+    stock:
+      diameterIn: 18
+      widthIn: 8
+      offsetMm: 47
+      tire: 225/45ZR18
+    envelopes: []
+  rear:
+    boltPattern: 5x120
+    centerBoreMm: 70
+    stock:
+      diameterIn: 18
+      widthIn: 9
+      offsetMm: 26
+      tire: 255/40ZR18
+    envelopes:
+      - rideDropMm: 0
+        maxInnerMm: 100
+        maxOuterMm: 100
+        maxOuterWithFenderWorkMm: 110
+  sources:
+    - title: Fixture fitment table
+      publisher: Fixture Co
+      tier: 2
+      accessed: 2026-11-23
+sources:
+  - title: Fixture generation overview
+    publisher: Fixture Co
+    tier: 1
+    accessed: 2026-11-23
+unverified:
+  - years.1
+  - engines.FIXTURE-ENGINE-2.displacementCc
+  - fitment.front.stock.widthIn
+  - fitment.front.stock.offsetMm
+  - fitment.rear.stock.offsetMm
