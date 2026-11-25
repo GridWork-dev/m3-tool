@@ -52,6 +52,11 @@ def _candidate(node: Any, currency: str) -> Decimal | None:
     text = str(node.get_all_text(separator=" ", strip=True)).strip()
     if re.search(r"\b(from|shipping|starting)\b", text, re.I):
         return None
+    parent = node.parent
+    if parent is not None and parent.tag not in {"body", "html", "main"}:
+        context = str(parent.get_all_text(separator=" ", strip=True)).strip()
+        if len(context) < 150 and re.search(r"\b(from|shipping|starting)\b", context, re.I):
+            return None
     content = str(node.attrib.get("content", ""))
     return _money(content or text, currency, numeric=bool(content))
 

@@ -88,9 +88,9 @@ def _unblock(url: str, http: httpx.Client) -> FetchedPage:
         except SpendDenied:
             raise
         except RuntimeError, httpx.HTTPError:
-            usage[service] = 1
+            usage[service] = 0 if service == "evomi" else 1
             continue
-        usage[service] = 1
+        usage[service] = result.transferred_bytes if service == "evomi" else 1
         if (
             result.success
             and not is_blocked(result.status, "", result.html[:4096])

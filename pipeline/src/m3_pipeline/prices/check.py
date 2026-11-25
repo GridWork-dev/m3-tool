@@ -1,11 +1,13 @@
 from __future__ import annotations
 
+import json
 from collections.abc import Callable, Iterator
 from contextlib import AbstractContextManager
+from dataclasses import replace
 from datetime import date
 from decimal import Decimal
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 from urllib.parse import urlsplit
 
 import httpx
@@ -200,12 +202,56 @@ def check_prices(
 def save_report(report: CheckReport) -> Path:
     from pydantic import TypeAdapter
 
+    report = merged_with_unapplied(report)
     path = load_settings().work_dir / "prices/report.json"
     path.parent.mkdir(parents=True, exist_ok=True)
     temp = path.with_suffix(".tmp")
     temp.write_bytes(TypeAdapter(CheckReport).dump_json(report))
     temp.replace(path)
+    (path.parent / "applied.json").unlink(missing_ok=True)
     return path
+
+
+def merged_with_unapplied(report: CheckReport) -> CheckReport:
+    """Keep observations an earlier check collected and nothing applied yet.
+
+    RunState skips URLs fetched within seven days, so a second `prices check`
+    would otherwise overwrite report.json without them, and `prices apply`
+    could not recover them without another fetch the weekly guard forbids.
+    """
+    try:
+        prior = read_report()
+    except OSError, ValueError:
+        return report
+    applied = _applied_observations()
+    new_urls = {observation.url for observation in report.observations}
+    previous = dict(report.previous)
+    kept = list(report.observations)
+    for observation in prior.observations:
+        if observation.url in new_urls or observation in applied:
+            continue
+        kept.append(observation)
+        if observation.url not in previous and observation.url in prior.previous:
+            previous[observation.url] = prior.previous[observation.url]
+    return replace(report, observations=kept, previous=previous)
+
+
+def _applied_observations() -> set[Observation]:
+    """Observations a finished `prices apply` already wrote to the data files.
+
+    Reads prices/applied.json the way `prices week` writes it, without
+    importing the apply or week modules (both import this one).
+    """
+    from pydantic import TypeAdapter
+
+    path = load_settings().work_dir / "prices/applied.json"
+    if not path.exists():
+        return set()
+    payload: Any = json.loads(path.read_bytes())
+    return {
+        TypeAdapter(Observation).validate_python(change["observation"])
+        for change in payload["changes"]
+    }
 
 
 def read_report() -> CheckReport:

@@ -147,7 +147,7 @@ def test_importing_the_cli_loads_no_heavy_dependencies() -> None:
     code = (
         "import sys, m3_pipeline.cli; "
         "print(','.join(sorted(m for m in "
-        "('playwright', 'PIL', 'imagehash', 'numpy', 'scipy', 'boto3', 'rembg') "
+        "('playwright', 'PIL', 'imagehash', 'numpy', 'scipy', 'boto3', 'rembg', 'scrapling') "
         "if m in sys.modules)))"
     )
     out = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True)

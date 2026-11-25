@@ -25,8 +25,7 @@ class CheckReport:
             "exa": "searches",
         }
         return "Ledger units: " + ", ".join(
-            f"{service} {self.unblock_used.get(service, 0)} {unit}"
-            for service, unit in units.items()
+            f"{service} {self._units(service)} {unit}" for service, unit in units.items()
         )
 
     def render(self) -> str:
@@ -39,11 +38,25 @@ class CheckReport:
             ("flagged", len(self.flagged)),
             ("images added", self.images_added),
         ]
-        return "\n".join(
-            [
-                "| Result | Count |",
-                "| --- | ---: |",
-                *(f"| {name} | {count} |" for name, count in rows),
-                self.units_line(),
-            ]
+        details: list[str] = []
+        for name in ("blocked", "disallowed", "failed", "flagged"):
+            values: list[str] = getattr(self, name)
+            details.extend(f"{name}: {value}" for value in values)
+        from m3_pipeline.prices.fetch.brightdata import redact
+
+        return redact(
+            "\n".join(
+                [
+                    "| Result | Count |",
+                    "| --- | ---: |",
+                    *(f"| {name} | {count} |" for name, count in rows),
+                    *details,
+                    self.units_line(),
+                ]
+            )
         )
+
+    def _units(self, service: str) -> int | Decimal:
+        value = self.unblock_used.get(service, 0)
+        # Evomi is byte-metered, unlike the request/session counters of the other vendors.
+        return Decimal(value) / 1_000_000_000 if service == "evomi" else value
