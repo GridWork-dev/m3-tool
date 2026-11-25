@@ -2,6 +2,7 @@
 
 import hashlib
 import json
+import os
 import re
 import shutil
 from dataclasses import dataclass
@@ -9,15 +10,13 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Literal, cast
 
-from PIL import Image
-
-from m3_pipeline.assets import AssetSpec
+from m3_pipeline.assets import ID_PATTERN, AssetSpec
 from m3_pipeline.config import Settings
 from m3_pipeline.stages import StageResult, register
 from m3_pipeline.stages.lib.codex import CodexError, run_codex
-from m3_pipeline.stages.lib.critic import run_critic
+from m3_pipeline.stages.lib.critic import Verdict, run_critic
 from m3_pipeline.stages.lib.dims import load_dimensions
-from m3_pipeline.stages.lib.fal import FalClient, FalError, PlannedCall
+from m3_pipeline.stages.lib.fal import CallResult, FalClient, FalError, PlannedCall
 from m3_pipeline.stages.lib.generators import load_generators
 from m3_pipeline.stages.lib.inputs import (
     ensure_reviewed,
@@ -25,6 +24,7 @@ from m3_pipeline.stages.lib.inputs import (
     prepare_image,
     propose_redactions,
     save_redactions,
+    validate_redaction_orientation,
 )
 from m3_pipeline.stages.lib.paths import (
     require_outside_repo,
@@ -38,6 +38,7 @@ from m3_pipeline.stages.lib.provenance import (
     load_provenance,
     write_provenance,
 )
+from m3_pipeline.stages.lib.spend import SpendDenied
 from m3_pipeline.stages.lib.viewset_io import ViewRef, load_viewset, require_generator_inputs
 
 VIEWS = frozenset({"front", "side", "rear", "front_34", "rear_34"})
@@ -73,13 +74,17 @@ class ViewPlan:
 
 
 def _object(value: object, label: str) -> dict[str, object]:
-    if not isinstance(value, dict) or not all(isinstance(key, str) for key in value):
+    if not isinstance(value, dict) or not all(
+        isinstance(key, str) for key in cast(dict[object, object], value)
+    ):
         raise ValueError(f"{label} must be an object")
     return cast(dict[str, object], value)
 
 
 def _strings(value: object, label: str) -> tuple[str, ...]:
-    if not isinstance(value, list) or not all(isinstance(item, str) for item in value):
+    if not isinstance(value, list) or not all(
+        isinstance(item, str) for item in cast(list[object], value)
+    ):
         raise ValueError(f"{label} must be a list of strings")
     result = tuple(cast(list[str], value))
     if len(set(result)) != len(result):
@@ -108,13 +113,15 @@ def _plan(
         call_id = entry.get("call_id")
         if not inputs or engine not in ("codex", "fal") or not isinstance(extra, str):
             raise ValueError(f"{name}: inputs, engine or prompt_extra is invalid")
-        if call_id is not None and (not isinstance(call_id, str) or not call_id):
+        if call_id is not None and (
+            not isinstance(call_id, str) or not ID_PATTERN.fullmatch(call_id)
+        ):
             raise ValueError(f"{name}.call_id must be a nonempty string")
         views[name] = ViewPlan(
             inputs,
-            cast(Literal["codex", "fal"], engine),
+            engine,
             extra,
-            cast(str | None, call_id),
+            call_id,
             _object(entry.get("options", {}), "options"),
         )
     reviewed = _strings(body.get("reviewed_inputs", []), "reviewed_inputs")
@@ -133,8 +140,6 @@ def _digest(path: Path) -> str:
 def _nearest(name: str, refs: list[ViewRef]) -> list[ViewRef]:
     def distance(ref: ViewRef) -> float:
         angle = _ANGLES.get(ref.view, 0)
-        if ref.mirrored:
-            angle = -angle
         delta = abs(_ANGLES[name] - angle) % 360
         return min(delta, 360 - delta)
 
@@ -144,6 +149,8 @@ def _nearest(name: str, refs: list[ViewRef]) -> list[ViewRef]:
 def _harvest(
     cwd: Path, view: str, message: str, settings: Settings, *, old_pngs: set[Path] | None = None
 ) -> Path:
+    from PIL import Image
+
     expected = cwd / f"{view}.png"
     candidates = [expected] if expected.is_file() else []
     if not candidates:
@@ -164,7 +171,6 @@ def _harvest(
 
 
 def _invalidate(root: Path, view: str, items: list[ViewProvenance]) -> list[ViewProvenance]:
-    (root / "views" / f"{view}.png").unlink(missing_ok=True)
     if view == "side":
         (root / "proportion.json").unlink(missing_ok=True)
     approval = root / "approved.json"
@@ -186,6 +192,56 @@ def _proportion_failed(root: Path) -> bool:
         )
     except OSError, ValueError:
         return False
+
+
+def _visual_verdict(verdict: Verdict) -> bool | None:
+    """Infrastructure and malformed answers are unknown, never visual rejections."""
+    if any(
+        issue.text.startswith(("codex critic failed:", "critic returned no valid verdict"))
+        for issue in verdict.issues
+    ):
+        return None
+    return verdict.ok
+
+
+def _paid_result(
+    client: FalClient, call: PlannedCall, out_dir: Path, settings: Settings
+) -> CallResult:
+    """A durable intent permits one submit only. Subsequent runs recover or resume.
+
+    Even a crash between intent creation and submission is ambiguous: resume fails closed
+    instead of guessing that no request was sent. The operator can inspect the call journal.
+    """
+    intent = out_dir / "intent.json"
+    for path in (out_dir, intent):
+        require_write_target_outside_repo(dest=path, repo_root=settings.repo_root)
+    fingerprint = {
+        "generator": call.generator,
+        "slots": list(call.slots),
+        "options": dict(call.options),
+        "images": [_digest(path) for path in call.images],
+    }
+    serialized = json.dumps(fingerprint, sort_keys=True)
+    if intent.exists():
+        if intent.read_text() != serialized:
+            raise ValueError(
+                f"{call.call_id}: call_id was already used for different inputs/options"
+            )
+        result = client.completed(call.call_id, out_dir)
+        return result if result is not None else client.resume(call.call_id, out_dir)
+    out_dir.mkdir(parents=True, exist_ok=True)
+    # Exclusive creation prevents two invocations from both submitting this call id.
+    with intent.open("x") as stream:
+        stream.write(serialized)
+        stream.flush()
+        os.fsync(stream.fileno())
+    try:
+        return client.run(call, out_dir)
+    except SpendDenied:
+        # Authorization happens before submission. A rejected cap/ledger can safely be
+        # corrected and retried; only ambiguous execution retains the no-resubmit intent.
+        intent.unlink()
+        raise
 
 
 @register("synth")
@@ -230,8 +286,10 @@ def synth(asset: AssetSpec, settings: Settings) -> StageResult:
 
                 if urlparse(ref.page_url).hostname == "commons.wikimedia.org":
                     boxes[ref.image_id] = propose_redactions(ref, settings.work_dir, cwd=root)
-                    save_redactions(cache_path, boxes)
+                    save_redactions(cache_path, boxes, upright_ids=[ref.image_id])
         boxes = load_redactions(cache_path) if cache_path.exists() else {}
+        for ref in selected:
+            validate_redaction_orientation(ref, cache_path)
         require_generator_inputs(selected, reviewed_ids=reviewed, redacted_ids=boxes.keys())
         prepared = {
             ref.image_id: prepare_image(
@@ -257,15 +315,39 @@ def synth(asset: AssetSpec, settings: Settings) -> StageResult:
         for name, plan in plans.items():
             target = root / "views" / f"{name}.png"
             previous = next((item for item in items if item.view == name), None)
-            replacing = name in force or plan.engine == "fal"
+            prompt = PROMPT.format(view=name) + plan.extra
+            prompt_hash = hashlib.sha256(prompt.encode()).hexdigest()
+            matches = (
+                previous is not None
+                and previous.engine == plan.engine
+                and previous.inputs == plan.inputs
+                and previous.prompt_sha256 == prompt_hash
+                and target.is_file()
+                and previous.sha256 == _digest(target)
+            )
+            if (
+                name not in force
+                and matches
+                and previous is not None
+                and previous.critic_ok is True
+            ):
+                messages.append(f"{name}: already exists; use force to regenerate")
+                continue
+            call_dir = root / "fal" / (plan.call_id or "unplanned")
             if plan.engine == "fal":
+                if name not in fallback:
+                    raise ValueError(f"{name}: fal fallback must be named in fallback")
+                require_write_target_outside_repo(dest=call_dir, repo_root=settings.repo_root)
+                intent = call_dir / "intent.json"
+                require_write_target_outside_repo(dest=intent, repo_root=settings.repo_root)
+                recovering = intent.exists()
                 critic_failed = (
                     previous is not None
                     and previous.critic_ok is False
                     and target.is_file()
                     and previous.sha256 == _digest(target)
                 )
-                if name not in fallback or not (critic_failed or _proportion_failed(root)):
+                if not recovering and not (critic_failed or _proportion_failed(root)):
                     raise ValueError(
                         f"{name}: fal fallback requires a failed critic or proportion guard"
                     )
@@ -273,24 +355,10 @@ def synth(asset: AssetSpec, settings: Settings) -> StageResult:
                 if "image-edit" not in registry:
                     raise ValueError("fal fallback requires an image-edit entry in generators.toml")
                 if not plan.call_id:
-                    raise ValueError(
-                        f"{name}: fal fallback requires an explicit call_id for its ledger row"
-                    )
-            # Reuse only a passing verdict tied to these exact bytes. An interrupted
-            # critic or unproven PNG must remain retryable on the next invocation.
-            if (
-                target.exists()
-                and not replacing
-                and previous is not None
-                and previous.critic_ok is True
-                and previous.sha256 == _digest(target)
-            ):
-                messages.append(f"{name}: already exists; use force to regenerate")
-                continue
-            items = _invalidate(root, name, items)
+                    raise ValueError(f"{name}: fal fallback requires an explicit call_id")
             prompt = PROMPT.format(view=name) + plan.extra
             paths = [prepared[image_id].path.resolve() for image_id in plan.inputs]
-            # Separate attempt directories prevent a stale PNG being harvested on reruns.
+            # Keep old image and guard evidence until a replacement is durably staged.
             import tempfile
 
             with tempfile.TemporaryDirectory(prefix=f"attempt-{name}-", dir=root) as scratch:
@@ -320,14 +388,23 @@ def synth(asset: AssetSpec, settings: Settings) -> StageResult:
                         None,
                         {**plan.options, "prompt": prompt},
                     )
-                    result = FalClient(settings, registry).run(call, cwd)
+                    result = _paid_result(FalClient(settings, registry), call, call_dir, settings)
                     pngs = [path for path in result.files.values() if path.suffix.lower() == ".png"]
                     if len(pngs) != 1:
                         raise ValueError(f"{name}: fal did not return exactly one PNG")
-                    source = _harvest(cwd, name, str(pngs[0]), settings)
-                shutil.copyfile(source, target)
+                    source = _harvest(call_dir, name, str(pngs[0]), settings)
+                staged = target.with_suffix(".pending.png")
+                require_write_target_outside_repo(dest=staged, repo_root=settings.repo_root)
+                shutil.copyfile(source, staged)
+                with staged.open("rb") as stream:
+                    os.fsync(stream.fileno())
+                # Invalidate only once generation and decoding have succeeded. A paid failure
+                # preserves the old failure evidence needed for a safe resumed invocation.
+                items = _invalidate(root, name, items)
+                staged.replace(target)
             images = [prepared[ref.image_id].path.resolve() for ref in nearest[name]] + [target]
-            verdict = run_critic("synth-view", checklist, images, cwd=root)
+            view_checklist = [*checklist, f"The candidate must show the requested {name} view."]
+            verdict = run_critic("synth-view", view_checklist, images, cwd=root)
             item = ViewProvenance(
                 name,
                 plan.inputs,
@@ -335,7 +412,7 @@ def synth(asset: AssetSpec, settings: Settings) -> StageResult:
                 plan.engine,
                 datetime.now(UTC).isoformat(),
                 _digest(target),
-                verdict.ok,
+                _visual_verdict(verdict),
             )
             items.append(item)
             write_provenance(provenance, items)
@@ -358,5 +435,5 @@ def synth(asset: AssetSpec, settings: Settings) -> StageResult:
         return StageResult(
             ok, messages + ["Run proportion and obtain user approval before generation"], outputs
         )
-    except (OSError, ValueError, CodexError, FalError) as error:
+    except (OSError, ValueError, CodexError, FalError, SpendDenied) as error:
         return StageResult(False, messages + [str(error)], outputs)
