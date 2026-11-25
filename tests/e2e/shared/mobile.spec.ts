@@ -4,17 +4,15 @@ import { expect, test } from '../test.ts'
 
 test.use({ viewport: { width: 390, height: 844 } })
 
-// What a thumb has to hit: disclosures, the top bar and footer links, filter controls, a hero's
-// action links and the links in an issue or problem entry. A selector matching nothing is fine:
-// the page that adds the element is covered the moment it exists.
+// Cover every content link as well as navigation, disclosures and filter controls. A selector
+// matching nothing is fine: new page controls are covered the moment they exist.
 const TARGETS = [
   'summary',
   'nav a',
   'footer a',
   '[data-filter-scope] label',
   '[data-filter-scope] select',
-  '[data-generation-specs] a',
-  'main [data-entry] a',
+  'main a',
 ].join(', ')
 
 const MIN_TARGET = 44
