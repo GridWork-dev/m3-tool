@@ -255,6 +255,8 @@ def run_critic(
                 cwd=cwd,
                 last_message=Path(scratch) / "last.md",
                 sandbox="read-only",
+                model="gpt-6-astra",
+                reasoning_effort="high",
             )
         except CodexError as error:
             return _failed(f"codex critic failed: {error}", str(error))

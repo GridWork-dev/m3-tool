@@ -482,6 +482,8 @@ class FakeCodex:
         last_message: Path,
         timeout_s: int = 900,
         sandbox: str = "workspace-write",
+        model: str | None = None,
+        reasoning_effort: str | None = None,
     ) -> str:
         self.calls.append(
             {
@@ -490,6 +492,8 @@ class FakeCodex:
                 "cwd": cwd,
                 "last_message": last_message,
                 "sandbox": sandbox,
+                "model": model,
+                "reasoning_effort": reasoning_effort,
                 "parent_existed": last_message.parent.is_dir(),
             }
         )
@@ -514,6 +518,8 @@ def test_run_critic_sends_the_prompt_and_images_to_codex_read_only(
     assert call["images"] == images
     assert call["cwd"] == tmp_path
     assert call["sandbox"] == "read-only"
+    assert call["model"] == "gpt-6-astra"
+    assert call["reasoning_effort"] == "high"
     last = call["last_message"]
     assert isinstance(last, Path)
     assert call["parent_existed"] is True
