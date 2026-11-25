@@ -95,6 +95,25 @@ def test_disconnected_mark_cannot_turn_incorrect_height_into_a_pass() -> None:
         measure_side(mask_from_image(image))
 
 
+def test_detached_enclosing_halo_cannot_turn_incorrect_height_into_a_pass() -> None:
+    image, _ = draw_car(height_scale=0.94)
+    clean = mask_from_image(image)
+    assert not check_proportions(measure_side(clean), E46).ok
+    silhouette = Image.fromarray(clean.astype(np.uint8) * 255)
+    outer = np.asarray(silhouette.filter(ImageFilter.MaxFilter(21))) != 0
+    inner = np.asarray(silhouette.filter(ImageFilter.MaxFilter(11))) != 0
+    halo = outer & ~inner  # 10-pixel dilation minus 5-pixel dilation, detached from car
+    pixels = np.asarray(image).copy()
+    pixels[halo] = 0
+    marked = mask_from_image(Image.fromarray(pixels))
+    # This enclosing mark previously enlarged the bounds enough to pass both ratios.
+    rows, cols = np.nonzero(marked)
+    assert cols.max() - cols.min() + 1 == 1144
+    assert rows.max() - rows.min() + 1 == 344
+    with pytest.raises(SilhouetteError, match="disconnected foreground"):
+        measure_side(marked)
+
+
 @pytest.mark.parametrize("islands", [False, True])
 def test_enclosed_background_and_foreground_detail_preserve_measurements(islands: bool) -> None:
     image, _ = draw_car()
