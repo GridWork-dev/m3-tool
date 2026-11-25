@@ -1,5 +1,7 @@
 # Reference collection
 
+Agents now own source selection, collection and curation under [ADR 0017](../decisions/0017-codex-led-workflow-and-reference-collection.md). Inspect the existing private cache before fetching; preserve curated sets, provenance and blocked-source records. User approval of synthesized views and models remains required.
+
 ## What this stores
 
 This is a private local store under `M3_WORK_DIR` (default `~/.cache/m3-tool`),

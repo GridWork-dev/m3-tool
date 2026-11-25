@@ -249,7 +249,7 @@ The schema can't see which model years a source covers, so the data verifier and
 
 ### Review
 
-Every data PR gets an Opus data verifier, which re-reads the cited sources and checks the claims against them.
+Every data PR gets a separate `gpt-6-astra` data verifier at high reasoning, which reopens the cited sources and checks the claims against them ([ADR 0017](../decisions/0017-codex-led-workflow-and-reference-collection.md)). Model agreement or a search summary does not replace source verification.
 
 PRs that touch `data/maintenance/` or `data/issues/` get the `safety` label. The user spot-checks those.
 

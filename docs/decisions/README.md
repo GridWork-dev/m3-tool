@@ -19,6 +19,7 @@ Architecture decision records (ADRs): one short page for each choice that a late
 | [0013](0013-model-choice-without-bake-off.md) | No model bake-off: research chooses the models, and OpenAI image generation runs on the subscription first |
 | [0014](0014-price-scraping-unblock.md) | Price and product-page scraping may unblock through Bright Data, Browserbase or Evomi; reference photos stay polite |
 | [0016](0016-optional-costs-interval-triggers-and-markets.md) | Maintenance cost and a fix's cost are optional, an interval may be a list of triggers such as Inspection II instead of a number (a lifetime-fill claim needs a Tier 1 source), and maintenance items and known issues name the markets their sources cover |
+| [0017](0017-codex-led-workflow-and-reference-collection.md) | Codex-led orchestration and reviews, supplemental Grok critique, and agent-owned reference collection with existing gates retained |
 
 ## Format
 
@@ -44,4 +45,4 @@ Name the file `NNNN-short-slug.md`, with the next number. Numbers are never reus
 - **Keep private details out.** These pages are public: no host names, local paths, account IDs, personal emails, token values or the name of the key-management token.
 - **Don't edit an accepted ADR to change the decision.** Write a new ADR, and mark the old one `Superseded by NNNN` in its status line. Fixing a typo or adding a link is fine.
 - **Write an ADR when a choice has a rejected alternative a reviewer would propose again.** Pure implementation detail belongs in the code and the standards.
-- **The spike result is the next ADR.** Phase 0's go/no-go spike ends with a report and an ADR that records the outcome. The model bake-off was dropped ([0013](0013-model-choice-without-bake-off.md)).
+- **ADR 0015 is reserved for the spike result.** Phase 0's go/no-go spike ends with a report and an ADR that records the outcome. The model bake-off was dropped ([0013](0013-model-choice-without-bake-off.md)).

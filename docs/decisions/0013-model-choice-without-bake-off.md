@@ -1,6 +1,7 @@
 # 0013. Model choice without a bake-off
 
 - **Status:** Accepted 2026-11-23
+- **Codex role restriction / unchanged routing:** Superseded by [0017](0017-codex-led-workflow-and-reference-collection.md). No-bake-off and subscription-first synthesis decisions remain in force.
 - **Date:** 2026-11-23
 - **Supersedes:** the bake-off parts of [0004](0004-car-bodies-from-photos.md) and [0007](0007-agent-roles-and-review-gates.md)
 

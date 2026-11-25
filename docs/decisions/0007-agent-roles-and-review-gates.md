@@ -1,6 +1,7 @@
 # 0007. Agent roles, review gates and zero required approvals
 
 - **Status:** Accepted 2026-11-23. The model bake-off (its bullet, its alternative and its routing-change note) is superseded by [0013](0013-model-choice-without-bake-off.md).
+- **Routing/reviewer assignments:** Superseded by [0017](0017-codex-led-workflow-and-reference-collection.md). Other review and repository gates remain in force.
 - **Date:** 2026-11-23
 
 ## Context

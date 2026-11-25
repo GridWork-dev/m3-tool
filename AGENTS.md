@@ -50,7 +50,7 @@ infra/                  Cloudflare resources, the main ruleset, R2 CORS (see inf
 .github/workflows/ (ci, deploy)  .githooks/pre-push  renovate.json  biome.json  mise.toml  wrangler.jsonc
 ```
 
-Phase 1 adds `src/configurator/`, `tests/visual/` and `pipeline/blender/`.
+The spike has added `pipeline/{blender,viewer}/`, `pipeline/generators.toml` and `tools/export-glb.ts`. Phase 1 adds `src/configurator/` and `tests/visual/`. See [current state](docs/status.md) before choosing a task.
 
 ## Hard rules
 
@@ -77,6 +77,7 @@ Phase 1 adds `src/configurator/`, `tests/visual/` and `pipeline/blender/`.
 - Write secret names in docs, never values or account IDs. Only the maintainer's session mints Cloudflare tokens, one per purpose, through the API. Contributors and subagents never do.
 
 **Photos and legal**
+- Agents own reference source selection, collection and curation under [ADR 0017](docs/decisions/0017-codex-led-workflow-and-reference-collection.md). Keep the existing access, provenance, privacy and human approval gates.
 - Reference photos never enter the repo. They live in the private `m3-tool-refs` bucket and a local cache. See [legal](docs/standards/legal.md).
 - Licenses: code MIT (`LICENSE`), data CC BY-SA 4.0 (`DATA_LICENSE`).
 
@@ -101,18 +102,22 @@ Zero approvals are required, because the repo has one maintainer who can't appro
 
 ## Model routing
 
-Pass a model on every subagent. Never run a child on the orchestrator's tier.
+Use the Codex-led workflow in [ADR 0017](docs/decisions/0017-codex-led-workflow-and-reference-collection.md). Pass an explicit model on every new subagent; do not inherit the orchestrator model. Run independent tasks in separate worktrees with explicit ownership, and integrate dependent changes sequentially.
 
-| Role | Claude | Codex |
-|---|---|---|
-| Orchestrator: owns specs, plans and merges, together with the user | Main session (Fable or Opus) | — |
-| Architecture and code review | Opus 5.5 (when the orchestrator isn't Opus) | gpt-6-astra (high), via codex-review |
-| Data verifier (every data PR) | Opus 5.5 | — |
-| 3D vision critic | Opus 5.5 | — |
-| Implementation, tests, bounded edits | Sonnet 5.5 | gpt-6.1-sol |
-| Research, bulk data gathering, recon | Haiku 5.5 | gpt-6-luna (low) |
+| Role | Assignment |
+|---|---|
+| Orchestration, specs, plans, integration and merges | Root Codex session, with the user |
+| Implementation, tests and bounded edits | `gpt-6.1-sol` |
+| Independent task review | Separate non-author `gpt-6.1-sol` run |
+| Architecture and Codex second opinion | `gpt-6-astra` (high), through `codex-review` |
+| Data verifier (every data PR) | Separate `gpt-6-astra` (high), reopening cited sources |
+| 3D vision critic | `gpt-6-astra` (high), inspecting actual images |
+| Research, bulk gathering and recon | `gpt-6-luna` (low) |
+| Additional independent critique and research | Grok CLI; record the selected model |
 
-Opus reviews only when the orchestrator isn't Opus. With an Opus orchestrator, the reviewers are Sonnet plus Codex.
+Grok supplements the task review and Codex second opinion. Verify its findings against code, tests, sources or images before acting. Keep safety spot-checks and synthesized-view/model approvals with the user; a text-only review cannot pass a visual gate.
+
+Use ChatGPT/grok.com login for subscription inference. Check the active mode (`codex login status`; `env -u XAI_API_KEY -u GROK_API_KEY grok models`) and remove inherited API-key variables from the subprocess environment. Never fall back silently to paid API billing. Subscription Codex/Grok inference needs no ledger row; paid calls still need the session-approved cap and a row before the call, and scraping-service unit accounting still applies.
 
 ## Where docs live
 
