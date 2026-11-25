@@ -31,6 +31,9 @@ class FakeFal(FalClient):
         self.complete = False
         self.fail = False
 
+    def preflight(self, call: PlannedCall, out_dir: Path) -> None:
+        pass
+
     def _result(self, call_id: str, out_dir: Path) -> CallResult:
         return CallResult(call_id, "request", {"image": out_dir / "result.png"}, Decimal("0.1"))
 
@@ -186,5 +189,36 @@ def test_denied_authorization_can_be_corrected_without_an_ambiguous_intent(tmp_p
         stage._paid_result(client, call, out_dir, settings)
     assert not (out_dir / "intent.json").exists()
     client.denied = False
+    stage._paid_result(client, call, out_dir, settings)
+    assert client.submits == 1
+
+
+@pytest.mark.parametrize("refusal", ["missing-key", "invalid-option"])
+def test_local_fal_refusals_leave_no_intent_and_corrected_calls_submit_once(
+    tmp_path: Path, refusal: str
+) -> None:
+    from m3_pipeline.stages.lib.generators import PriceUnknown, load_generators
+
+    call, _, out_dir, settings = _call_and_client(tmp_path)
+    call.images[0].write_bytes(b"\x89PNG\r\n\x1a\nfixture")
+    call = replace(call, generator="trellis-2", slots=("front_34",), options={})
+    registry = load_generators(Path(__file__).resolve().parents[1] / "generators.toml")
+    environment = {} if refusal == "missing-key" else {"M3_FAL_KEY": "test-key-123"}
+
+    class RealPreflightFal(FakeFal):
+        def preflight(self, call: PlannedCall, out_dir: Path) -> None:
+            FalClient.preflight(self, call, out_dir)
+
+    client = RealPreflightFal(settings)
+    FalClient.__init__(client, settings, registry, env=environment)
+    invalid = (
+        replace(call, options={"unsupported-option": True}) if refusal == "invalid-option" else call
+    )
+    with pytest.raises((FalError, PriceUnknown)):
+        stage._paid_result(client, invalid, out_dir, settings)
+    assert not (out_dir / "intent.json").exists()
+    assert client.submits == 0
+    environment["M3_FAL_KEY"] = "test-key-123"
+    stage._paid_result(client, call, out_dir, settings)
     stage._paid_result(client, call, out_dir, settings)
     assert client.submits == 1

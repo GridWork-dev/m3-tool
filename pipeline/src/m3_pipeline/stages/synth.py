@@ -229,6 +229,7 @@ def _paid_result(
             )
         result = client.completed(call.call_id, out_dir)
         return result if result is not None else client.resume(call.call_id, out_dir)
+    client.preflight(call, out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
     # Exclusive creation prevents two invocations from both submitting this call id.
     with intent.open("x") as stream:
