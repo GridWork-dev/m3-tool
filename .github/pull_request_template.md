@@ -15,7 +15,7 @@
 - [ ] `pnpm check` passes
 - [ ] `pnpm e2e` passes
 - [ ] No store links, logos or secrets
-- [ ] Opus + Codex review done (Sonnet + Codex when the orchestrator is Opus)
+- [ ] Independent task review + Codex second opinion done (record reviewer models; Grok findings verified when used)
 
 ## Screenshots
 

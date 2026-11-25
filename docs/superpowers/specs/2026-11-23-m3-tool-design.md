@@ -8,6 +8,8 @@
 
 All versions in this doc were checked on npm on 2026-11-23.
 
+**Workflow amendment (amended 2026-11-24):** [ADR 0017](../../decisions/0017-codex-led-workflow-and-reference-collection.md) supersedes the historical Claude-led routing in sections 7.6, 9.9 and 12, and the user-run reference-collection ownership in sections 3, 4, 9.1 and 15. Codex root now orchestrates explicit Codex worker/reviewer models, Grok adds independent critique, and agents select sources and run collection. Keep all source, access, private-storage, session-budget and human acceptance gates. The routing table in `AGENTS.md` is authoritative.
+
 ## 1. Intent
 
 A free public web tool for BMW M3 owners and shoppers. You pick a generation, see the car in 3D, inside and out, and spec it the way it left the factory. Then you add real aftermarket products and get a running cost sheet for parts and labor. Each generation also gets a maintenance plan, its known problems and a used-buyer checklist.

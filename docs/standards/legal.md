@@ -38,7 +38,7 @@ The site has no affiliate, ad, sponsored or store links of any kind. A price obs
 Reference photos are copyrighted images by other people. Handle them as follows.
 
 - **They never enter the public repo.** They live in the private `m3-tool-refs` bucket and a local cache. `tests/unit/repo-hygiene.test.ts` fails if an image or GLB is tracked outside `public/` and `tests/fixtures/`.
-- **Agents build the collection tooling. The user runs the collection and chooses the sources.** The user may run it with another model or harness.
+- **Agents build the tooling, choose reference sources, run collection and curate the results under root coordination.** The user delegated collection on 2026-11-24 ([ADR 0017](../decisions/0017-codex-led-workflow-and-reference-collection.md)); the access, provenance and privacy rules below and human asset approvals remain in force.
 - **The tooling's defaults:**
   - Respect `robots.txt`.
   - Rate-limit requests.

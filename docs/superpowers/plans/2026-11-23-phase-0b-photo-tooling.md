@@ -1,5 +1,7 @@
 # Phase 0B: Photo Tooling (`pipeline refs`) Implementation Plan
 
+> **Execution amendment 2026-11-24:** Follow [AGENTS.md](../../../AGENTS.md) and [ADR 0017](../../decisions/0017-codex-led-workflow-and-reference-collection.md): Codex root orchestrates native Codex subagents; Grok supplies supplemental critique. This supersedes Claude/Opus/Sonnet harness assignments and named execution-skill requirements below. Agents own reference collection; budgets, source verification and human asset gates remain unchanged. For UI work preserve the approved B2 reference and use the installed Refero audit/craft workflow; do not reopen the chosen design.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Build the reference-photo tooling (design section 9.1): collectors, curation, matched view sets, descriptions, R2 sync and a runbook, so the user can run collection on online E46 photos.

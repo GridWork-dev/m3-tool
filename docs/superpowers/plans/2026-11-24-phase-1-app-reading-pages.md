@@ -1,5 +1,7 @@
 # Phase 1 App Lane, Plan 1: Reading Pages Implementation Plan
 
+> **Execution amendment 2026-11-24:** Follow [AGENTS.md](../../../AGENTS.md) and [ADR 0017](../../decisions/0017-codex-led-workflow-and-reference-collection.md): Codex root orchestrates native Codex subagents; Grok supplies supplemental critique. This supersedes Claude/Opus/Sonnet harness assignments and named execution-skill requirements below. Agents own reference collection; budgets, source verification and human asset gates remain unchanged. For UI work preserve the approved B2 reference and use the installed Refero audit/craft workflow; do not reopen the chosen design.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** The read side of the site, on the B2 "pit garage" design: home, the generation page (specs, variants, hero drawing), known issues (list and detail), maintenance, the used-buyer checklist and `/about`. Issues, maintenance and the checklist filter and label by market and by model year.
@@ -7,7 +9,7 @@
 **Architecture:**
 - Static Astro pages over the content collections. Every rule that decides what a page shows (markets, model years, the filter, intervals, unverified marks, costs, citations, checklist order) is a pure function in `src/lib/`, unit-tested against fixtures. Components stay thin.
 - The B2 tokens move into the Tailwind theme once, in `src/styles/`, and fonts are self-hosted through Astro's Fonts API.
-- Two builds, two Playwright projects. The `real` project serves the site built from `data/`. The `fixture` project serves a second build from a purpose-built data set, `tests/fixtures/site-data/`, chosen through the `SITE_DATA_DIR` setting. The real build proves the pages survive whatever data exists (zero maintenance items today, nine with PR #41). The fixture build proves the rules the real data cannot exercise: filters, ordering, gap notices, cost order, the `inspection-i` label.
+- Two builds, two Playwright projects. The `real` project serves the site built from `data/`. The `fixture` project serves a second build from a purpose-built data set, `tests/fixtures/site-data/`, chosen through the `SITE_DATA_DIR` setting. The real build proves the pages survive whatever data exists (13 maintenance items as of the 2026-11-24 handoff). The fixture build proves the rules the real data cannot exercise: filters, ordering, gap notices, cost order, the `inspection-i` label.
 - Page e2e tests are data-driven. They read the data of the build they run against through `loadDataSet` and assert what each page shows for each entry.
 
 **Tech Stack:** Astro 7.4.13 (static, content collections, Fonts API), Tailwind 4.3.5, TypeScript 7.0.2 via `pnpm typecheck`, Vitest 5.1.1, Playwright 1.65.1, Biome 2.6.8, plus one new dev dependency, `@axe-core/playwright` 4.14.0 (Task 2). No React in this plan: it has no island.

@@ -8,8 +8,10 @@ trademarks of BMW AG, used here only to describe the cars.
 
 ## Status
 
-Work in progress. Phase 0A is laying the foundations: the site skeleton, the data and 3D asset
-contracts, CI and the project standards. The site is `noindex` until the public beta.
+The foundations, E46 data and reference tooling are in place. Reading pages, pricing tooling
+and the 3D feasibility spike are in progress; the current site is still a skeleton and has no
+published models. The site remains `noindex` until the public beta. See the
+[repository state and next work](docs/status.md) and the [app plan](docs/superpowers/plans/2026-11-24-phase-1-app-reading-pages.md).
 
 ## Licenses
 

@@ -2,6 +2,8 @@
 
 An index of everything under `docs/`, plus the infrastructure notes. Start with [AGENTS.md](../AGENTS.md) at the repo root: it has the commands, the layout and the hard rules.
 
+- [Repository state and next work](status.md): shipped capabilities, open work, gates and cleanup.
+
 ## Standards
 
 | Page | What it sets |
@@ -22,6 +24,8 @@ An index of everything under `docs/`, plus the infrastructure notes. Start with 
 - [Phase 0A plan](superpowers/plans/2026-11-23-phase-0a-foundations.md): the foundations, task by task.
 - [Phase 0B plan](superpowers/plans/2026-11-23-phase-0b-photo-tooling.md): the reference-photo tooling.
 - [Phase 1 app plan 1](superpowers/plans/2026-11-24-phase-1-app-reading-pages.md): the app lane's roadmap in five plans, and the first one in full (the reading pages).
+- [3D spike plan](superpowers/plans/2026-11-23-phase-0-6-3d-spike.md): offline stages, experiments and human gates.
+- [Reference collection runbook](runbooks/refs-collection.md): private collection and curation.
 - [Visual design](design/README.md): the chosen direction, "pit garage", with its mock-up and tokens.
 
 ## Operations
