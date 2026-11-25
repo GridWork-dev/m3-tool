@@ -83,6 +83,8 @@ def build_argv(
     images: Sequence[Path],
     *,
     sandbox: Sandbox = "workspace-write",
+    model: str | None = None,
+    reasoning_effort: str | None = None,
 ) -> list[str]:
     """The command line: the prompt comes BEFORE every `-i`, because `-i` is variadic.
 
@@ -102,6 +104,14 @@ def build_argv(
         *_FORCE_CHATGPT,
         prompt,
     ]
+    # Explicit routing is optional for ordinary synthesis, mandatory at the critic caller.
+    prompt_index = argv.index(prompt)
+    routing: list[str] = []
+    if model is not None:
+        routing += ["--model", model]
+    if reasoning_effort is not None:
+        routing += ["-c", f'model_reasoning_effort="{reasoning_effort}"']
+    argv[prompt_index:prompt_index] = routing
     for image in images:
         argv += ["-i", str(image)]
     return argv
@@ -175,6 +185,8 @@ def run_codex(
     last_message: Path,
     timeout_s: int = 900,
     sandbox: Sandbox = "workspace-write",
+    model: str | None = None,
+    reasoning_effort: str | None = None,
 ) -> str:
     """Run one `codex exec` in `cwd` and return the text of its last message, stripped.
 
@@ -201,7 +213,15 @@ def run_codex(
     binary = codex_binary()
     env = child_env()
     _require_chatgpt_login(binary, cwd, env)
-    argv = build_argv(binary, prompt, last_message, attached, sandbox=sandbox)
+    argv = build_argv(
+        binary,
+        prompt,
+        last_message,
+        attached,
+        sandbox=sandbox,
+        model=model,
+        reasoning_effort=reasoning_effort,
+    )
     try:
         last_message.parent.mkdir(parents=True, exist_ok=True)
         last_message.unlink(missing_ok=True)

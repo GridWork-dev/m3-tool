@@ -605,3 +605,17 @@ def test_run_codex_keeps_a_repeated_image_where_it_was_given(
     run_codex("p", [b, a, b], cwd=tmp_path, last_message=tmp_path / "last.md")
 
     assert _dash_i_values(fake.calls[0]["cmd"]) == [str(b), str(a), str(b)]
+
+
+def test_explicit_model_and_effort_precede_prompt():
+    argv = build_argv(
+        Path("/bin/codex"),
+        "judge",
+        Path("/tmp/last.md"),
+        [],
+        model="gpt-6-astra",
+        reasoning_effort="high",
+    )
+    assert argv[argv.index("--model") + 1] == "gpt-6-astra"
+    assert argv.index("--model") < argv.index("judge")
+    assert 'model_reasoning_effort="high"' in argv
