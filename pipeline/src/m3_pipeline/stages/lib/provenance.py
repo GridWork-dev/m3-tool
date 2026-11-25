@@ -6,7 +6,7 @@ import re
 from collections.abc import Sequence
 from dataclasses import asdict, dataclass
 from pathlib import Path
-from typing import Literal
+from typing import Literal, cast
 
 from m3_pipeline.stages.lib.paths import require_write_target_outside_repo
 from m3_pipeline.stages.lib.viewset_io import SpikeViewSet
@@ -27,17 +27,21 @@ class ViewProvenance:
     critic_ok: bool | None
 
     def __post_init__(self) -> None:
-        if not isinstance(self.view, str) or self.view not in _VIEWS:
+        if not isinstance(cast(object, self.view), str) or self.view not in _VIEWS:
             raise ValueError(f"unknown synthesized view: {self.view}")
-        if not self.inputs or any(not isinstance(i, str) or not i for i in self.inputs):
+        if not self.inputs or any(
+            not isinstance(cast(object, i), str) or not i for i in self.inputs
+        ):
             raise ValueError("provenance inputs must be nonempty image ids")
-        if not isinstance(self.prompt_sha256, str) or not _HASH.fullmatch(self.prompt_sha256):
+        if not isinstance(cast(object, self.prompt_sha256), str) or not _HASH.fullmatch(
+            self.prompt_sha256
+        ):
             raise ValueError("invalid prompt_sha256")
-        if not isinstance(self.sha256, str) or not _HASH.fullmatch(self.sha256):
+        if not isinstance(cast(object, self.sha256), str) or not _HASH.fullmatch(self.sha256):
             raise ValueError("invalid view sha256")
         if self.engine not in ("codex", "fal"):
             raise ValueError("invalid synthesis engine")
-        if not isinstance(self.created_at, str) or not self.created_at:
+        if not isinstance(cast(object, self.created_at), str) or not self.created_at:
             raise ValueError("created_at is required")
         if self.critic_ok is not None and type(self.critic_ok) is not bool:
             raise ValueError("critic_ok must be boolean or null")
@@ -61,12 +65,38 @@ def load_provenance(path: Path) -> list[ViewProvenance]:
         raise ValueError("provenance must be an array")
     result: list[ViewProvenance] = []
     keys = {"view", "inputs", "prompt_sha256", "engine", "created_at", "sha256", "critic_ok"}
-    for item in raw:
-        if not isinstance(item, dict) or set(item) != keys:
+    for item in cast(list[object], raw):
+        if not isinstance(item, dict):
+            raise ValueError("provenance entries must be objects")
+        fields = cast(dict[str, object], item)
+        if set(fields) != keys:
             raise ValueError("invalid provenance fields")
-        if not isinstance(item["inputs"], list):
+        inputs = fields["inputs"]
+        if not isinstance(inputs, list):
             raise ValueError("provenance inputs must be an array")
-        result.append(ViewProvenance(**{**item, "inputs": tuple(item["inputs"])}))
+        values = cast(list[object], inputs)
+        if any(not isinstance(value, str) for value in values):
+            raise ValueError("provenance inputs must contain image ids")
+        for key in ("view", "prompt_sha256", "engine", "created_at", "sha256"):
+            if not isinstance(fields[key], str):
+                raise ValueError(f"provenance {key} must be a string")
+        critic = fields["critic_ok"]
+        if critic is not None and not isinstance(critic, bool):
+            raise ValueError("critic_ok must be boolean or null")
+        engine = fields["engine"]
+        if engine not in ("codex", "fal"):
+            raise ValueError("invalid synthesis engine")
+        result.append(
+            ViewProvenance(
+                cast(str, fields["view"]),
+                tuple(cast(list[str], values)),
+                cast(str, fields["prompt_sha256"]),
+                engine,
+                cast(str, fields["created_at"]),
+                cast(str, fields["sha256"]),
+                critic,
+            )
+        )
     _unique(result)
     return result
 
@@ -93,7 +123,7 @@ def synth_set_usable(synth_dir: Path) -> bool:
                 return False
         items = load_provenance(synth_dir / "provenance.json")
         names = {item.view for item in items}
-        if names != _VIEWS:
+        if names != set(_VIEWS):
             return False
         view_dir = synth_dir / "views"
         if {path.stem for path in view_dir.glob("*.png")} != names:
@@ -109,15 +139,17 @@ def synth_set_usable(synth_dir: Path) -> bool:
             hashes[item.view] = digest
         proportion = json.loads((synth_dir / "proportion.json").read_text("utf-8"))
         approved = json.loads((synth_dir / "approved.json").read_text("utf-8"))
+        if not isinstance(proportion, dict) or not isinstance(approved, dict):
+            return False
+        prop = cast(dict[str, object], proportion)
+        approval = cast(dict[str, object], approved)
         return (
-            isinstance(proportion, dict)
-            and proportion.get("ok") is True
-            and proportion.get("side_sha256") == hashes["side"]
-            and isinstance(approved, dict)
-            and approved.get("approved_by") == "user"
-            and isinstance(approved.get("at"), str)
-            and bool(approved["at"])
-            and approved.get("views") == hashes
+            prop.get("ok") is True
+            and prop.get("side_sha256") == hashes["side"]
+            and approval.get("approved_by") == "user"
+            and isinstance(approval.get("at"), str)
+            and bool(approval["at"])
+            and approval.get("views") == hashes
         )
     except OSError, ValueError, TypeError, KeyError:
         return False

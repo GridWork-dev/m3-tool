@@ -5,7 +5,7 @@ import re
 from collections.abc import Collection, Mapping, Sequence
 from dataclasses import asdict, dataclass
 from pathlib import Path
-from typing import Literal
+from typing import Literal, cast
 from urllib.parse import urlsplit
 
 from m3_pipeline.stages.lib.codex import run_codex
@@ -49,10 +49,20 @@ def _boxes(raw: object) -> list[Box]:
     if not isinstance(raw, list):
         raise ValueError("redactions must be a JSON array of boxes")
     result: list[Box] = []
-    for item in raw:
-        if not isinstance(item, dict) or set(item) != {"x", "y", "w", "h", "kind"}:
+    for item in cast(list[object], raw):
+        if not isinstance(item, dict):
+            raise ValueError("each redaction must be an object")
+        fields = cast(dict[str, object], item)
+        if set(fields) != {"x", "y", "w", "h", "kind"}:
             raise ValueError("each redaction needs x, y, w, h and kind")
-        result.append(Box(**item))
+        coords = [fields[key] for key in ("x", "y", "w", "h")]
+        if any(type(value) is not int for value in coords):
+            raise ValueError("redaction coordinates must be integers")
+        kind = fields["kind"]
+        if kind not in ("person", "plate"):
+            raise ValueError("redaction kind must be person or plate")
+        x, y, w, h = cast(list[int], coords)
+        result.append(Box(x, y, w, h, kind))
     return result
 
 
@@ -131,7 +141,7 @@ def load_redactions(path: Path) -> dict[str, list[Box]]:
     raw = json.loads(path.read_text("utf-8"))
     if not isinstance(raw, dict):
         raise ValueError("redaction cache must map image ids to boxes")
-    return {key: _boxes(value) for key, value in raw.items()}
+    return {key: _boxes(value) for key, value in cast(dict[str, object], raw).items()}
 
 
 def save_redactions(path: Path, boxes: Mapping[str, Sequence[Box]]) -> None:

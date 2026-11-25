@@ -115,7 +115,10 @@ def test_propose_redactions_refuses_a_photo_that_is_not_on_commons(
 def test_propose_redactions_raises_on_a_prose_reply(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, reply: str
 ) -> None:
-    monkeypatch.setattr(inputs, "run_codex", lambda *a, **kw: reply)
+    def fake(*args: object, **kwargs: object) -> str:
+        return reply
+
+    monkeypatch.setattr(inputs, "run_codex", fake)
     with pytest.raises(ValueError):
         propose_redactions(_ref(tmp_path), tmp_path, cwd=tmp_path / "scratch")
 
