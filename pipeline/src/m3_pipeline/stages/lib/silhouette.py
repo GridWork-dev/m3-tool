@@ -98,13 +98,21 @@ class SilhouetteError(ValueError):
 
 
 def _require_connected(mask: NDArray[np.bool_]) -> None:
-    """Require one 8-connected foreground component, joining row runs rather than pixels.
+    """Require one outer silhouette, allowing detached detail wholly enclosed by it.
 
-    Detached marks must never extend the car's bounds. Reject ambiguity rather than guessing
-    which foreground objects belong to the car; diagonal contact still joins genuine edges.
+    Fill enclosed background only for this connectivity check. Interior detail cannot change
+    the outline; exterior marks remain separate even inside the car's bounding box. The
+    original mask still supplies all measurements. Foreground uses 8-connectivity and exterior
+    background uses the complementary 4-connectivity, preserving diagonal foreground contact.
     """
     import numpy as np
+    from PIL import Image, ImageDraw
 
+    # Padding guarantees an exterior seed even for masks touching an image edge.
+    padded = np.pad(mask, 1).astype(np.uint8) * 255
+    exterior = Image.fromarray(padded).copy()
+    ImageDraw.floodfill(exterior, (0, 0), 128)
+    outline = np.asarray(exterior)[1:-1, 1:-1] != 128
     parents: list[int] = []
 
     def root(label: int) -> int:
@@ -114,7 +122,7 @@ def _require_connected(mask: NDArray[np.bool_]) -> None:
         return label
 
     previous: list[tuple[int, int, int]] = []
-    for row in mask:
+    for row in outline:
         edges = np.flatnonzero(np.diff(np.concatenate(([0], row.astype(np.int8), [0]))))
         current: list[tuple[int, int, int]] = []
         for start, stop in zip(edges[::2], edges[1::2], strict=True):
