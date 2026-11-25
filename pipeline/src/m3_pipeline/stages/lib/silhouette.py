@@ -97,6 +97,42 @@ class SilhouetteError(ValueError):
     """The picture cannot be measured: no clean background, no car, or no two wheels."""
 
 
+def _require_connected(mask: NDArray[np.bool_]) -> None:
+    """Require one 8-connected foreground component, joining row runs rather than pixels.
+
+    Detached marks must never extend the car's bounds. Reject ambiguity rather than guessing
+    which foreground objects belong to the car; diagonal contact still joins genuine edges.
+    """
+    import numpy as np
+
+    parents: list[int] = []
+
+    def root(label: int) -> int:
+        while parents[label] != label:
+            parents[label] = parents[parents[label]]
+            label = parents[label]
+        return label
+
+    previous: list[tuple[int, int, int]] = []
+    for row in mask:
+        edges = np.flatnonzero(np.diff(np.concatenate(([0], row.astype(np.int8), [0]))))
+        current: list[tuple[int, int, int]] = []
+        for start, stop in zip(edges[::2], edges[1::2], strict=True):
+            left, right = int(start), int(stop)  # right is exclusive
+            neighbors = [root(label) for a, b, label in previous if a <= right and b >= left]
+            if neighbors:
+                label = neighbors[0]
+                for neighbor in neighbors[1:]:
+                    parents[root(neighbor)] = root(label)
+            else:
+                label = len(parents)
+                parents.append(label)
+            current.append((left, right, label))
+        previous = current
+    if len({root(label) for label in range(len(parents))}) > 1:
+        raise SilhouetteError("disconnected foreground: expected one car silhouette")
+
+
 def mask_from_image(img: Image.Image, *, tolerance: int = 24) -> NDArray[np.bool_]:
     """The car's silhouette: True where the picture differs from its plain background.
 
@@ -231,6 +267,7 @@ def measure_side(
     rows, cols = np.nonzero(mask)
     if rows.size == 0:
         raise SilhouetteError("empty")
+    _require_connected(mask)
     top, bottom_row = int(rows.min()), int(rows.max())
     left, right = int(cols.min()), int(cols.max())
     length_px = float(right - left + 1)

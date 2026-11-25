@@ -86,6 +86,15 @@ def test_a_speck_away_from_the_car_does_not_enter_the_mask() -> None:
     assert np.array_equal(specked, clean)
 
 
+def test_disconnected_mark_cannot_turn_incorrect_height_into_a_pass() -> None:
+    image, _ = draw_car(height_scale=0.94)
+    clean = check_proportions(measure_side(mask_from_image(image)), E46)
+    assert not clean.ok
+    ImageDraw.Draw(image).rectangle((600, 100, 604, 104), fill=(0, 0, 0))
+    with pytest.raises(SilhouetteError, match="disconnected foreground"):
+        measure_side(mask_from_image(image))
+
+
 def test_non_uniform_background_is_rejected() -> None:
     image, _ = draw_car()
     # A left-to-right gradient behind the car: the left and right corners differ.
