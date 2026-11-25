@@ -1,0 +1,12 @@
+---
+import { isUnverified } from '../lib/unverified-marks.ts'
+
+interface Props {
+  path: string
+  unverified: readonly string[] | undefined
+}
+const { path, unverified } = Astro.props
+const flagged = isUnverified(unverified, path)
+---
+<span data-value-path={path} data-unverified={flagged ? '' : undefined}><span data-value><slot /></span>{flagged && <><sup aria-hidden="true">†</sup><span class="sr"> unverified</span></>}</span>
+<style>sup { color:var(--board); margin-left:0.15em; font-size:0.8em; }</style>

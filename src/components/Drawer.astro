@@ -1,0 +1,10 @@
+---
+interface Props {
+  name: string
+  label: string
+  span?: 4 | 5 | 7 | 8 | 12
+}
+const { name, label, span = 12 } = Astro.props
+---
+<section class="drawer" data-drawer={name} style={`--span:${span}`}><header><h2 class="tape">{label}</h2><span class="handle" aria-hidden="true"></span></header><div class="inside"><slot /></div></section>
+<style>.drawer { min-width:0; grid-column:span var(--span); background:linear-gradient(180deg,var(--steel-2),var(--steel)); border:1px solid var(--line); border-radius:var(--r-md); box-shadow:var(--sh-drawer); } header { padding:var(--s-4) var(--s-5); border-bottom:1px solid var(--line); display:flex; justify-content:space-between; align-items:center; gap:var(--s-4); } .tape { background:var(--floor-deep); color:var(--text); padding:5px 10px; font:700 var(--fs-xs) var(--font-sans); letter-spacing:0.08em; text-transform:uppercase; transform:rotate(-1deg); } .handle { width:58px; height:10px; border:1px solid var(--edge); border-radius:var(--r-full); background:var(--floor); box-shadow:inset 0 2px 3px var(--floor-deep); } .inside { padding:var(--s-5); } @media(max-width:760px) { .drawer { grid-column:1 / -1; } .inside, header { padding:var(--s-4); } }</style>

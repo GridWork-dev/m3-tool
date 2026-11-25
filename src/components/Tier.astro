@@ -1,0 +1,10 @@
+---
+import { TIER_LABEL } from '../lib/citations.ts'
+
+interface Props {
+  tier: 1 | 2 | 3
+}
+const { tier } = Astro.props
+---
+<span class="tier"><span aria-hidden="true">T{tier}</span><span class="sr">Tier {tier}: {TIER_LABEL[tier]}</span></span>
+<style>.tier { display:inline-block; padding:2px 5px; border:1px solid var(--edge); border-radius:var(--r-xs); font-size:var(--fs-2xs); font-weight:700; color:var(--muted); white-space:nowrap; }</style>

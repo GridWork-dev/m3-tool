@@ -28,3 +28,9 @@ for (const dataDir of ['data', 'tests/fixtures/site-data']) {
     for (const route of routes) expect(routesFor(set)).toContain(route)
   })
 }
+
+for (const dir of ['data', 'tests/fixtures/site-data'])
+  test(`generation routes cover ${dir}`, async () => {
+    const { set } = await loadDataSet(dir)
+    for (const { data } of set.generations) expect(routesFor(set)).toContain(`/${data.id}/`)
+  })
