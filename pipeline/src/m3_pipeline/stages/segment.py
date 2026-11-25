@@ -34,8 +34,8 @@ same tag calls `resume`, which never submits. A finished call leaves `{"state": 
 file names, and the next run with the same tag reuses those files without calling fal at all, so a
 failed conversion or a corrected plan costs nothing. A missing local record is reconciled from
 the guarded client's authoritative completed journal before any new call. Any other failure leaves
-no record: a new `run` with the same tag is then denied by the spend guard, and a new tag needs a ledger row and a new
-`call_id` in `plan.json`.
+no record: a new `run` with the same tag is then denied by the spend guard. A new tag needs a
+ledger row and a new `call_id` in `plan.json`.
 """
 
 import contextlib
