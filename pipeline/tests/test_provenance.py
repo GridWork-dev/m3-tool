@@ -24,6 +24,7 @@ def _item() -> ViewProvenance:
         "2026-11-24T00:00:00Z",
         hashlib.sha256(b"picture").hexdigest(),
         True,
+        True,
     )
 
 
@@ -161,4 +162,17 @@ def test_wrong_provenance_types_fail_closed(tmp_path: Path, field: str, value: o
     raw = json.loads(path.read_text())
     raw[0][field] = value
     path.write_text(json.dumps(raw))
+    assert not synth_set_usable(tmp_path)
+
+
+def test_legacy_provenance_without_inspection_proof_is_not_usable(tmp_path: Path) -> None:
+    from dataclasses import asdict
+
+    _guards(tmp_path)
+    path = tmp_path / "provenance.json"
+    legacy: list[dict[str, object]] = [asdict(item) for item in load_provenance(path)]
+    for item in legacy:
+        item.pop("images_inspected")
+    path.write_text(json.dumps(legacy))
+    assert all(item.images_inspected is None for item in load_provenance(path))
     assert not synth_set_usable(tmp_path)

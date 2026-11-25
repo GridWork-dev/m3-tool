@@ -25,8 +25,11 @@ class ViewProvenance:
     created_at: str
     sha256: str
     critic_ok: bool | None
+    images_inspected: bool | None = None
 
     def __post_init__(self) -> None:
+        if self.images_inspected is not None and type(self.images_inspected) is not bool:
+            raise ValueError("images_inspected must be boolean or null")
         if not isinstance(cast(object, self.view), str) or self.view not in _VIEWS:
             raise ValueError(f"unknown synthesized view: {self.view}")
         if not self.inputs or any(
@@ -69,7 +72,7 @@ def load_provenance(path: Path) -> list[ViewProvenance]:
         if not isinstance(item, dict):
             raise ValueError("provenance entries must be objects")
         fields = cast(dict[str, object], item)
-        if set(fields) != keys:
+        if set(fields) not in (keys, keys | {"images_inspected"}):
             raise ValueError("invalid provenance fields")
         inputs = fields["inputs"]
         if not isinstance(inputs, list):
@@ -83,6 +86,9 @@ def load_provenance(path: Path) -> list[ViewProvenance]:
         critic = fields["critic_ok"]
         if critic is not None and not isinstance(critic, bool):
             raise ValueError("critic_ok must be boolean or null")
+        inspected = fields.get("images_inspected")
+        if inspected is not None and not isinstance(inspected, bool):
+            raise ValueError("images_inspected must be boolean or null")
         engine = fields["engine"]
         if engine not in ("codex", "fal"):
             raise ValueError("invalid synthesis engine")
@@ -95,6 +101,7 @@ def load_provenance(path: Path) -> list[ViewProvenance]:
                 cast(str, fields["created_at"]),
                 cast(str, fields["sha256"]),
                 critic,
+                inspected,
             )
         )
     _unique(result)
@@ -134,7 +141,11 @@ def synth_set_usable(synth_dir: Path) -> bool:
             if path.is_symlink() or not path.resolve().is_relative_to(synth_dir.resolve()):
                 return False
             digest = hashlib.sha256(path.read_bytes()).hexdigest()
-            if item.critic_ok is not True or digest != item.sha256:
+            if (
+                item.critic_ok is not True
+                or item.images_inspected is not True
+                or digest != item.sha256
+            ):
                 return False
             hashes[item.view] = digest
         proportion = json.loads((synth_dir / "proportion.json").read_text("utf-8"))

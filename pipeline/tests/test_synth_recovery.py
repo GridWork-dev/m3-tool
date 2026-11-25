@@ -164,7 +164,7 @@ def test_critic_checklist_names_requested_view(
         kind: str, checklist: Sequence[str], images: Sequence[Path], *, cwd: Path
     ) -> Verdict:
         received.extend(checklist)
-        return Verdict(True, (), "ok")
+        return Verdict(True, (), "ok", True)
 
     monkeypatch.setattr(stage, "run_critic", critic)
     assert run(setup).ok
@@ -222,3 +222,100 @@ def test_local_fal_refusals_leave_no_intent_and_corrected_calls_submit_once(
     stage._paid_result(client, call, out_dir, settings)
     stage._paid_result(client, call, out_dir, settings)
     assert client.submits == 1
+
+
+@pytest.mark.parametrize("inspection", [None, False])
+def test_unable_to_view_valid_json_never_opens_paid_fallback(
+    setup: Setup, monkeypatch: pytest.MonkeyPatch, inspection: bool | None
+) -> None:
+    import json
+
+    from m3_pipeline.stages.lib.critic import parse_verdict
+
+    body: dict[str, object] = {
+        "pass": False,
+        "issues": [{"severity": "blocker", "text": "I cannot view the attached images", "fix": ""}],
+    }
+    if inspection is not None:
+        body["images_inspected"] = inspection
+    verdict = parse_verdict(json.dumps(body), require_inspection=True)
+    monkeypatch.setattr(stage, "run_critic", _constant(verdict))
+    assert not run(setup).ok
+    assert load_provenance(setup[0] / "provenance.json")[0].critic_ok is None
+    setup[1]["views"]["side"]["engine"] = "fal"
+    setup[1]["fallback"] = ["side"]
+    result = run(setup)
+    assert not result.ok and "failed critic or proportion guard" in result.messages[-1]
+
+
+def test_explicitly_inspected_visual_rejection_is_a_failed_guard() -> None:
+    from m3_pipeline.stages.lib.critic import parse_verdict
+
+    verdict = parse_verdict(
+        '{"pass":false,"images_inspected":true,"issues":'
+        '[{"severity":"blocker","text":"wrong roofline","fix":"lower roof"}]}',
+        require_inspection=True,
+    )
+    assert stage._visual_verdict(verdict) is False
+
+
+def test_legacy_cached_view_is_recriticized_without_regeneration(setup: Setup) -> None:
+    assert run(setup).ok
+    path = setup[0] / "provenance.json"
+    items = load_provenance(path)
+    write_provenance(path, [replace(items[0], images_inspected=None)])
+    assert run(setup).ok
+    assert len(setup[2]) == 1
+    assert len(setup[3]) == 2
+    assert load_provenance(path)[0].images_inspected is True
+
+
+def test_proportion_measurement_error_cannot_open_paid_fallback(setup: Setup) -> None:
+    import json
+
+    assert run(setup).ok
+    root = setup[0]
+    body = {
+        "ok": False,
+        "error": "side cannot be measured",
+        "side_sha256": stage._digest(root / "views/side.png"),
+    }
+    (root / "proportion.json").write_text(json.dumps(body))
+    setup[1]["views"]["side"]["engine"] = "fal"
+    setup[1]["fallback"] = ["side"]
+    result = run(setup)
+    assert not result.ok and "failed critic or proportion guard" in result.messages[-1]
+
+
+def test_proportion_fallback_requires_complete_numeric_out_of_tolerance_measurement(
+    setup: Setup,
+) -> None:
+    import json
+
+    assert run(setup).ok
+    root = setup[0]
+    report = root / "proportion.json"
+    body: dict[str, object] = {
+        "ok": False,
+        "side_sha256": stage._digest(root / "views/side.png"),
+        "wheelbase_over_length": 0.63,
+        "expected_wheelbase_over_length": 0.60,
+        "wheelbase_error": 0.05,
+        "height_over_length": 0.31,
+        "expected_height_over_length": 0.31,
+        "height_error": 0.0,
+    }
+    report.write_text(json.dumps(body))
+    assert stage._proportion_failed(root)
+    for changes in (
+        {"height_error": None},
+        {"height_error": float("nan")},
+        {"wheelbase_error": 0.0},
+        {"side_sha256": "stale"},
+        {"error": "unusable silhouette"},
+        {"height_over_length": True},
+    ):
+        report.write_text(json.dumps({**body, **changes}))
+        assert not stage._proportion_failed(root)
+    report.write_text(json.dumps({**body, "wheelbase_over_length": 0.60, "wheelbase_error": 0.0}))
+    assert not stage._proportion_failed(root)

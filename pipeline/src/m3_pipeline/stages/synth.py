@@ -2,10 +2,11 @@
 
 import hashlib
 import json
+import math
 import os
 import re
 import shutil
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Literal, cast
@@ -187,16 +188,40 @@ def _invalidate(root: Path, view: str, items: list[ViewProvenance]) -> list[View
 def _proportion_failed(root: Path) -> bool:
     try:
         body = _object(json.loads((root / "proportion.json").read_text()), "proportion")
-        return body.get("ok") is False and body.get("side_sha256") == _digest(
-            root / "views/side.png"
-        )
-    except OSError, ValueError:
+        if (
+            body.get("ok") is not False
+            or "error" in body
+            or body.get("side_sha256") != _digest(root / "views/side.png")
+        ):
+            return False
+        errors: list[float] = []
+        for axis in ("wheelbase", "height"):
+            keys = (f"{axis}_over_length", f"expected_{axis}_over_length", f"{axis}_error")
+            values = [body.get(key) for key in keys]
+            if any(
+                isinstance(value, bool) or not isinstance(value, int | float) for value in values
+            ):
+                return False
+            measured, expected, reported = (float(cast(int | float, value)) for value in values)
+            if (
+                not all(math.isfinite(value) for value in (measured, expected, reported))
+                or measured <= 0
+                or expected <= 0
+                or reported < 0
+            ):
+                return False
+            error = abs(measured - expected) / expected
+            if not math.isclose(error, reported, rel_tol=1e-9, abs_tol=1e-12):
+                return False
+            errors.append(error)
+        return any(error > 0.02 for error in errors)
+    except OSError, ValueError, OverflowError:
         return False
 
 
 def _visual_verdict(verdict: Verdict) -> bool | None:
     """Infrastructure and malformed answers are unknown, never visual rejections."""
-    if any(
+    if verdict.images_inspected is not True or any(
         issue.text.startswith(("codex critic failed:", "critic returned no valid verdict"))
         for issue in verdict.issues
     ):
@@ -331,8 +356,35 @@ def synth(asset: AssetSpec, settings: Settings) -> StageResult:
                 and matches
                 and previous is not None
                 and previous.critic_ok is True
+                and previous.images_inspected is True
             ):
                 messages.append(f"{name}: already exists; use force to regenerate")
+                continue
+            if (
+                name not in force
+                and matches
+                and previous is not None
+                and previous.images_inspected is not True
+            ):
+                images = [prepared[ref.image_id].path.resolve() for ref in nearest[name]] + [target]
+                view_checklist = [*checklist, f"The candidate must show the requested {name} view."]
+                verdict = run_critic("synth-view", view_checklist, images, cwd=root)
+                refreshed = replace(
+                    previous,
+                    critic_ok=_visual_verdict(verdict),
+                    images_inspected=verdict.images_inspected,
+                )
+                items = [refreshed if item.view == name else item for item in items]
+                write_provenance(provenance, items)
+                outputs.append(provenance)
+                messages.extend(f"{name}: {issue.text}" for issue in verdict.issues)
+                if any(
+                    issue.text.startswith(
+                        "codex critic failed: codex is not using the ChatGPT login"
+                    )
+                    for issue in verdict.issues
+                ):
+                    return StageResult(False, messages, outputs)
                 continue
             call_dir = root / "fal" / (plan.call_id or "unplanned")
             if plan.engine == "fal":
@@ -345,6 +397,7 @@ def synth(asset: AssetSpec, settings: Settings) -> StageResult:
                 critic_failed = (
                     previous is not None
                     and previous.critic_ok is False
+                    and previous.images_inspected is True
                     and target.is_file()
                     and previous.sha256 == _digest(target)
                 )
@@ -414,6 +467,7 @@ def synth(asset: AssetSpec, settings: Settings) -> StageResult:
                 datetime.now(UTC).isoformat(),
                 _digest(target),
                 _visual_verdict(verdict),
+                verdict.images_inspected,
             )
             items.append(item)
             write_provenance(provenance, items)
@@ -428,6 +482,7 @@ def synth(asset: AssetSpec, settings: Settings) -> StageResult:
             any(
                 item.view == name
                 and item.critic_ok is True
+                and item.images_inspected is True
                 and item.sha256 == _digest(root / "views" / f"{name}.png")
                 for item in items
             )

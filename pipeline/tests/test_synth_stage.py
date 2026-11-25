@@ -98,7 +98,7 @@ def setup(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Setup:
 
     def critic(kind: str, checklist: str, images: Sequence[Path], *, cwd: Path) -> Verdict:
         critics.append(images)
-        return Verdict(True, (), "ok")
+        return Verdict(True, (), "ok", True)
 
     monkeypatch.setattr(stage, "run_critic", critic)
     return (
@@ -270,8 +270,8 @@ def test_unproven_existing_png_is_regenerated(setup: Setup) -> None:
 
 
 def test_failed_critic_can_be_retried(setup: Setup, monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(stage, "run_critic", _constant(Verdict(False, (), "crashed")))
+    monkeypatch.setattr(stage, "run_critic", _constant(Verdict(False, (), "crashed", True)))
     assert not run(setup).ok
-    monkeypatch.setattr(stage, "run_critic", _constant(Verdict(True, (), "ok")))
+    monkeypatch.setattr(stage, "run_critic", _constant(Verdict(True, (), "ok", True)))
     assert run(setup).ok
     assert len(setup[2]) == 2
