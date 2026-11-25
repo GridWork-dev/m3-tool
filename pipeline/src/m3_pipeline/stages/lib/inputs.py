@@ -1,4 +1,11 @@
-"""Prepare privacy-reviewed reference copies; originals are never modified."""
+"""Prepare privacy-reviewed copies in upright, unmirrored pixel coordinates.
+
+EXIF orientation is applied before both proposal and masking. Boxes always describe this
+upright image; optional view-set mirroring happens only after masking. Legacy plain-list
+cache entries remain valid for originals without EXIF rotation/reflection. Other originals
+need an explicit ``{"coordinate_space": "upright-v1", "boxes": [...]}`` cache entry after
+human re-review, so old raw-coordinate reviews never silently migrate.
+"""
 
 import json
 import re
@@ -82,15 +89,37 @@ def propose_redactions(ref: ViewRef, work_dir: Path, *, cwd: Path) -> list[Box]:
         raise ValueError(f"{ref.image_id}: proposal output is outside work_dir")
     require_write_target_outside_repo(dest=last, repo_root=_REPO)
     cwd.mkdir(parents=True, exist_ok=True)
+    # Vision clients may interpret EXIF differently. Attach the exact upright pixel space
+    # that prepare_image masks, with no orientation metadata left for a client to reinterpret.
+    from PIL import Image, ImageOps
+
+    proposal = cwd / f"{ref.image_id}-upright.png"
+    if not _ID.fullmatch(ref.image_id):
+        raise ValueError("unsafe image_id")
+    if not proposal.resolve().is_relative_to(work_dir.resolve()):
+        raise ValueError(f"{ref.image_id}: proposal image is outside work_dir")
+    require_write_target_outside_repo(dest=proposal, repo_root=_REPO)
+    if proposal.resolve() == image:
+        raise ValueError("proposal output must not overwrite its original")
+    with Image.open(image) as original:
+        upright = ImageOps.exif_transpose(original).convert("RGB")
+        clean = Image.new("RGB", upright.size)
+        clean.paste(upright)
+        clean.save(proposal, format="PNG")
     prompt = (
         "Locate every person and number plate in this original photograph. Return only a JSON "
         'array of pixel boxes {"x":int,"y":int,"w":int,"h":int,"kind":"person"|"plate"}. '
-        "Use the original pixel coordinates. Return [] only when neither is present."
+        "Use the attached upright, unmirrored pixel coordinates. "
+        "Return [] only when neither is present."
     )
     return _boxes(
         json.loads(
             run_codex(
-                prompt, [image], cwd=cwd.resolve(), last_message=last.resolve(), sandbox="read-only"
+                prompt,
+                [proposal.resolve()],
+                cwd=cwd.resolve(),
+                last_message=last.resolve(),
+                sandbox="read-only",
             )
         )
     )
@@ -112,7 +141,7 @@ def prepare_image(ref: ViewRef, work_dir: Path, out_dir: Path, boxes: Sequence[B
     if dest.resolve() == source:
         raise ValueError("prepared output must not overwrite its original")
     with Image.open(source) as original:
-        image = original.convert("RGB")
+        image = ImageOps.exif_transpose(original).convert("RGB")
     draw = ImageDraw.Draw(image)
     for box in boxes:
         if box.x + box.w > image.width or box.y + box.h > image.height:
@@ -141,14 +170,67 @@ def load_redactions(path: Path) -> dict[str, list[Box]]:
     raw = json.loads(path.read_text("utf-8"))
     if not isinstance(raw, dict):
         raise ValueError("redaction cache must map image ids to boxes")
-    return {key: _boxes(value) for key, value in cast(dict[str, object], raw).items()}
+    result: dict[str, list[Box]] = {}
+    for key, value in cast(dict[str, object], raw).items():
+        if isinstance(value, dict):
+            envelope = cast(dict[str, object], value)
+            if (
+                set(envelope) != {"coordinate_space", "boxes"}
+                or envelope["coordinate_space"] != "upright-v1"
+            ):
+                raise ValueError(f"{key}: invalid upright redaction envelope")
+            value = envelope["boxes"]
+        result[key] = _boxes(value)
+    return result
 
 
-def save_redactions(path: Path, boxes: Mapping[str, Sequence[Box]]) -> None:
+def validate_redaction_orientation(ref: ViewRef, cache_path: Path) -> None:
+    """Require explicit re-review of legacy boxes when EXIF changes the pixel frame."""
+    from PIL import Image
+
+    with Image.open(ref.image_path) as original:
+        orientation = original.getexif().get(274, 1)
+    if orientation in (None, 1):
+        return
+    raw: object = json.loads(cache_path.read_text("utf-8"))
+    if isinstance(raw, dict):
+        entry = cast(dict[str, object], raw).get(ref.image_id)
+        if isinstance(entry, dict):
+            fields = cast(dict[str, object], entry)
+            if fields.get("coordinate_space") == "upright-v1":
+                _boxes(fields.get("boxes"))
+                return
+    raise InputsNotReviewed(
+        f"{ref.image_id}: EXIF orientation {orientation} needs privacy re-review on the upright "
+        'proposal image; set its cache entry to {"coordinate_space":"upright-v1","boxes":[...]} '
+        "only after reviewing those upright coordinates"
+    )
+
+
+def save_redactions(
+    path: Path, boxes: Mapping[str, Sequence[Box]], *, upright_ids: Collection[str] = ()
+) -> None:
     require_write_target_outside_repo(dest=path, repo_root=_REPO)
     path.parent.mkdir(parents=True, exist_ok=True)
+    # Preserve explicit upright review markers when another image's proposal updates the cache.
+    previous: dict[str, object] = {}
+    if path.exists():
+        raw: object = json.loads(path.read_text("utf-8"))
+        if not isinstance(raw, dict):
+            raise ValueError("redaction cache must map image ids to boxes")
+        previous = cast(dict[str, object], raw)
+    body: dict[str, object] = {}
+    for key, value in boxes.items():
+        encoded = [asdict(b) for b in value]
+        old = previous.get(key)
+        if key in upright_ids or (
+            isinstance(old, dict)
+            and cast(dict[str, object], old).get("coordinate_space") == "upright-v1"
+        ):
+            body[key] = {"coordinate_space": "upright-v1", "boxes": encoded}
+        else:
+            body[key] = encoded
     path.write_text(
-        json.dumps({key: [asdict(b) for b in value] for key, value in boxes.items()}, indent=2)
-        + "\n",
+        json.dumps(body, indent=2) + "\n",
         "utf-8",
     )

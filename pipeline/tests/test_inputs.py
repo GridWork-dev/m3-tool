@@ -14,6 +14,7 @@ from m3_pipeline.stages.lib.inputs import (
     prepare_image,
     propose_redactions,
     save_redactions,
+    validate_redaction_orientation,
 )
 from m3_pipeline.stages.lib.viewset_io import ViewRef
 
@@ -85,7 +86,10 @@ def test_propose_redactions_runs_on_a_commons_photo_whatever_its_license(
 
     def fake(prompt: str, images: list[Path], **kwargs: Any) -> str:
         assert prompt and not prompt.startswith("-")
-        assert images == [ref.image_path.resolve()]
+        assert images == [tmp_path / "scratch/photo-1-upright.png"]
+        with Image.open(images[0]) as image:
+            assert image.size == (20, 10)
+            assert not image.getexif()
         calls.append(kwargs)
         return '[{"x":1,"y":2,"w":3,"h":4,"kind":"plate"}]'
 
@@ -211,3 +215,60 @@ def test_malformed_redaction_cache_is_never_treated_as_reviewed(
     path.write_text(json.dumps(raw))
     with pytest.raises(ValueError):
         load_redactions(path)
+
+
+def _oriented_ref(tmp_path: Path) -> ViewRef:
+    ref = _ref(tmp_path)
+    # EXIF 6 rotates 90 clockwise: raw top-left plate lands at upright top-right.
+    image = Image.new("RGB", (6, 4), "white")
+    image.putpixel((0, 0), (255, 0, 0))
+    exif = Image.Exif()
+    exif[274] = 6
+    image.save(ref.image_path, exif=exif)
+    return ref
+
+
+def test_upright_proposal_and_masking_use_identical_exif_pixel_frame(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    ref = _oriented_ref(tmp_path)
+
+    def fake(prompt: str, images: list[Path], **kwargs: Any) -> str:
+        with Image.open(images[0]) as proposal:
+            assert proposal.size == (4, 6)
+            assert proposal.getpixel((3, 0)) == (255, 0, 0)
+            assert not proposal.getexif()
+        return '[{"x":3,"y":0,"w":1,"h":1,"kind":"plate"}]'
+
+    monkeypatch.setattr(inputs, "run_codex", fake)
+    boxes = propose_redactions(ref, tmp_path, cwd=tmp_path / "scratch")
+    for mirrored in (False, True):
+        prepared = prepare_image(
+            replace(ref, mirrored=mirrored), tmp_path, tmp_path / f"prepared-{mirrored}", boxes
+        )
+        with Image.open(prepared.path) as result:
+            assert result.size == (4, 6)
+            assert result.getpixel((0 if mirrored else 3, 0)) == (128, 128, 128)
+            assert (255, 0, 0) not in result.get_flattened_data()
+            assert not result.getexif()
+
+
+def test_legacy_rotated_cache_requires_explicit_upright_review(tmp_path: Path) -> None:
+    ref = _oriented_ref(tmp_path)
+    path = tmp_path / "redactions.json"
+    boxes = {ref.image_id: [Box(3, 0, 1, 1, "plate")]}
+    save_redactions(path, boxes)
+    with pytest.raises(InputsNotReviewed, match="privacy re-review"):
+        validate_redaction_orientation(ref, path)
+    save_redactions(path, boxes, upright_ids=[ref.image_id])
+    validate_redaction_orientation(ref, path)
+    save_redactions(path, {**boxes, "other": []})
+    validate_redaction_orientation(ref, path)
+    assert load_redactions(path)[ref.image_id] == boxes[ref.image_id]
+
+
+def test_legacy_unrotated_cache_keeps_its_review(tmp_path: Path) -> None:
+    ref = _ref(tmp_path)
+    path = tmp_path / "redactions.json"
+    save_redactions(path, {ref.image_id: []})
+    validate_redaction_orientation(ref, path)
