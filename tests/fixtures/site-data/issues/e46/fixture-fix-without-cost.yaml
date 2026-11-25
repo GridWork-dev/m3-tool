@@ -1,0 +1,19 @@
+# FIXTURE DATA. Invented for tests; not real vehicle advice.
+id: fixture-fix-without-cost
+generation: e46
+engine: FIXTURE-ENGINE
+title: Fixture fix without a cost
+symptoms:
+  - A fixture whine.
+cause: A fixture cause.
+fix: A fixture fix.
+frequency: rare
+inspectWhenBuying: false
+sources:
+  - title: Fixture tech article
+    publisher: Fixture Shop
+    tier: 2
+    accessed: 2026-11-23
+verified: false
+markets:
+  - euro

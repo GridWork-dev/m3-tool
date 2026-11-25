@@ -1,0 +1,17 @@
+# FIXTURE DATA. Invented for tests; not real vehicle advice.
+id: fixture-gen2-issue
+generation: fixture-gen2
+title: Fixture model-years issue
+symptoms:
+  - A fixture hum.
+cause: A fixture cause.
+frequency: rare
+inspectWhenBuying: false
+sources:
+  - title: Fixture forum thread
+    publisher: Fixture Forum
+    tier: 3
+    accessed: 2026-11-23
+verified: false
+markets:
+  - us

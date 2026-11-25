@@ -1,0 +1,90 @@
+---
+import { SITE_NAME } from '../lib/site.ts'
+
+// The sticky top bar: the site mark, which links home, and the site-wide links. Page tasks add
+// their entries here.
+const LINKS = [{ href: '/about/', label: 'About' }]
+
+const { pathname } = Astro.url
+---
+
+<header class="top">
+  <div class="top-in">
+    <a class="mark" href="/"><i aria-hidden="true"></i>{SITE_NAME}</a>
+    <nav aria-label="Site">
+      {
+        LINKS.map(({ href, label }) => (
+          <a href={href} aria-current={pathname === href ? 'page' : undefined}>
+            {label}
+          </a>
+        ))
+      }
+    </nav>
+  </div>
+</header>
+
+<style>
+  .top {
+    position: sticky;
+    top: 0;
+    z-index: 30;
+    background: var(--floor-deep);
+    border-bottom: 1px solid var(--line);
+  }
+  .top-in {
+    max-width: 1320px;
+    margin: 0 auto;
+    padding: 0 var(--s-5);
+    display: flex;
+    align-items: center;
+    gap: var(--s-5);
+    height: 52px;
+  }
+  .mark {
+    font: 800 var(--fs-xl) / 1 var(--font-display);
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
+    white-space: nowrap;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-height: 44px;
+    color: var(--text);
+    text-decoration: none;
+  }
+  .mark i {
+    width: 10px;
+    height: 10px;
+    background: var(--board);
+    display: inline-block;
+  }
+  nav {
+    display: flex;
+    gap: var(--s-1);
+    margin-left: auto;
+  }
+  nav a {
+    color: var(--muted);
+    text-decoration: none;
+    font: 600 var(--fs-xs) var(--font-sans);
+    padding: 0 var(--s-3);
+    min-height: 44px;
+    display: inline-flex;
+    align-items: center;
+    border-radius: var(--r-sm);
+    white-space: nowrap;
+  }
+  nav a:hover {
+    color: var(--text);
+    background: var(--steel-2);
+  }
+  nav a[aria-current='page'] {
+    color: var(--board);
+  }
+  @media (max-width: 760px) {
+    .top-in {
+      padding: 0 var(--g);
+      gap: var(--s-2);
+    }
+  }
+</style>

@@ -6,6 +6,7 @@ import { createServer, type Server } from 'node:http'
 import type { AddressInfo } from 'node:net'
 import { fileURLToPath } from 'node:url'
 import { afterEach, describe, expect, test } from 'vitest'
+import { NOTICE as FULL_NOTICE } from '../../src/lib/notice.ts'
 
 const root = fileURLToPath(new URL('../../', import.meta.url))
 const SCRIPT = `${root}infra/deploy/smoke.sh`
@@ -194,15 +195,15 @@ describe('the smoke test of a production deploy', () => {
     }, 20_000)
   })
 
-  test('asks the production URL by default, and for the sentence the e2e test checks', () => {
+  // The e2e gates assert the whole notice (tests/e2e/shared/site.spec.ts), and the footer renders it
+  // from src/lib/notice.ts, so a sentence of that constant is what a live page must contain.
+  test('asks the production URL by default, and for a sentence of the notice the footer renders', () => {
     const script = readFileSync(SCRIPT, 'utf8')
     expect(script).toContain('https://m3-tool.broken-wood-97a9.workers.dev')
-    const e2e = readFileSync(`${root}tests/e2e/smoke.spec.ts`, 'utf8')
-    const sentence = /const NOTICE = '([^']+)'/.exec(e2e)?.[1]
-    expect(sentence).toBe(NOTICE)
     expect(script).toContain(NOTICE)
-    expect(
-      readFileSync(`${root}src/components/SiteFooter.astro`, 'utf8').replace(/\s+/g, ' '),
-    ).toContain(NOTICE)
+    expect(FULL_NOTICE).toContain(NOTICE)
+    const footer = readFileSync(`${root}src/components/SiteFooter.astro`, 'utf8')
+    expect(footer).toContain("import { NOTICE } from '../lib/notice.ts'")
+    expect(footer).toContain('<p>{NOTICE}</p>')
   })
 })

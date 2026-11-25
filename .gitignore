@@ -13,3 +13,6 @@ __pycache__
 .ruff_cache
 *.blend1
 .m3-work/
+dist-fixture/
+node_modules/.astro-site-data/
+screenshots/
